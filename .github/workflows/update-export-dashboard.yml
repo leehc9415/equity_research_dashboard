@@ -1,0 +1,78 @@
+name: Update finalized export dashboard
+
+on:
+  schedule:
+    # 20:37 KST daily. The script itself waits for the exact final-release notice.
+    - cron: '37 11 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-export-dashboard
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install collector and validators
+        run: pip install -e .
+      - name: Check API secret is configured
+        env:
+          DATA_GO_KR_API_KEY: ${{ secrets.DATA_GO_KR_API_KEY }}
+        run: test -n "$DATA_GO_KR_API_KEY"
+      - name: Check official final release and update web bundle
+        env:
+          DATA_GO_KR_API_KEY: ${{ secrets.DATA_GO_KR_API_KEY }}
+        run: python scripts/monthly_web_update.py
+      - name: Validate published data
+        run: python scripts/validate_web_data.py
+      - name: Commit a verified change only
+        id: commit
+        shell: bash
+        run: |
+          if ! git diff --quiet -- dashboard/data/dashboard-data.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add dashboard/data/dashboard-data.json
+            git commit -m "Update finalized export dashboard data"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No finalized new month; dashboard unchanged."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy-pages:
+    if: needs.update.outputs.changed == 'true' && vars.ENABLE_EXPORT_PAGES == 'true'
+    needs: update
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dashboard
+      - uses: actions/deploy-pages@v4
+        id: deployment

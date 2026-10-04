@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<response><header><resultCode>00</resultCode><resultMsg>OK</resultMsg></header><body><items>
+<item><year>202608</year><hsCd>0101211000</hsCd><statKor>번식용 말</statKor><expWgt>0</expWgt><expDlr>0</expDlr><impWgt>1250</impWgt><impDlr>250000</impDlr><balPayments>-250000</balPayments></item>
+</items><totalCount>1</totalCount></body></response>

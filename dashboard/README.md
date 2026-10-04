@@ -1,0 +1,56 @@
+# Export Atlas — 로컬 대시보드 시안
+
+전체 투자 대시보드의 첫 번째 실제 데이터 모듈인 **수출데이터**를 보여주는 정적 웹앱입니다. 상단에는 홈·수출데이터·증시데이터·시황·기업데이터의 공통 메뉴가 있고, 수출데이터 내부에 종합·산업별 수출·품목별 수출 화면이 있습니다. 아직 데이터가 연결되지 않은 다른 메뉴는 준비 중임을 명시합니다. 관세청 확정 월간 데이터만 포함하며 잠정수출은 아직 연결하지 않았습니다.
+
+## 열기
+
+저장소 루트에서 다음을 실행한 뒤 `http://localhost:8765`를 엽니다.
+
+```powershell
+python -m http.server 8765 --directory dashboard
+```
+
+파일을 직접 더블클릭해 열면 브라우저의 로컬 파일 보안 정책 때문에 JSON을 읽지 못할 수 있습니다.
+
+## 데이터 다시 만들기
+
+월간 수출 데이터 업데이트 이후 저장소 루트에서 실행합니다.
+
+```powershell
+python scripts/build_dashboard_data.py
+python scripts/validate_web_data.py
+```
+
+GitHub에 올린 뒤에는 [월간 자동 갱신 안내](../docs/MONTHLY_AUTOMATION.md)에 따라 확정치 발표 확인 → API 수집 → 검증 → 웹 파일 커밋을 예약할 수 있습니다. 이 경로는 로컬 Parquet 대신 현재 웹 JSON을 이전 시계열로 사용합니다. 지역 시계열은 아직 자동 갱신되지 않습니다.
+
+`dashboard/catalog.json`은 **투자자용 품목·기업 매핑의 편집 원본**입니다. 웹앱은 이 파일을 별도로 읽지 않고, 검증을 통과한 단일 생성 파일 `dashboard/data/dashboard-data.json`만 읽습니다. 매핑을 고치고 재생성하기 전에는 웹앱에 옛 매핑과 옛 데이터가 함께 표시되므로 버전이 섞이지 않습니다. 원본 수출 시계열은 매핑과 분리되어 있어 품목명·산업·기업을 고친다고 API를 다시 호출할 필요가 없습니다.
+
+## 웹용 데이터 계약
+
+생성 파일의 `schemaVersion`은 **3**입니다. `catalog`(전체 품목 매핑), `catalogDigest`(매핑 해시), `industryRules`·`industryByHS6`·`itemIndustry`(산업 분류 원본·확장 결과·대표 품목 연결), `asOf`(확정 기준월), `columns`(배열 필드 정의), `summary`(전국 총수출), `industries`·`subindustries`(산업 수출), `products`(품목 월간), `productQuarterly`(완료된 분기), `countryItems`(품목×국가), `regions`(지역 데이터)가 한 파일에 들어갑니다. 품목 키는 `HS단위-HS코드`이며 비활성 품목은 `catalog`에만 남고 시계열에서는 제외됩니다. 금액은 USD, 중량은 kg, 단가는 USD/kg, 성장률은 백분율 숫자 10이 아닌 비율 0.1(=10%)로 저장합니다. 월간·분기 수출액, 단가, MoM·QoQ·YoY는 웹 파일 생성 시 미리 계산합니다. 분기는 3개월이 모두 있는 경우에만 표시합니다.
+
+생성 단계와 `python scripts/validate_web_data.py`는 매핑 중복·HS 자리수, 매핑/산업 규칙 해시, 품목/국가 시계열 연결, 월 정렬·중복, 분기 합계, 수출단가와 성장률 재계산, 전국 일평균·무역수지, 세부산업 합계, 국가별 금액의 품목 합계 초과 여부를 확인합니다. 실패하면 기존 웹 데이터 파일은 유지됩니다. 검증 명령은 두 편집 원본과 웹 데이터의 해시를 비교하므로, 파일만 수정하고 재생성을 잊은 경우를 찾아냅니다.
+
+## 품목 매핑 바꾸기
+
+사이트에서는 매핑을 편집하지 않습니다. **[catalog.json](catalog.json)** 파일에서 `n`(표시 품목명), `i`(표시 산업), `s`(선택적 세부산업), `p`(쉼표로 구분한 관련 기업), `l`(HS 단위), `c`(HS코드), `enabled`(표시 여부)를 수정합니다. `l`과 `c`가 시계열 연결 키이므로 숫자형으로 바꾸지 말고, 앞자리 0을 포함한 문자열로 유지하세요. 기존 항목의 키를 바꾸면 다른 품목의 데이터에 연결될 수 있으므로 특히 확인이 필요합니다.
+
+저장소 루트에서 편집 전에 백업하고, 편집한 뒤 검증·재생성합니다.
+
+```powershell
+python scripts/catalog_mapping.py dashboard/catalog.json --backup
+# dashboard/catalog.json 파일을 수정
+python scripts/catalog_mapping.py dashboard/catalog.json
+python scripts/build_dashboard_data.py
+python scripts/validate_web_data.py
+```
+
+검증은 코드 자리수·중복·필수 이름·형식을 확인합니다. 재생성 중 원본 시계열에 없는 HS코드가 발견되면 기존 `dashboard-data.json`은 유지됩니다. 이 경우 `dashboard/backups/`의 사본과 비교해 HS코드를 수정하세요. 이름·기업·표시 산업만 바꾼 경우에도 웹용 단일 파일을 다시 생성해야 화면에 반영되지만, API 재수집은 필요 없습니다. 새 HS코드 추가·변경·비활성화 시에도 재생성이 필요합니다. 다른 곳에서 편집한 JSON을 가져올 때만 `python scripts/catalog_mapping.py "새파일.json" --apply`를 사용하면 현재 매핑을 백업한 뒤 교체합니다.
+
+`catalog.json`은 **품목 탐색·상세의 표시 매핑**을 관리합니다. 종합·산업 화면의 합계는 별도의 **[industry-rules.json](industry-rules.json)**으로 HS6 전수를 중복 없이 배정해 산출합니다. 이 파일은 규칙을 위에서부터 적용하고, 특정 HS6만 바꾸려면 `overrides`에 코드를 적습니다. `catalog.json`의 산업명만 고쳐도 산업 합계가 재배분되지는 않으며, 산업 합계를 바꾸려면 `industry-rules.json`을 수정하고 다시 생성하세요. HS4의 하위 HS6이 여러 산업에 걸치면 그 HS4 전체를 어느 한 산업의 대표 품목으로 표시하지 않습니다. 현재 규칙은 임시 v1이고 투자자용 최종 분류는 아직 확정되지 않았습니다.
+
+공통 기간 버튼은 1Y·3Y·5Y·10Y·전체·직접(시작월~종료월)을 제공합니다. 국가별 품목 시계열은 현재 대시보드용 스냅샷에 최근 4개 연도만 담겼으므로, 그보다 앞선 기간에는 국가 추이가 표시되지 않습니다. 원본 품목×국가 시계열은 별도로 보존되어 있습니다.
+
+종합·산업 화면의 11개 산업군은 현재 HS6을 중복 없이 배정한 **임시 v1**입니다. 품목 탐색의 세부 산업 매핑과 같지 않으며 추후 확정할 수 있습니다. 전국 총수출과 HS6 합계에는 비표준 HS 행 등으로 차이가 있을 수 있습니다.
+
+지역 데이터의 재생성 입력은 프로젝트 안의 `data/processed/region-series.json`입니다. 기존 지역 매핑 Excel에서 한 번 변환한 16개 HS6 코드·지역, 6,958행을 보존합니다. 입력이 없으면 웹 데이터 생성이 실패하므로 지역 차트가 조용히 사라지지 않습니다. 원본 Excel을 갱신했다면 `python scripts/import_region_data.py "원본파일.xlsx"`로 변환 파일을 갱신한 뒤 웹 데이터를 다시 만드세요. HS10 품목에서 지역 표를 볼 때에도 그 값은 해당 HS6 전체의 지역 수출액이지 HS10 품목 자체의 지역 수출액이 아닙니다.

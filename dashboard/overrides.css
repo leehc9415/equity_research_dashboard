@@ -1,0 +1,9 @@
+.range-label{white-space:nowrap}
+.head-actions{flex-wrap:wrap}
+.country-head,.country-bar{display:grid;grid-template-columns:66px minmax(45px,1fr) 83px 40px 53px;gap:7px;align-items:center}
+.country-head{font-size:9px;color:#97a5b4;border-bottom:1px solid #e8edf2;padding-bottom:7px;margin-bottom:4px}
+.country-head span:nth-child(n+3){text-align:right}
+.country-bar{margin:9px 0;font-size:10px}
+.country-bar strong{font-size:10px;white-space:nowrap}
+.country-bar .track{min-width:20px}
+@media(max-width:700px){.country-head,.country-bar{grid-template-columns:55px minmax(24px,1fr) 78px 34px 46px;gap:4px}.country-bar strong{font-size:9px}}

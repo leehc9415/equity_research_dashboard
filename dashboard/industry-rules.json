@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "method": "provisional-investor-hs6-exclusive-v1",
+  "industryNames": [
+    "반도체·IT", "배터리", "자동차", "조선", "석유·화학", "철강·금속",
+    "바이오·정밀", "섬유·의류", "식품·농수산", "기계·전기", "소비재·기타"
+  ],
+  "rules": [
+    {"industry": "배터리", "prefixes": ["8507"]},
+    {"industry": "반도체·IT", "prefixes": ["8541", "8542", "8471", "8473", "8517", "8524", "8528", "9013"]},
+    {"industry": "자동차", "chapters": [87]},
+    {"industry": "조선", "chapters": [89]},
+    {"industry": "바이오·정밀", "chapters": [30, 90]},
+    {"industry": "석유·화학", "chapterRanges": [[27, 40]]},
+    {"industry": "철강·금속", "chapterRanges": [[72, 83]]},
+    {"industry": "섬유·의류", "chapterRanges": [[50, 63]]},
+    {"industry": "식품·농수산", "chapterRanges": [[1, 24]]},
+    {"industry": "기계·전기", "chapters": [84, 85]}
+  ],
+  "default": "소비재·기타",
+  "overrides": {}
+}

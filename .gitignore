@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+work/
+dashboard/backups/
+
+# API responses and full local backfills can grow quickly and may be regenerated.
+data/raw/**
+data/local/**
+!data/raw/.gitkeep
+!data/local/.gitkeep

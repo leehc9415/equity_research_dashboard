@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<response><header><resultCode>00</resultCode><resultMsg>OK</resultMsg></header><body><items>
+<item><year>2026.08</year><statCd>US</statCd><statCdCntnKor1>미국</statCdCntnKor1><expCnt>123</expCnt><expDlr>10000</expDlr><impCnt>98</impCnt><impDlr>7000</impDlr><balPayments>3000</balPayments></item>
+</items><totalCount>1</totalCount></body></response>
+

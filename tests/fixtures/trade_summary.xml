@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<response><header><resultCode>00</resultCode><resultMsg>OK</resultMsg></header><body><items>
+<item><year>2026.08</year><expDlr>58,400</expDlr><impDlr>54,200</impDlr><balPayments>4,200</balPayments></item>
+</items><numOfRows>10</numOfRows><pageNo>1</pageNo><totalCount>1</totalCount></body></response>
+
