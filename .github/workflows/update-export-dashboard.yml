@@ -56,7 +56,8 @@ jobs:
           fi
 
   deploy-pages:
-    if: needs.update.outputs.changed == 'true' && vars.ENABLE_EXPORT_PAGES == 'true'
+    # A manual run also publishes the initial site when no new final month exists yet.
+    if: needs.update.result == 'success' && vars.ENABLE_EXPORT_PAGES == 'true' && (needs.update.outputs.changed == 'true' || github.event_name == 'workflow_dispatch')
     needs: update
     runs-on: ubuntu-latest
     permissions:

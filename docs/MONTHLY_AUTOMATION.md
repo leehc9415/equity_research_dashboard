@@ -16,13 +16,13 @@
 
 ## GitHub에서 활성화
 
-이 작업 폴더는 현재 Git 원격 저장소가 설정되지 않았다. 따라서 파일을 작성했지만 실제 GitHub 예약 실행은 아직 시작되지 않는다.
+GitHub 저장소에 워크플로와 웹 데이터를 올린 뒤 아래 설정을 마치면 예약 실행과 웹 배포가 활성화된다.
 
 1. 이 저장소를 GitHub 저장소의 기본 브랜치에 올린다. `.github/workflows/update-export-dashboard.yml`과 `dashboard/data/dashboard-data.json`이 반드시 포함돼야 한다. `.env`와 `data/local`, `data/raw`는 올리지 않는다.
 2. GitHub 저장소의 **Settings → Secrets and variables → Actions → Repository secrets**에서 `DATA_GO_KR_API_KEY`를 만든다. 채팅이나 코드에 키를 다시 넣지 않는다.
 3. **Actions**에서 `Update finalized export dashboard`를 `Run workflow`로 한 번 수동 실행해 성공 및 `대기: ... 확정치 발표 전` 메시지를 확인한다. 이후 매일 예약 실행된다.
 4. 저장소 정책상 쓰기 권한이 막혀 있으면 **Settings → Actions → General → Workflow permissions**를 확인한다. 워크플로는 `contents: write`만 요청한다.
-5. GitHub Pages로 이 정적 대시보드를 배포할 경우 Pages의 **Build and deployment → Source**를 **GitHub Actions**로 선택하고, Actions 변수 `ENABLE_EXPORT_PAGES=true`를 설정한다. 자동 커밋만으로는 Pages가 재배포되지 않으므로 같은 워크플로의 배포 작업을 사용한다. 아직 Pages를 쓰지 않으면 이 변수는 설정하지 않는다.
+5. GitHub Pages로 이 정적 대시보드를 배포할 경우 Pages의 **Build and deployment → Source**를 **GitHub Actions**로 선택하고, Actions 변수 `ENABLE_EXPORT_PAGES=true`를 설정한다. 워크플로를 한 번 수동 실행하면 새 확정월이 없어도 최초 사이트가 배포된다. 이후 자동 커밋이 발생할 때 같은 워크플로에서 재배포한다. 아직 Pages를 쓰지 않으면 이 변수는 설정하지 않는다.
 
 수동 확인 또는 재시도:
 
