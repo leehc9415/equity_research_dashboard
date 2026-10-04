@@ -44,6 +44,9 @@
 .kpi-grid.overview-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
 .overview-kpis .kpi{min-width:0}
 .overview-kpis .kpi strong{white-space:nowrap}
+.industry-selector{padding:16px 18px;margin-bottom:18px}
+.industry-selector .chips{margin-bottom:0}
+.industry-selector .chips button{white-space:nowrap}
 .zoom-chart .chart-wrap svg,.bubble-chart svg{display:block}
 .bubble-chart.chart-wrap{height:360px;overflow:hidden}
 .map-legend{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px 12px;margin-top:14px}
