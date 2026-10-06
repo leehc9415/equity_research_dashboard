@@ -1,0 +1,863 @@
+{
+  "generated_at": "2026-10-07T08:57:07",
+  "from": "202505",
+  "to": "202505",
+  "months": 1,
+  "categories": 20,
+  "rows": 20,
+  "prefixes": 97,
+  "queries": 97,
+  "monthly_coverage": {
+    "202505": {
+      "returned_rows": 9686,
+      "total_export_usd": 57230283829,
+      "matched_rows": 7023,
+      "unmapped_rows": 1,
+      "unmapped_usd": 2319200
+    }
+  },
+  "request_log": [
+    {
+      "hs2": "01",
+      "from": "202505",
+      "to": "202505",
+      "rows": 21,
+      "months": 1
+    },
+    {
+      "hs2": "02",
+      "from": "202505",
+      "to": "202505",
+      "rows": 41,
+      "months": 1
+    },
+    {
+      "hs2": "06",
+      "from": "202505",
+      "to": "202505",
+      "rows": 30,
+      "months": 1
+    },
+    {
+      "hs2": "05",
+      "from": "202505",
+      "to": "202505",
+      "rows": 39,
+      "months": 1
+    },
+    {
+      "hs2": "04",
+      "from": "202505",
+      "to": "202505",
+      "rows": 61,
+      "months": 1
+    },
+    {
+      "hs2": "03",
+      "from": "202505",
+      "to": "202505",
+      "rows": 280,
+      "months": 1
+    },
+    {
+      "hs2": "08",
+      "from": "202505",
+      "to": "202505",
+      "rows": 77,
+      "months": 1
+    },
+    {
+      "hs2": "07",
+      "from": "202505",
+      "to": "202505",
+      "rows": 126,
+      "months": 1
+    },
+    {
+      "hs2": "09",
+      "from": "202505",
+      "to": "202505",
+      "rows": 48,
+      "months": 1
+    },
+    {
+      "hs2": "10",
+      "from": "202505",
+      "to": "202505",
+      "rows": 33,
+      "months": 1
+    },
+    {
+      "hs2": "11",
+      "from": "202505",
+      "to": "202505",
+      "rows": 41,
+      "months": 1
+    },
+    {
+      "hs2": "12",
+      "from": "202505",
+      "to": "202505",
+      "rows": 117,
+      "months": 1
+    },
+    {
+      "hs2": "13",
+      "from": "202505",
+      "to": "202505",
+      "rows": 27,
+      "months": 1
+    },
+    {
+      "hs2": "14",
+      "from": "202505",
+      "to": "202505",
+      "rows": 14,
+      "months": 1
+    },
+    {
+      "hs2": "15",
+      "from": "202505",
+      "to": "202505",
+      "rows": 93,
+      "months": 1
+    },
+    {
+      "hs2": "17",
+      "from": "202505",
+      "to": "202505",
+      "rows": 33,
+      "months": 1
+    },
+    {
+      "hs2": "16",
+      "from": "202505",
+      "to": "202505",
+      "rows": 92,
+      "months": 1
+    },
+    {
+      "hs2": "18",
+      "from": "202505",
+      "to": "202505",
+      "rows": 22,
+      "months": 1
+    },
+    {
+      "hs2": "20",
+      "from": "202505",
+      "to": "202505",
+      "rows": 111,
+      "months": 1
+    },
+    {
+      "hs2": "19",
+      "from": "202505",
+      "to": "202505",
+      "rows": 52,
+      "months": 1
+    },
+    {
+      "hs2": "21",
+      "from": "202505",
+      "to": "202505",
+      "rows": 70,
+      "months": 1
+    },
+    {
+      "hs2": "22",
+      "from": "202505",
+      "to": "202505",
+      "rows": 55,
+      "months": 1
+    },
+    {
+      "hs2": "23",
+      "from": "202505",
+      "to": "202505",
+      "rows": 42,
+      "months": 1
+    },
+    {
+      "hs2": "24",
+      "from": "202505",
+      "to": "202505",
+      "rows": 33,
+      "months": 1
+    },
+    {
+      "hs2": "26",
+      "from": "202505",
+      "to": "202505",
+      "rows": 37,
+      "months": 1
+    },
+    {
+      "hs2": "25",
+      "from": "202505",
+      "to": "202505",
+      "rows": 108,
+      "months": 1
+    },
+    {
+      "hs2": "27",
+      "from": "202505",
+      "to": "202505",
+      "rows": 125,
+      "months": 1
+    },
+    {
+      "hs2": "30",
+      "from": "202505",
+      "to": "202505",
+      "rows": 86,
+      "months": 1
+    },
+    {
+      "hs2": "28",
+      "from": "202505",
+      "to": "202505",
+      "rows": 316,
+      "months": 1
+    },
+    {
+      "hs2": "29",
+      "from": "202505",
+      "to": "202505",
+      "rows": 636,
+      "months": 1
+    },
+    {
+      "hs2": "31",
+      "from": "202505",
+      "to": "202505",
+      "rows": 28,
+      "months": 1
+    },
+    {
+      "hs2": "32",
+      "from": "202505",
+      "to": "202505",
+      "rows": 120,
+      "months": 1
+    },
+    {
+      "hs2": "35",
+      "from": "202505",
+      "to": "202505",
+      "rows": 46,
+      "months": 1
+    },
+    {
+      "hs2": "33",
+      "from": "202505",
+      "to": "202505",
+      "rows": 55,
+      "months": 1
+    },
+    {
+      "hs2": "34",
+      "from": "202505",
+      "to": "202505",
+      "rows": 50,
+      "months": 1
+    },
+    {
+      "hs2": "36",
+      "from": "202505",
+      "to": "202505",
+      "rows": 13,
+      "months": 1
+    },
+    {
+      "hs2": "37",
+      "from": "202505",
+      "to": "202505",
+      "rows": 58,
+      "months": 1
+    },
+    {
+      "hs2": "38",
+      "from": "202505",
+      "to": "202505",
+      "rows": 192,
+      "months": 1
+    },
+    {
+      "hs2": "39",
+      "from": "202505",
+      "to": "202505",
+      "rows": 230,
+      "months": 1
+    },
+    {
+      "hs2": "42",
+      "from": "202505",
+      "to": "202505",
+      "rows": 70,
+      "months": 1
+    },
+    {
+      "hs2": "41",
+      "from": "202505",
+      "to": "202505",
+      "rows": 32,
+      "months": 1
+    },
+    {
+      "hs2": "40",
+      "from": "202505",
+      "to": "202505",
+      "rows": 128,
+      "months": 1
+    },
+    {
+      "hs2": "43",
+      "from": "202505",
+      "to": "202505",
+      "rows": 25,
+      "months": 1
+    },
+    {
+      "hs2": "44",
+      "from": "202505",
+      "to": "202505",
+      "rows": 234,
+      "months": 1
+    },
+    {
+      "hs2": "45",
+      "from": "202505",
+      "to": "202505",
+      "rows": 7,
+      "months": 1
+    },
+    {
+      "hs2": "46",
+      "from": "202505",
+      "to": "202505",
+      "rows": 14,
+      "months": 1
+    },
+    {
+      "hs2": "47",
+      "from": "202505",
+      "to": "202505",
+      "rows": 18,
+      "months": 1
+    },
+    {
+      "hs2": "48",
+      "from": "202505",
+      "to": "202505",
+      "rows": 176,
+      "months": 1
+    },
+    {
+      "hs2": "49",
+      "from": "202505",
+      "to": "202505",
+      "rows": 34,
+      "months": 1
+    },
+    {
+      "hs2": "50",
+      "from": "202505",
+      "to": "202505",
+      "rows": 16,
+      "months": 1
+    },
+    {
+      "hs2": "51",
+      "from": "202505",
+      "to": "202505",
+      "rows": 43,
+      "months": 1
+    },
+    {
+      "hs2": "53",
+      "from": "202505",
+      "to": "202505",
+      "rows": 28,
+      "months": 1
+    },
+    {
+      "hs2": "52",
+      "from": "202505",
+      "to": "202505",
+      "rows": 138,
+      "months": 1
+    },
+    {
+      "hs2": "54",
+      "from": "202505",
+      "to": "202505",
+      "rows": 128,
+      "months": 1
+    },
+    {
+      "hs2": "55",
+      "from": "202505",
+      "to": "202505",
+      "rows": 146,
+      "months": 1
+    },
+    {
+      "hs2": "56",
+      "from": "202505",
+      "to": "202505",
+      "rows": 49,
+      "months": 1
+    },
+    {
+      "hs2": "58",
+      "from": "202505",
+      "to": "202505",
+      "rows": 43,
+      "months": 1
+    },
+    {
+      "hs2": "57",
+      "from": "202505",
+      "to": "202505",
+      "rows": 24,
+      "months": 1
+    },
+    {
+      "hs2": "59",
+      "from": "202505",
+      "to": "202505",
+      "rows": 29,
+      "months": 1
+    },
+    {
+      "hs2": "60",
+      "from": "202505",
+      "to": "202505",
+      "rows": 46,
+      "months": 1
+    },
+    {
+      "hs2": "61",
+      "from": "202505",
+      "to": "202505",
+      "rows": 141,
+      "months": 1
+    },
+    {
+      "hs2": "62",
+      "from": "202505",
+      "to": "202505",
+      "rows": 164,
+      "months": 1
+    },
+    {
+      "hs2": "64",
+      "from": "202505",
+      "to": "202505",
+      "rows": 46,
+      "months": 1
+    },
+    {
+      "hs2": "63",
+      "from": "202505",
+      "to": "202505",
+      "rows": 62,
+      "months": 1
+    },
+    {
+      "hs2": "65",
+      "from": "202505",
+      "to": "202505",
+      "rows": 13,
+      "months": 1
+    },
+    {
+      "hs2": "66",
+      "from": "202505",
+      "to": "202505",
+      "rows": 8,
+      "months": 1
+    },
+    {
+      "hs2": "67",
+      "from": "202505",
+      "to": "202505",
+      "rows": 15,
+      "months": 1
+    },
+    {
+      "hs2": "69",
+      "from": "202505",
+      "to": "202505",
+      "rows": 61,
+      "months": 1
+    },
+    {
+      "hs2": "70",
+      "from": "202505",
+      "to": "202505",
+      "rows": 153,
+      "months": 1
+    },
+    {
+      "hs2": "71",
+      "from": "202505",
+      "to": "202505",
+      "rows": 100,
+      "months": 1
+    },
+    {
+      "hs2": "68",
+      "from": "202505",
+      "to": "202505",
+      "rows": 69,
+      "months": 1
+    },
+    {
+      "hs2": "73",
+      "from": "202505",
+      "to": "202505",
+      "rows": 206,
+      "months": 1
+    },
+    {
+      "hs2": "72",
+      "from": "202505",
+      "to": "202505",
+      "rows": 278,
+      "months": 1
+    },
+    {
+      "hs2": "74",
+      "from": "202505",
+      "to": "202505",
+      "rows": 78,
+      "months": 1
+    },
+    {
+      "hs2": "76",
+      "from": "202505",
+      "to": "202505",
+      "rows": 61,
+      "months": 1
+    },
+    {
+      "hs2": "75",
+      "from": "202505",
+      "to": "202505",
+      "rows": 26,
+      "months": 1
+    },
+    {
+      "hs2": "78",
+      "from": "202505",
+      "to": "202505",
+      "rows": 15,
+      "months": 1
+    },
+    {
+      "hs2": "80",
+      "from": "202505",
+      "to": "202505",
+      "rows": 12,
+      "months": 1
+    },
+    {
+      "hs2": "79",
+      "from": "202505",
+      "to": "202505",
+      "rows": 17,
+      "months": 1
+    },
+    {
+      "hs2": "81",
+      "from": "202505",
+      "to": "202505",
+      "rows": 73,
+      "months": 1
+    },
+    {
+      "hs2": "83",
+      "from": "202505",
+      "to": "202505",
+      "rows": 50,
+      "months": 1
+    },
+    {
+      "hs2": "84",
+      "from": "202505",
+      "to": "202505",
+      "rows": 1090,
+      "months": 1
+    },
+    {
+      "hs2": "82",
+      "from": "202505",
+      "to": "202505",
+      "rows": 118,
+      "months": 1
+    },
+    {
+      "hs2": "85",
+      "from": "202505",
+      "to": "202505",
+      "rows": 710,
+      "months": 1
+    },
+    {
+      "hs2": "86",
+      "from": "202505",
+      "to": "202505",
+      "rows": 29,
+      "months": 1
+    },
+    {
+      "hs2": "88",
+      "from": "202505",
+      "to": "202505",
+      "rows": 35,
+      "months": 1
+    },
+    {
+      "hs2": "87",
+      "from": "202505",
+      "to": "202505",
+      "rows": 177,
+      "months": 1
+    },
+    {
+      "hs2": "89",
+      "from": "202505",
+      "to": "202505",
+      "rows": 23,
+      "months": 1
+    },
+    {
+      "hs2": "90",
+      "from": "202505",
+      "to": "202505",
+      "rows": 343,
+      "months": 1
+    },
+    {
+      "hs2": "91",
+      "from": "202505",
+      "to": "202505",
+      "rows": 64,
+      "months": 1
+    },
+    {
+      "hs2": "92",
+      "from": "202505",
+      "to": "202505",
+      "rows": 37,
+      "months": 1
+    },
+    {
+      "hs2": "93",
+      "from": "202505",
+      "to": "202505",
+      "rows": 41,
+      "months": 1
+    },
+    {
+      "hs2": "94",
+      "from": "202505",
+      "to": "202505",
+      "rows": 84,
+      "months": 1
+    },
+    {
+      "hs2": "95",
+      "from": "202505",
+      "to": "202505",
+      "rows": 94,
+      "months": 1
+    },
+    {
+      "hs2": "96",
+      "from": "202505",
+      "to": "202505",
+      "rows": 80,
+      "months": 1
+    },
+    {
+      "hs2": "97",
+      "from": "202505",
+      "to": "202505",
+      "rows": 27,
+      "months": 1
+    },
+    {
+      "hs2": "99",
+      "from": "202505",
+      "to": "202505",
+      "rows": 0,
+      "months": 0
+    }
+  ],
+  "warning": "Uses 2026 HS10 mapping unchanged; retired or recoded historical HS10 can be omitted.",
+  "official_overlap": [
+    {
+      "month": "2025-05",
+      "item": "가전",
+      "calculated_musd": 611.806775,
+      "official_musd": 612,
+      "difference_musd": -0.193224999999984,
+      "within_rounding": true
+    },
+    {
+      "month": "2025-05",
+      "item": "농수산식품",
+      "calculated_musd": 1024.693143,
+      "official_musd": 1025,
+      "difference_musd": -0.30685700000003635,
+      "within_rounding": true
+    },
+    {
+      "month": "2025-05",
+      "item": "디스플레이",
+      "calculated_musd": 1340.742349,
+      "official_musd": 1341,
+      "difference_musd": -0.25765099999989616,
+      "within_rounding": true
+    },
+    {
+      "month": "2025-05",
+      "item": "무선통신기기",
+      "calculated_musd": 1295.407031,
+      "official_musd": 1295,
+      "difference_musd": 0.40703099999996084,
+      "within_rounding": true
+    },
+    {
+      "month": "2025-05",
+      "item": "바이오헬스",
+      "calculated_musd": 1370.540144,
+      "official_musd": 1371,
+      "difference_musd": -0.4598559999999452,
+      "within_rounding": true
+    },
+    {
+      "month": "2025-05",
+      "item": "반도체",
+      "calculated_musd": 13794.185577,
+      "official_musd": 13794,
+      "difference_musd": 0.18557700000019395,
+      "within_rounding": true
+    },
+    {
+      "month": "2025-05",
+      "item": "비철금속",
+      "calculated_musd": 1177.265758,
+      "official_musd": 1177,
+      "difference_musd": 0.26575800000000527,
+      "within_rounding": true
+    },
+    {
+      "month": "2025-05",
+      "item": "생활용품",
+      "calculated_musd": 688.45495,
+      "official_musd": 688,
+      "difference_musd": 0.4549500000000535,
+      "within_rounding": true
+    },
+    {
+      "month": "2025-05",
+      "item": "석유제품",
+      "calculated_musd": 3581.143688,
+      "official_musd": 3581,
+      "difference_musd": 0.14368800000011106,
+      "within_rounding": true
+    },
+    {
+      "month": "2025-05",
+      "item": "석유화학",
+      "calculated_musd": 3298.182631,
+      "official_musd": 3329,
+      "difference_musd": -30.81736899999987,
+      "within_rounding": false
+    },
+    {
+      "month": "2025-05",
+      "item": "선박",
+      "calculated_musd": 2239.36099,
+      "official_musd": 2239,
+      "difference_musd": 0.36099000000012893,
+      "within_rounding": true
+    },
+    {
+      "month": "2025-05",
+      "item": "섬유",
+      "calculated_musd": 913.353308,
+      "official_musd": 913,
+      "difference_musd": 0.35330799999997,
+      "within_rounding": true
+    },
+    {
+      "month": "2025-05",
+      "item": "이차전지",
+      "calculated_musd": 523.825426,
+      "official_musd": 524,
+      "difference_musd": -0.1745740000000069,
+      "within_rounding": true
+    },
+    {
+      "month": "2025-05",
+      "item": "일반기계",
+      "calculated_musd": 4072.419453,
+      "official_musd": 4072,
+      "difference_musd": 0.4194529999999759,
+      "within_rounding": true
+    },
+    {
+      "month": "2025-05",
+      "item": "자동차",
+      "calculated_musd": 6197.603809,
+      "official_musd": 6198,
+      "difference_musd": -0.396190999999817,
+      "within_rounding": true
+    },
+    {
+      "month": "2025-05",
+      "item": "자동차부품",
+      "calculated_musd": 1653.810957,
+      "official_musd": 1654,
+      "difference_musd": -0.18904300000008334,
+      "within_rounding": true
+    },
+    {
+      "month": "2025-05",
+      "item": "전기기기",
+      "calculated_musd": 1351.356761,
+      "official_musd": 1351,
+      "difference_musd": 0.3567610000000059,
+      "within_rounding": true
+    },
+    {
+      "month": "2025-05",
+      "item": "철강",
+      "calculated_musd": 2084.159626,
+      "official_musd": 2084,
+      "difference_musd": 0.15962600000011662,
+      "within_rounding": true
+    },
+    {
+      "month": "2025-05",
+      "item": "컴퓨터",
+      "calculated_musd": 1069.640422,
+      "official_musd": 1070,
+      "difference_musd": -0.3595780000000559,
+      "within_rounding": true
+    },
+    {
+      "month": "2025-05",
+      "item": "화장품",
+      "calculated_musd": 951.640568,
+      "official_musd": 952,
+      "difference_musd": -0.3594319999999698,
+      "within_rounding": true
+    }
+  ]
+}

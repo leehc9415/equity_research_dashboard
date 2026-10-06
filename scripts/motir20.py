@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_DIR = ROOT / "data" / "reference" / "motir20"
 LATEST_PATH = SOURCE_DIR / "motir20_monthly_latest.json"
+HISTORICAL_PATH = SOURCE_DIR / "hs10_static_monthly_202201_202504.json"
 SNAPSHOTS_PATH = SOURCE_DIR / "motir20_monthly_snapshots.json"
 VALIDATION_PATH = SOURCE_DIR / "motir20_backfill_validation.json"
 
@@ -81,6 +82,7 @@ def _next_month(month: str) -> str:
 def load_official_series(
     latest_path: Path = LATEST_PATH,
     validation_path: Path = VALIDATION_PATH,
+    historical_path: Path = HISTORICAL_PATH,
 ) -> dict:
     rows = json.loads(latest_path.read_text(encoding="utf-8"))
     report = json.loads(validation_path.read_text(encoding="utf-8"))
@@ -118,9 +120,46 @@ def load_official_series(
     if names != set(INDUSTRY_ORDER) or any(len(values) != 17 for values in by_industry.values()):
         raise ValueError("MTI 원본은 매월 20개 산업을 모두 포함해야 합니다.")
 
+    historical = json.loads(historical_path.read_text(encoding="utf-8"))
+    if not isinstance(historical, list) or len(historical) != 800:
+        raise ValueError("HS10 고정 매핑 과거자료는 800행이어야 합니다.")
+    historical_months = sorted({row.get("month") for row in historical})
+    if historical_months[0] != "2022-01" or historical_months[-1] != "2025-04" or len(historical_months) != 40:
+        raise ValueError("HS10 고정 매핑 과거자료 범위는 2022-01~2025-04이어야 합니다.")
+    if any(_next_month(left) != right for left, right in zip(historical_months, historical_months[1:])):
+        raise ValueError("HS10 고정 매핑 과거자료 월이 연속되지 않습니다.")
+    historical_by_industry: dict[str, list[dict]] = {name: [] for name in INDUSTRY_ORDER}
+    historical_keys = set()
+    for index, row in enumerate(historical):
+        month, name = row.get("month"), row.get("item")
+        value = row.get("export_usd")
+        if month not in historical_months or name not in INDUSTRY_ORDER or (month, name) in historical_keys:
+            raise ValueError(f"HS10 과거자료 {index}: 월·산업 또는 중복 오류")
+        if type(value) is not int or value < 0 or row.get("classification") != CLASSIFICATION:
+            raise ValueError(f"HS10 과거자료 {index}: 금액·분류 오류")
+        if row.get("source_type") != "calculated_static_2026_hs10":
+            raise ValueError(f"HS10 과거자료 {index}: 산출 방식 오류")
+        historical_keys.add((month, name))
+        historical_by_industry[name].append(row)
+    if any(len(values) != 40 for values in historical_by_industry.values()):
+        raise ValueError("HS10 과거자료는 매월 20개 산업을 모두 포함해야 합니다.")
+
     output = []
     for name in INDUSTRY_ORDER:
         previous = None
+        for row in sorted(historical_by_industry[name], key=lambda value: value["month"]):
+            export_usd = row["export_usd"]
+            source_mom = row.get("mom_pct")
+            expected_mom = export_usd / previous - 1 if previous else None
+            mom = source_mom / 100 if source_mom is not None else None
+            if mom is None and expected_mom is not None or mom is not None and expected_mom is None:
+                raise ValueError(f"HS10 과거자료 MoM 누락 오류: {row['month']}/{name}")
+            if mom is not None and not math.isclose(mom, expected_mom, abs_tol=1e-10):
+                raise ValueError(f"HS10 과거자료 MoM 검산 오류: {row['month']}/{name}")
+            source_yoy = row.get("yoy_pct_calculated")
+            yoy = source_yoy / 100 if source_yoy is not None else None
+            output.append([row["month"], name, export_usd, yoy, mom])
+            previous = export_usd
         for row in sorted(by_industry[name], key=lambda value: value["month"]):
             export_usd = int(round(row["export_musd"] * 1_000_000))
             source_mom = row.get("mom_pct")
@@ -137,15 +176,22 @@ def load_official_series(
     return {
         "names": INDUSTRY_ORDER,
         "rows": sorted(output),
-        "coverageStart": ordered_months[0],
+        "coverageStart": historical_months[0],
         "coverageEnd": ordered_months[-1],
         "rowCount": len(output),
         "classification": CLASSIFICATION,
-        "method": "official-motir-20-latest-release",
+        "method": "static-2026-hs10-backfill-plus-official-motir-20-latest-release",
         "precedenceRule": report.get("precedence_rule"),
         "hsReferenceGroups": HS_REFERENCE_GROUPS,
         "catalogGroups": CATALOG_GROUPS,
         "quality": {
+            "sourceBoundary": {
+                "historicalFrom": historical_months[0],
+                "historicalTo": historical_months[-1],
+                "historicalMethod": "2026 HS10 mapping applied unchanged to historical Customs exports",
+                "officialFrom": ordered_months[0],
+                "warning": "Historical HS10 code changes are not adjusted; historical industry values can be understated.",
+            },
             "reconciliation": [{
                 "month": "2026-08",
                 "industry": "석유화학",

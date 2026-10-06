@@ -233,8 +233,8 @@ def validate_snapshot(snapshot: object, *, source_catalog: list[dict] | None = N
     if snapshot.get("industrySourceRows") != len(industries):
         _fail("industrySourceRows가 산업 행 수와 다릅니다.")
     if snapshot.get("industryClassification") == "MOTIR_20_MAIN_EXPORTS_2026":
-        if len(names) != 20 or len(industries) != 340 or coverage_start != "2025-05" or coverage_end != "2026-09":
-            _fail("공식 MTI 산업 데이터는 20개 산업·340행·2025-05~2026-09이어야 합니다.")
+        if len(names) != 20 or len(industries) != 1140 or coverage_start != "2022-01" or coverage_end != "2026-09":
+            _fail("산업 데이터는 HS10 계산값과 공식값을 합쳐 20개 산업·1140행·2022-01~2026-09이어야 합니다.")
 
     hs_names = snapshot.get("hsIndustryNames")
     if hs_names != rules["industryNames"]:
