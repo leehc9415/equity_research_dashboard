@@ -240,7 +240,7 @@ def merge_periods(snapshot: dict, client: KcsClient, target: str) -> dict:
                                growth(export, prior[1]) if prior else None,
                                export / days, imports, export - imports])
     snapshot["summary"] = result_summary
-    snapshot["industries"] = sorted([row for row in snapshot["industries"] if row[0] not in expected_months] + industry["rows"])
+    snapshot["hsIndustries"] = sorted([row for row in snapshot["hsIndustries"] if row[0] not in expected_months] + industry["rows"])
     snapshot["subindustries"] = sorted([row for row in snapshot["subindustries"] if row[0] not in expected_months] + subindustry["rows"])
     raw_products = {}
     for key, rows in snapshot["products"].items():
@@ -271,6 +271,7 @@ def merge_periods(snapshot: dict, client: KcsClient, target: str) -> dict:
         if abs(country_total - current) > max(1, current * 0.001):
             raise RuntimeError(f"{key} {target}: 국가별 합계가 품목 수출액과 다릅니다. 웹 파일은 유지됩니다.")
     snapshot["asOf"] = target
+    snapshot["industryCommonAsOf"] = min(target, snapshot["industryAsOf"])
     snapshot["status"] = "final"
     snapshot["updatedAt"] = datetime.now(timezone.utc).isoformat()
     snapshot["snapshotBuiltAt"] = snapshot["updatedAt"]

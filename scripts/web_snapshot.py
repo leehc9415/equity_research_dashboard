@@ -14,13 +14,14 @@ from catalog_mapping import validate as validate_catalog
 from industry_rules import digest as industry_digest, expand as expand_industries, item_industries, validate_rules
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 MONTH = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 QUARTER = re.compile(r"^\d{4}-Q[1-4]$")
 CODE = re.compile(r"^[A-Z]{2}$")
 COLUMNS = {
     "summary": ["month", "export_usd", "export_yoy_fraction", "export_mom_fraction", "avg_daily_export_usd", "import_usd", "trade_balance_usd"],
-    "industries": ["month", "industry", "export_usd"],
+    "industries": ["month", "industry", "export_usd", "yoy_fraction", "mom_fraction"],
+    "hsIndustries": ["month", "hs_reference_group", "export_usd"],
     "subindustries": ["month", "industry", "hs4", "export_usd"],
     "products": ["month", "export_usd", "export_weight_kg", "import_usd", "export_unit_usd_per_kg", "export_mom_fraction", "export_yoy_fraction", "unit_yoy_fraction"],
     "productQuarterly": ["quarter", "export_usd", "export_weight_kg", "import_usd", "export_unit_usd_per_kg", "export_qoq_fraction", "export_yoy_fraction", "unit_yoy_fraction"],
@@ -193,25 +194,83 @@ def validate_snapshot(snapshot: object, *, source_catalog: list[dict] | None = N
     names = snapshot.get("industryNames")
     if not isinstance(names, list) or not names or any(not isinstance(n, str) or not n for n in names) or len(set(names)) != len(names):
         _fail("industryNames가 비었거나 중복되었습니다.")
-    if names != rules["industryNames"] or snapshot.get("industryMethod") != rules["method"]:
-        _fail("산업 이름·방법이 규칙 파일과 다릅니다.")
-    industries = _rows(snapshot.get("industries"), "industries", 3)
+    industry_as_of = snapshot.get("industryAsOf")
+    coverage_start = snapshot.get("industryCoverageStart")
+    coverage_end = snapshot.get("industryCoverageEnd")
+    common_as_of = snapshot.get("industryCommonAsOf")
+    if any(not isinstance(value, str) or not MONTH.fullmatch(value) for value in (industry_as_of, coverage_start, coverage_end, common_as_of)):
+        _fail("산업 기준월·수록 범위 형식이 잘못되었습니다.")
+    if coverage_start > coverage_end or industry_as_of != coverage_end or common_as_of != min(as_of, industry_as_of):
+        _fail("산업 기준월·수록 범위·공통 기준월이 서로 맞지 않습니다.")
+    for field in ("industryMethod", "industryClassification", "industryPrecedenceRule"):
+        if not isinstance(snapshot.get(field), str) or not snapshot[field]:
+            _fail(f"{field}가 비었습니다.")
+    industries = _rows(snapshot.get("industries"), "industries", 5)
     industry_values = {}
-    for date, name, value in industries:
-        if not isinstance(date, str) or not MONTH.fullmatch(date) or date > as_of or name not in names:
+    industry_previous = {}
+    for date, name, value, yoy, mom in industries:
+        if not isinstance(date, str) or not MONTH.fullmatch(date) or date > industry_as_of or name not in names:
             _fail(f"industries: 잘못된 월/산업 ({date}, {name}).")
         _number(value, f"industries {date}/{name}", nonnegative=True)
+        _number(yoy, f"industries {date}/{name} YoY", nullable=True)
+        _number(mom, f"industries {date}/{name} MoM", nullable=True)
         if (date, name) in industry_values:
             _fail(f"industries: 중복 {date}/{name}.")
+        prior = industry_previous.get(name)
+        expected_mom = growth(value, prior[1]) if prior and previous_month(date, 1) == prior[0] else None
+        if expected_mom is None:
+            if mom is not None:
+                _fail(f"industries {date}/{name} MoM: 첫 수록월은 null이어야 합니다.")
+        elif mom is None or not math.isclose(mom, expected_mom, abs_tol=0.0002):
+            _fail(f"industries {date}/{name} MoM: 원자료 반올림 허용범위를 벗어났습니다.")
         industry_values[date, name] = value
-    if not industry_values or max(date for date, _ in industry_values) != as_of:
-        _fail("산업별 데이터의 최신월이 총수출과 다릅니다.")
+        industry_previous[name] = (date, value)
+    dates = sorted({date for date, _ in industry_values})
+    if not industry_values or dates[0] != coverage_start or dates[-1] != coverage_end:
+        _fail("산업별 데이터의 수록 범위가 메타데이터와 다릅니다.")
+    if any({name for date, name in industry_values if date == month} != set(names) for month in dates):
+        _fail("산업별 데이터는 매월 모든 산업을 포함해야 합니다.")
+    if snapshot.get("industrySourceRows") != len(industries):
+        _fail("industrySourceRows가 산업 행 수와 다릅니다.")
+    if snapshot.get("industryClassification") == "MOTIR_20_MAIN_EXPORTS_2026":
+        if len(names) != 20 or len(industries) != 340 or coverage_start != "2025-05" or coverage_end != "2026-09":
+            _fail("공식 MTI 산업 데이터는 20개 산업·340행·2025-05~2026-09이어야 합니다.")
+
+    hs_names = snapshot.get("hsIndustryNames")
+    if hs_names != rules["industryNames"]:
+        _fail("hsIndustryNames가 HS 산업 규칙과 다릅니다.")
+    hs_industries = _rows(snapshot.get("hsIndustries"), "hsIndustries", 3)
+    hs_values = {}
+    for date, name, value in hs_industries:
+        if not isinstance(date, str) or not MONTH.fullmatch(date) or date > as_of or name not in hs_names:
+            _fail(f"hsIndustries: 잘못된 월/HS 참고 그룹 ({date}, {name}).")
+        _number(value, f"hsIndustries {date}/{name}", nonnegative=True)
+        if (date, name) in hs_values:
+            _fail(f"hsIndustries: 중복 {date}/{name}.")
+        hs_values[date, name] = value
+    if not hs_values or max(date for date, _ in hs_values) != as_of:
+        _fail("HS 참고 그룹 데이터의 최신월이 총수출과 다릅니다.")
+
+    bridges = snapshot.get("industryHsGroups")
+    if not isinstance(bridges, dict) or set(bridges) != set(names) or any(
+        not isinstance(groups, list) or any(group not in hs_names for group in groups) for groups in bridges.values()
+    ):
+        _fail("공식 산업과 HS 참고 그룹 연결이 잘못되었습니다.")
+    catalog_groups = snapshot.get("industryCatalogGroups")
+    catalog_industries = {row["i"] for row in catalog}
+    if not isinstance(catalog_groups, dict) or set(catalog_groups) != set(names) or any(
+        not isinstance(groups, list) or any(group not in catalog_industries for group in groups) for groups in catalog_groups.values()
+    ):
+        _fail("공식 산업과 대표 품목 연결이 잘못되었습니다.")
+    quality = snapshot.get("industryQuality")
+    if not isinstance(quality, dict) or not isinstance(quality.get("reconciliation"), list):
+        _fail("산업 데이터 품질 메타데이터가 잘못되었습니다.")
 
     sub = _rows(snapshot.get("subindustries"), "subindustries", 4)
     sub_values = defaultdict(int)
     sub_keys = set()
     for date, name, hs4, value in sub:
-        if not isinstance(date, str) or not MONTH.fullmatch(date) or (date, name) not in industry_values or not isinstance(hs4, str) or not re.fullmatch(r"[0-9]{4}", hs4):
+        if not isinstance(date, str) or not MONTH.fullmatch(date) or (date, name) not in hs_values or not isinstance(hs4, str) or not re.fullmatch(r"[0-9]{4}", hs4):
             _fail(f"subindustries: 잘못된 월/산업/HS4 ({date}, {name}, {hs4}).")
         _number(value, f"subindustries {date}/{name}/{hs4}", nonnegative=True)
         if (date, name, hs4) in sub_keys:
@@ -219,7 +278,7 @@ def validate_snapshot(snapshot: object, *, source_catalog: list[dict] | None = N
         sub_keys.add((date, name, hs4))
         sub_values[date, name] += value
     for pair, value in sub_values.items():
-        _near(value, industry_values[pair], f"세부산업 합계 {pair}")
+        _near(value, hs_values[pair], f"세부산업 합계 {pair}")
     if not sub_values or max(date for date, _ in sub_values) != as_of:
         _fail("세부산업 최신월이 총수출과 다릅니다.")
 

@@ -55,7 +55,8 @@ def test_hosted_merge_updates_all_web_sections_without_parquet(monkeypatch):
     result = update.merge_periods(copy.deepcopy(snapshot()), object(), "2026-04")
     assert result["asOf"] == "2026-04"
     assert result["summary"][-1][1] == 200
-    assert result["industries"][-1] == ["2026-04", "반도체·IT", 200]
+    assert result["hsIndustries"][-1] == ["2026-04", "반도체·IT", 200]
+    assert result["industries"][-1] == ["2026-03", "반도체", 80, None, 80 / 120 - 1]
     assert result["products"]["HS10-8542321010"][-1][1] == 200
     assert result["countryItems"]["HS10-8542321010"][-1] == ["2026-04", "CN", 200]
     validate_snapshot(result, source_catalog=result["catalog"], source_industry_rules=result["industryRules"])

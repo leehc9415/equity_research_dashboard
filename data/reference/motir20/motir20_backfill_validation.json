@@ -1,0 +1,596 @@
+{
+  "generated_at_utc": "2026-10-06T12:16:41.697121+00:00",
+  "status": "pass",
+  "source_checks": [
+    {
+      "release_month": "2026-05",
+      "rows": 260,
+      "item_count": 20,
+      "month_count": 13,
+      "start_month": "2025-05",
+      "end_month": "2026-05",
+      "missing_items": [],
+      "unexpected_items": [],
+      "passed": true
+    },
+    {
+      "release_month": "2026-09",
+      "rows": 260,
+      "item_count": 20,
+      "month_count": 13,
+      "start_month": "2025-09",
+      "end_month": "2026-09",
+      "missing_items": [],
+      "unexpected_items": [],
+      "passed": true
+    }
+  ],
+  "latest_rows": 340,
+  "latest_month_count": 17,
+  "latest_item_count": 20,
+  "coverage_start": "2025-05",
+  "coverage_end": "2026-09",
+  "missing_items_by_month": {},
+  "overlap_revision_count": 62,
+  "overlap_revisions": [
+    {
+      "month": "2026-01",
+      "item": "석유화학",
+      "older_release": "2026-05",
+      "older_value_musd": 3563,
+      "newer_release": "2026-09",
+      "newer_value_musd": 3574,
+      "revision_musd": 11
+    },
+    {
+      "month": "2026-01",
+      "item": "일반기계",
+      "older_release": "2026-05",
+      "older_value_musd": 3713,
+      "newer_release": "2026-09",
+      "newer_value_musd": 3715,
+      "revision_musd": 2
+    },
+    {
+      "month": "2026-01",
+      "item": "자동차부품",
+      "older_release": "2026-05",
+      "older_value_musd": 1624,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1618,
+      "revision_musd": -6
+    },
+    {
+      "month": "2026-01",
+      "item": "화장품",
+      "older_release": "2026-05",
+      "older_value_musd": 1025,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1024,
+      "revision_musd": -1
+    },
+    {
+      "month": "2026-02",
+      "item": "가전",
+      "older_release": "2026-05",
+      "older_value_musd": 506,
+      "newer_release": "2026-09",
+      "newer_value_musd": 508,
+      "revision_musd": 2
+    },
+    {
+      "month": "2026-02",
+      "item": "농수산식품",
+      "older_release": "2026-05",
+      "older_value_musd": 920,
+      "newer_release": "2026-09",
+      "newer_value_musd": 921,
+      "revision_musd": 1
+    },
+    {
+      "month": "2026-02",
+      "item": "바이오헬스",
+      "older_release": "2026-05",
+      "older_value_musd": 1329,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1330,
+      "revision_musd": 1
+    },
+    {
+      "month": "2026-02",
+      "item": "생활용품",
+      "older_release": "2026-05",
+      "older_value_musd": 647,
+      "newer_release": "2026-09",
+      "newer_value_musd": 642,
+      "revision_musd": -5
+    },
+    {
+      "month": "2026-02",
+      "item": "석유제품",
+      "older_release": "2026-05",
+      "older_value_musd": 4006,
+      "newer_release": "2026-09",
+      "newer_value_musd": 4094,
+      "revision_musd": 88
+    },
+    {
+      "month": "2026-02",
+      "item": "석유화학",
+      "older_release": "2026-05",
+      "older_value_musd": 3380,
+      "newer_release": "2026-09",
+      "newer_value_musd": 3397,
+      "revision_musd": 17
+    },
+    {
+      "month": "2026-02",
+      "item": "섬유",
+      "older_release": "2026-05",
+      "older_value_musd": 733,
+      "newer_release": "2026-09",
+      "newer_value_musd": 727,
+      "revision_musd": -6
+    },
+    {
+      "month": "2026-02",
+      "item": "전기기기",
+      "older_release": "2026-05",
+      "older_value_musd": 1190,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1187,
+      "revision_musd": -3
+    },
+    {
+      "month": "2026-02",
+      "item": "철강",
+      "older_release": "2026-05",
+      "older_value_musd": 1986,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1987,
+      "revision_musd": 1
+    },
+    {
+      "month": "2026-02",
+      "item": "화장품",
+      "older_release": "2026-05",
+      "older_value_musd": 915,
+      "newer_release": "2026-09",
+      "newer_value_musd": 913,
+      "revision_musd": -2
+    },
+    {
+      "month": "2026-03",
+      "item": "농수산식품",
+      "older_release": "2026-05",
+      "older_value_musd": 1176,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1174,
+      "revision_musd": -2
+    },
+    {
+      "month": "2026-03",
+      "item": "무선통신기기",
+      "older_release": "2026-05",
+      "older_value_musd": 1786,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1785,
+      "revision_musd": -1
+    },
+    {
+      "month": "2026-03",
+      "item": "바이오헬스",
+      "older_release": "2026-05",
+      "older_value_musd": 1523,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1522,
+      "revision_musd": -1
+    },
+    {
+      "month": "2026-03",
+      "item": "반도체",
+      "older_release": "2026-05",
+      "older_value_musd": 32829,
+      "newer_release": "2026-09",
+      "newer_value_musd": 32828,
+      "revision_musd": -1
+    },
+    {
+      "month": "2026-03",
+      "item": "비철금속",
+      "older_release": "2026-05",
+      "older_value_musd": 1475,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1477,
+      "revision_musd": 2
+    },
+    {
+      "month": "2026-03",
+      "item": "생활용품",
+      "older_release": "2026-05",
+      "older_value_musd": 754,
+      "newer_release": "2026-09",
+      "newer_value_musd": 751,
+      "revision_musd": -3
+    },
+    {
+      "month": "2026-03",
+      "item": "석유제품",
+      "older_release": "2026-05",
+      "older_value_musd": 6135,
+      "newer_release": "2026-09",
+      "newer_value_musd": 6278,
+      "revision_musd": 143
+    },
+    {
+      "month": "2026-03",
+      "item": "석유화학",
+      "older_release": "2026-05",
+      "older_value_musd": 4004,
+      "newer_release": "2026-09",
+      "newer_value_musd": 4023,
+      "revision_musd": 19
+    },
+    {
+      "month": "2026-03",
+      "item": "섬유",
+      "older_release": "2026-05",
+      "older_value_musd": 928,
+      "newer_release": "2026-09",
+      "newer_value_musd": 929,
+      "revision_musd": 1
+    },
+    {
+      "month": "2026-03",
+      "item": "일반기계",
+      "older_release": "2026-05",
+      "older_value_musd": 3891,
+      "newer_release": "2026-09",
+      "newer_value_musd": 3892,
+      "revision_musd": 1
+    },
+    {
+      "month": "2026-03",
+      "item": "자동차",
+      "older_release": "2026-05",
+      "older_value_musd": 6369,
+      "newer_release": "2026-09",
+      "newer_value_musd": 6367,
+      "revision_musd": -2
+    },
+    {
+      "month": "2026-03",
+      "item": "자동차부품",
+      "older_release": "2026-05",
+      "older_value_musd": 1786,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1783,
+      "revision_musd": -3
+    },
+    {
+      "month": "2026-03",
+      "item": "화장품",
+      "older_release": "2026-05",
+      "older_value_musd": 1185,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1184,
+      "revision_musd": -1
+    },
+    {
+      "month": "2026-04",
+      "item": "가전",
+      "older_release": "2026-05",
+      "older_value_musd": 565,
+      "newer_release": "2026-09",
+      "newer_value_musd": 566,
+      "revision_musd": 1
+    },
+    {
+      "month": "2026-04",
+      "item": "농수산식품",
+      "older_release": "2026-05",
+      "older_value_musd": 1219,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1217,
+      "revision_musd": -2
+    },
+    {
+      "month": "2026-04",
+      "item": "무선통신기기",
+      "older_release": "2026-05",
+      "older_value_musd": 1620,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1619,
+      "revision_musd": -1
+    },
+    {
+      "month": "2026-04",
+      "item": "반도체",
+      "older_release": "2026-05",
+      "older_value_musd": 31895,
+      "newer_release": "2026-09",
+      "newer_value_musd": 31893,
+      "revision_musd": -2
+    },
+    {
+      "month": "2026-04",
+      "item": "비철금속",
+      "older_release": "2026-05",
+      "older_value_musd": 1832,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1851,
+      "revision_musd": 19
+    },
+    {
+      "month": "2026-04",
+      "item": "생활용품",
+      "older_release": "2026-05",
+      "older_value_musd": 746,
+      "newer_release": "2026-09",
+      "newer_value_musd": 743,
+      "revision_musd": -3
+    },
+    {
+      "month": "2026-04",
+      "item": "석유제품",
+      "older_release": "2026-05",
+      "older_value_musd": 5106,
+      "newer_release": "2026-09",
+      "newer_value_musd": 5008,
+      "revision_musd": -98
+    },
+    {
+      "month": "2026-04",
+      "item": "석유화학",
+      "older_release": "2026-05",
+      "older_value_musd": 4096,
+      "newer_release": "2026-09",
+      "newer_value_musd": 4113,
+      "revision_musd": 17
+    },
+    {
+      "month": "2026-04",
+      "item": "선박",
+      "older_release": "2026-05",
+      "older_value_musd": 2890,
+      "newer_release": "2026-09",
+      "newer_value_musd": 2897,
+      "revision_musd": 7
+    },
+    {
+      "month": "2026-04",
+      "item": "섬유",
+      "older_release": "2026-05",
+      "older_value_musd": 1051,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1048,
+      "revision_musd": -3
+    },
+    {
+      "month": "2026-04",
+      "item": "일반기계",
+      "older_release": "2026-05",
+      "older_value_musd": 4209,
+      "newer_release": "2026-09",
+      "newer_value_musd": 4205,
+      "revision_musd": -4
+    },
+    {
+      "month": "2026-04",
+      "item": "자동차",
+      "older_release": "2026-05",
+      "older_value_musd": 6166,
+      "newer_release": "2026-09",
+      "newer_value_musd": 6161,
+      "revision_musd": -5
+    },
+    {
+      "month": "2026-04",
+      "item": "자동차부품",
+      "older_release": "2026-05",
+      "older_value_musd": 1894,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1891,
+      "revision_musd": -3
+    },
+    {
+      "month": "2026-04",
+      "item": "철강",
+      "older_release": "2026-05",
+      "older_value_musd": 2145,
+      "newer_release": "2026-09",
+      "newer_value_musd": 2118,
+      "revision_musd": -27
+    },
+    {
+      "month": "2026-04",
+      "item": "컴퓨터",
+      "older_release": "2026-05",
+      "older_value_musd": 4083,
+      "newer_release": "2026-09",
+      "newer_value_musd": 4081,
+      "revision_musd": -2
+    },
+    {
+      "month": "2026-04",
+      "item": "화장품",
+      "older_release": "2026-05",
+      "older_value_musd": 1354,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1352,
+      "revision_musd": -2
+    },
+    {
+      "month": "2026-05",
+      "item": "가전",
+      "older_release": "2026-05",
+      "older_value_musd": 479,
+      "newer_release": "2026-09",
+      "newer_value_musd": 478,
+      "revision_musd": -1
+    },
+    {
+      "month": "2026-05",
+      "item": "농수산식품",
+      "older_release": "2026-05",
+      "older_value_musd": 1073,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1071,
+      "revision_musd": -2
+    },
+    {
+      "month": "2026-05",
+      "item": "무선통신기기",
+      "older_release": "2026-05",
+      "older_value_musd": 1459,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1456,
+      "revision_musd": -3
+    },
+    {
+      "month": "2026-05",
+      "item": "바이오헬스",
+      "older_release": "2026-05",
+      "older_value_musd": 1442,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1439,
+      "revision_musd": -3
+    },
+    {
+      "month": "2026-05",
+      "item": "반도체",
+      "older_release": "2026-05",
+      "older_value_musd": 37157,
+      "newer_release": "2026-09",
+      "newer_value_musd": 37158,
+      "revision_musd": 1
+    },
+    {
+      "month": "2026-05",
+      "item": "비철금속",
+      "older_release": "2026-05",
+      "older_value_musd": 1666,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1678,
+      "revision_musd": 12
+    },
+    {
+      "month": "2026-05",
+      "item": "생활용품",
+      "older_release": "2026-05",
+      "older_value_musd": 655,
+      "newer_release": "2026-09",
+      "newer_value_musd": 652,
+      "revision_musd": -3
+    },
+    {
+      "month": "2026-05",
+      "item": "석유제품",
+      "older_release": "2026-05",
+      "older_value_musd": 5250,
+      "newer_release": "2026-09",
+      "newer_value_musd": 5200,
+      "revision_musd": -50
+    },
+    {
+      "month": "2026-05",
+      "item": "석유화학",
+      "older_release": "2026-05",
+      "older_value_musd": 3698,
+      "newer_release": "2026-09",
+      "newer_value_musd": 3677,
+      "revision_musd": -21
+    },
+    {
+      "month": "2026-05",
+      "item": "선박",
+      "older_release": "2026-05",
+      "older_value_musd": 2613,
+      "newer_release": "2026-09",
+      "newer_value_musd": 2608,
+      "revision_musd": -5
+    },
+    {
+      "month": "2026-05",
+      "item": "섬유",
+      "older_release": "2026-05",
+      "older_value_musd": 853,
+      "newer_release": "2026-09",
+      "newer_value_musd": 851,
+      "revision_musd": -2
+    },
+    {
+      "month": "2026-05",
+      "item": "이차전지",
+      "older_release": "2026-05",
+      "older_value_musd": 688,
+      "newer_release": "2026-09",
+      "newer_value_musd": 687,
+      "revision_musd": -1
+    },
+    {
+      "month": "2026-05",
+      "item": "일반기계",
+      "older_release": "2026-05",
+      "older_value_musd": 3817,
+      "newer_release": "2026-09",
+      "newer_value_musd": 3815,
+      "revision_musd": -2
+    },
+    {
+      "month": "2026-05",
+      "item": "자동차",
+      "older_release": "2026-05",
+      "older_value_musd": 5833,
+      "newer_release": "2026-09",
+      "newer_value_musd": 5821,
+      "revision_musd": -12
+    },
+    {
+      "month": "2026-05",
+      "item": "자동차부품",
+      "older_release": "2026-05",
+      "older_value_musd": 1613,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1552,
+      "revision_musd": -61
+    },
+    {
+      "month": "2026-05",
+      "item": "전기기기",
+      "older_release": "2026-05",
+      "older_value_musd": 1328,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1329,
+      "revision_musd": 1
+    },
+    {
+      "month": "2026-05",
+      "item": "철강",
+      "older_release": "2026-05",
+      "older_value_musd": 2039,
+      "newer_release": "2026-09",
+      "newer_value_musd": 2026,
+      "revision_musd": -13
+    },
+    {
+      "month": "2026-05",
+      "item": "컴퓨터",
+      "older_release": "2026-05",
+      "older_value_musd": 4179,
+      "newer_release": "2026-09",
+      "newer_value_musd": 4168,
+      "revision_musd": -11
+    },
+    {
+      "month": "2026-05",
+      "item": "화장품",
+      "older_release": "2026-05",
+      "older_value_musd": 1182,
+      "newer_release": "2026-09",
+      "newer_value_musd": 1171,
+      "revision_musd": -11
+    }
+  ],
+  "precedence_rule": "newest release_date wins for duplicate month/item"
+}

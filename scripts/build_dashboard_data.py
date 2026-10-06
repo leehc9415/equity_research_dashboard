@@ -13,6 +13,7 @@ from pathlib import Path
 import pandas as pd
 from catalog_mapping import CATALOG, load
 from industry_rules import digest as industry_digest, expand as expand_industries, item_industries, load_rules
+from motir20 import load_official_series
 from web_snapshot import COLUMNS, SCHEMA_VERSION, catalog_digest, enrich_products, validate_snapshot
 
 
@@ -57,9 +58,9 @@ def main() -> None:
     industry_rules = load_rules()
     code_industry = expand_industries(industry_rules, set(hs6.hs_code.unique()))
     hs6["industry"] = hs6.hs_code.map(code_industry)
-    industries = hs6.groupby(["date", "industry"], as_index=False)["export_value_usd"].sum()
-    industries = industries[industries.date >= "2010-01"].sort_values(["date", "industry"])
-    industry_rows = records(industries, ["date", "industry", "export_value_usd"])
+    hs_industries = hs6.groupby(["date", "industry"], as_index=False)["export_value_usd"].sum()
+    hs_industries = hs_industries[hs_industries.date >= "2010-01"].sort_values(["date", "industry"])
+    hs_industry_rows = records(hs_industries, ["date", "industry", "export_value_usd"])
     hs6["hs4"] = hs6.hs_code.str[:4]
     subindustry_start = str((pd.Period(latest, freq="M") - 13).strftime("%Y-%m"))
     subindustries = hs6[hs6.date >= subindustry_start].groupby(
@@ -132,6 +133,7 @@ def main() -> None:
     regions = load_region_data()
 
     product_monthly, product_quarterly = enrich_products(products)
+    official = load_official_series()
     mapped_industries = item_industries(catalog, code_industry)
     missing_industries = [key for key, value in mapped_industries.items() if value is None and not key.startswith("HS4-")]
     if missing_industries:
@@ -149,11 +151,23 @@ def main() -> None:
         "status": str(summary.period_status.iloc[-1]),
         "updatedAt": json.loads((BASE / "last-update.json").read_text(encoding="utf-8")).get("generated_at") if (BASE / "last-update.json").exists() else None,
         "snapshotBuiltAt": datetime.now(timezone.utc).isoformat(),
-        "industryMethod": industry_rules["method"],
+        "industryMethod": official["method"],
+        "industryClassification": official["classification"],
+        "industryPrecedenceRule": official["precedenceRule"],
+        "industryAsOf": official["coverageEnd"],
+        "industryCommonAsOf": min(latest, official["coverageEnd"]),
+        "industryCoverageStart": official["coverageStart"],
+        "industryCoverageEnd": official["coverageEnd"],
+        "industrySourceRows": official["rowCount"],
+        "industryHsGroups": official["hsReferenceGroups"],
+        "industryCatalogGroups": official["catalogGroups"],
+        "industryQuality": official["quality"],
         "summary": summary_rows,
-        "industries": industry_rows,
+        "industries": official["rows"],
+        "hsIndustries": hs_industry_rows,
         "subindustries": subindustry_rows,
-        "industryNames": industry_rules["industryNames"],
+        "industryNames": official["names"],
+        "hsIndustryNames": industry_rules["industryNames"],
         "products": product_monthly,
         "productQuarterly": product_quarterly,
         "countryItems": country_items,
