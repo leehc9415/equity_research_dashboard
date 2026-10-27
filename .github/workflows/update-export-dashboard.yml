@@ -56,24 +56,10 @@ jobs:
           fi
 
   deploy-pages:
-    # A manual run also publishes the initial site when no new final month exists yet.
     if: needs.update.result == 'success' && vars.ENABLE_EXPORT_PAGES == 'true' && (needs.update.outputs.changed == 'true' || github.event_name == 'workflow_dispatch')
     needs: update
-    runs-on: ubuntu-latest
     permissions:
       contents: read
       pages: write
       id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.ref_name }}
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v4
-        with:
-          path: dashboard
-      - uses: actions/deploy-pages@v4
-        id: deployment
+    uses: ./.github/workflows/deploy-dashboard.yml

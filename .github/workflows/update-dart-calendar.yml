@@ -1,0 +1,57 @@
+name: Update DART calendar
+
+on:
+  schedule:
+    # Every 30 minutes, weekdays 09:07-21:37 KST. GitHub may delay scheduled runs.
+    - cron: '7,37 0-12 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-dart-calendar
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test calendar safety rules
+        run: python -m unittest discover -s tests -p test_calendar_pipeline.py -v
+      - name: Collect new filings and preserve the last good calendar on failure
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python scripts/update_dart_calendar.py
+      - name: Validate calendar
+        run: python scripts/validate_calendar_data.py
+      - name: Commit verified calendar change only
+        id: commit
+        shell: bash
+        run: |
+          if ! git diff --quiet -- dashboard/data/calendar-data.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add dashboard/data/calendar-data.json
+            git commit -m "Update DART calendar events"
+            git pull --rebase origin main
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+  deploy:
+    needs: update
+    if: needs.update.result == 'success' && (needs.update.outputs.changed == 'true' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/deploy-dashboard.yml

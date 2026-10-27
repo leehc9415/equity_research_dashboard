@@ -1,3 +1,4 @@
+import { mountCalendar } from './calendar-app.js?v=20261028-calendar';
 const app = document.querySelector('#app');
 const fmt = new Intl.NumberFormat('ko-KR', {maximumFractionDigits: 1});
 const num = v => fmt.format(v ?? 0);
@@ -9,7 +10,8 @@ const key = item => `${item.l}-${item.c}`;
 const label = item => `${item.n} · ${item.c}`;
 const tooltip = document.createElement('div'); tooltip.className = 'tooltip'; document.body.appendChild(tooltip);
 let D, catalog;
-const state = {section:'exports', page:'overview', preset:'1Y', start:'', end:'', ranking:'growth', industry:'반도체', sort:'value', desc:true, catalogIndustry:'전체', query:'', selected:null, country:'ALL', productPeriod:'month'};
+const initialSection=['home','exports','markets','briefing','companies','calendar'].includes(location.hash.slice(1))?location.hash.slice(1):'exports';
+const state = {section:initialSection, page:'overview', preset:'1Y', start:'', end:'', ranking:'growth', industry:'반도체', sort:'value', desc:true, catalogIndustry:'전체', query:'', selected:null, country:'ALL', productPeriod:'month'};
 const chartSpecs = new Map(), chartViews = new Map();
 let mapStats = [];
 const chartResizeObserver = new ResizeObserver(entries => {
@@ -249,11 +251,13 @@ function setPreset(preset){state.preset=preset;if(preset!=='CUSTOM'){const month
 function syncPeriodControls(){document.querySelectorAll('[data-preset]').forEach(b=>b.classList.toggle('active',b.dataset.preset===state.preset));const custom=document.querySelector('#custom-range');custom.hidden=state.preset!=='CUSTOM';const start=document.querySelector('#start-month'),end=document.querySelector('#end-month');start.min=D.summary[0][0];start.max=D.asOf;end.min=D.summary[0][0];end.max=D.asOf;start.value=state.start;end.value=state.end;}
 function renderPlaceholder(){const names={home:'홈',markets:'증시데이터',briefing:'시황',companies:'기업데이터'},descriptions={home:'수출과 증시·시황 데이터가 연결되면 한 화면에서 핵심 신호를 볼 수 있도록 구성할 예정입니다.',markets:'증시 데이터 모듈은 수출데이터 화면을 완성한 다음 연결합니다.',briefing:'시장 시황과 주요 이벤트를 담을 공간입니다. 현재 데이터는 연결되지 않았습니다.',companies:'기업별 재무·주가·수출 연계 정보를 담을 공간입니다. 현재 데이터는 연결되지 않았습니다.'};const title=names[state.section];app.innerHTML=`<div class="card module-placeholder"><div><div class="icon">↗</div><h1>${title}</h1><p>${descriptions[state.section]}</p><button id="back-to-exports">수출데이터로 돌아가기 →</button></div></div>`;document.querySelector('#back-to-exports').onclick=()=>{state.section='exports';render();};}
 function nav(page){state.section='exports';state.page=page;render();window.scrollTo({top:0,behavior:'instant'});}
-function render(){chartResizeObserver.disconnect();document.querySelectorAll('.global-nav button').forEach(b=>b.classList.toggle('active',b.dataset.section===state.section));document.querySelector('#export-shell').hidden=state.section!=='exports';if(state.section!=='exports'){renderPlaceholder();return;}syncPeriodControls();document.querySelector('#breadcrumb').textContent=({overview:'종합',industry:'산업별 수출',items:'품목별 수출',detail:'품목별 수출 / 품목 상세'})[state.page];document.querySelectorAll('.main-nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===(state.page==='detail'?'items':state.page)));if(state.page==='overview')renderOverview();else if(state.page==='industry')renderIndustryDetail();else if(state.page==='items')renderItems();else{renderDetail();decorateDetail();}scheduleChartLayout();}
+function render(){chartResizeObserver.disconnect();document.querySelectorAll('.global-nav button').forEach(b=>b.classList.toggle('active',b.dataset.section===state.section));document.querySelector('#export-shell').hidden=state.section!=='exports';document.title=state.section==='calendar'?'Investment Dashboard · 캘린더':'Investment Dashboard';if(location.hash!=='#'+state.section)history.replaceState(null,'','#'+state.section);if(state.section==='calendar'){mountCalendar(app);return;}if(state.section!=='exports'){renderPlaceholder();return;}if(!D){app.innerHTML='<div class="loading">실제 수출 데이터를 불러오는 중입니다…</div>';return;}syncPeriodControls();document.querySelector('#breadcrumb').textContent=({overview:'종합',industry:'산업별 수출',items:'품목별 수출',detail:'품목별 수출 / 품목 상세'})[state.page];document.querySelectorAll('.main-nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===(state.page==='detail'?'items':state.page)));if(state.page==='overview')renderOverview();else if(state.page==='industry')renderIndustryDetail();else if(state.page==='items')renderItems();else{renderDetail();decorateDetail();}scheduleChartLayout();}
 document.querySelectorAll('.main-nav button').forEach(b=>b.onclick=()=>nav(b.dataset.page));
 document.querySelectorAll('.global-nav button').forEach(b=>b.onclick=()=>{state.section=b.dataset.section;render();window.scrollTo({top:0,behavior:'instant'});});
 document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>setPreset(b.dataset.preset));
 for(const id of ['start-month','end-month'])document.querySelector(`#${id}`).onchange=()=>{let a=document.querySelector('#start-month').value,b=document.querySelector('#end-month').value;if(a>b)[a,b]=[b,a];state.start=a;state.end=b;state.preset='CUSTOM';render();};
+window.addEventListener('hashchange',()=>{const section=location.hash.slice(1);if(['home','exports','markets','briefing','companies','calendar'].includes(section)&&section!==state.section){state.section=section;render();}});
+if(state.section!=='exports')render();
 try {
   const response = await fetch('data/dashboard-data.json');
   if (!response.ok) throw Error('데이터 ' + response.status);
@@ -270,5 +274,5 @@ try {
   document.querySelector('#source-status').textContent = catalog.length + '개 매핑 품목 · ' + D.industryNames.length + '개 산업';
   render();
 } catch (error) {
-  app.innerHTML = '<div class="card card-pad"><h2>대시보드 데이터를 열 수 없습니다</h2><p>' + esc(error.message) + '</p><p class="note">웹 데이터 생성·검증 후 새로고침하세요.</p></div>';
+  if(state.section==='exports')app.innerHTML = '<div class="card card-pad"><h2>대시보드 데이터를 열 수 없습니다</h2><p>' + esc(error.message) + '</p><p class="note">웹 데이터 생성·검증 후 새로고침하세요.</p></div>';
 }

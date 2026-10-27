@@ -1,0 +1,129 @@
+
+    #dart-calendar-sample{--dc-bg:light-dark(#fff,#171a21);--dc-soft:light-dark(#f8f9fb,#1c2029);--dc-ink:light-dark(#15263e,#e4eaf3);--dc-muted:light-dark(#667386,#a2afc1);--dc-line:light-dark(#dfe4ed,#333b49);--dc-green:light-dark(#168749,#69d89b);--dc-green-bg:light-dark(#e9f9ed,#183528);--dc-blue:light-dark(#2468c6,#83b6ff);--dc-blue-bg:light-dark(#ecf4ff,#1a2c47);--dc-purple:light-dark(#7864d9,#b4a4ff);--dc-picked:light-dark(#f7f5ff,#292439);--dc-gray:light-dark(#f0f2f6,#2c323d);--dc-panel-width:280px;color-scheme:light dark;background:var(--dc-bg);color:var(--dc-ink);font:13px/1.5 "Pretendard","Noto Sans KR","Malgun Gothic",sans-serif;border:1px solid var(--dc-line);border-radius:10px;overflow:hidden}
+    #dart-calendar-sample *{box-sizing:border-box}
+    #dart-calendar-sample button,#dart-calendar-sample a{font:inherit}
+    #dart-calendar-sample button{color:inherit;cursor:pointer}
+    #dart-calendar-sample button:focus-visible,#dart-calendar-sample a:focus-visible{outline:2px solid var(--dc-purple);outline-offset:-2px}
+    #dart-calendar-sample .dc-shell{display:flex;gap:22px;align-items:center;padding:14px 20px;border-bottom:1px solid var(--dc-line);background:var(--dc-soft);flex-wrap:wrap}
+    #dart-calendar-sample .dc-brand{font-weight:700;letter-spacing:-.3px;margin-right:12px}
+    #dart-calendar-sample .dc-nav{display:flex;gap:19px;align-items:center;color:var(--dc-muted);font-size:12px;flex-wrap:wrap}
+    #dart-calendar-sample .dc-nav-active{color:var(--dc-ink);font-weight:700;text-decoration:underline;text-decoration-color:var(--dc-purple);text-underline-offset:8px;text-decoration-thickness:2px}
+    #dart-calendar-sample .dc-tag{font-size:11px;color:var(--dc-muted);padding:2px 6px;border:1px solid var(--dc-line);border-radius:4px}
+    #dart-calendar-sample .dc-header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:19px 15px 17px;gap:10px}
+    #dart-calendar-sample .dc-heading{text-align:center}
+    #dart-calendar-sample .dc-month{font-size:18px;letter-spacing:-.5px;font-weight:700}
+    #dart-calendar-sample .dc-total{font-size:11px;color:var(--dc-muted);margin-top:2px}
+    #dart-calendar-sample .dc-month-control{display:flex;align-items:center;gap:8px}
+    #dart-calendar-sample .dc-month-control:last-child{justify-content:flex-end}
+    #dart-calendar-sample .dc-arrow{display:flex;justify-content:center;align-items:center;border:0;background:transparent;width:32px;height:30px;border-radius:4px;font-size:23px;color:var(--dc-muted)}
+    #dart-calendar-sample .dc-arrow:hover{background:var(--dc-gray)}
+    #dart-calendar-sample .dc-arrow:disabled{opacity:.25;cursor:default}
+    #dart-calendar-sample .dc-today-button{border:1px solid var(--dc-line);border-radius:4px;background:var(--dc-bg);padding:4px 9px;font-size:11px}
+    #dart-calendar-sample .dc-toolbar{background:var(--dc-soft);border-top:1px solid var(--dc-line);border-bottom:1px solid var(--dc-line);padding:8px 13px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}
+    #dart-calendar-sample .dc-tabs{display:flex;gap:3px}
+    #dart-calendar-sample .dc-tab{background:transparent;border:1px solid transparent;border-radius:4px;padding:5px 12px;color:var(--dc-muted);font-size:12px}
+    #dart-calendar-sample .dc-tab[aria-selected="true"]{color:var(--dc-ink);background:var(--dc-bg);border-color:var(--dc-line);box-shadow:0 1px 3px light-dark(#14274210,#00000030);font-weight:700}
+    #dart-calendar-sample .dc-legend{display:flex;gap:15px;color:var(--dc-muted);font-size:11px;align-items:center;flex-wrap:wrap}
+    #dart-calendar-sample .dc-key{display:inline-flex;align-items:center;gap:5px}
+    #dart-calendar-sample .dc-dot{width:6px;height:6px;background:var(--dc-green);border-radius:50%;display:inline-block;flex-shrink:0}
+    #dart-calendar-sample .dc-dot.published{background:var(--dc-muted)}
+    #dart-calendar-sample .dc-dot.ir{background:var(--dc-blue)}
+    #dart-calendar-sample .dc-layout{display:grid;grid-template-columns:minmax(0,1fr) var(--dc-panel-width);align-items:stretch}
+    #dart-calendar-sample .dc-calendar{min-width:0}
+    #dart-calendar-sample .dc-weekdays{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-bottom:1px solid var(--dc-line)}
+    #dart-calendar-sample .dc-weekdays span{text-align:center;font-size:11px;padding:9px 0;color:var(--dc-muted)}
+    #dart-calendar-sample .dc-weekdays span:first-child{color:light-dark(#d23c47,#ff9099)}
+    #dart-calendar-sample .dc-weekdays span:last-child{color:var(--dc-blue)}
+    #dart-calendar-sample .dc-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+    #dart-calendar-sample .dc-day{background:var(--dc-bg);border:0;border-right:1px solid var(--dc-line);border-bottom:1px solid var(--dc-line);padding:5px 5px 7px;min-height:107px;display:flex;flex-direction:column;gap:3px;text-align:left;min-width:0;position:relative}
+    #dart-calendar-sample .dc-day:nth-child(7n){border-right:0}
+    #dart-calendar-sample .dc-day:hover{background:var(--dc-soft)}
+    #dart-calendar-sample .dc-day[aria-pressed="true"]{background:var(--dc-picked);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--dc-purple) 50%,transparent)}
+    #dart-calendar-sample .dc-day.dc-outside{background:var(--dc-soft)}
+    #dart-calendar-sample .dc-date{font-size:11px;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;align-self:flex-start}
+    #dart-calendar-sample .dc-day:nth-child(7n+1) .dc-date{color:light-dark(#d23c47,#ff9099)}
+    #dart-calendar-sample .dc-day:nth-child(7n) .dc-date{color:var(--dc-blue)}
+    #dart-calendar-sample .dc-outside .dc-date{opacity:.35}
+    #dart-calendar-sample .dc-date.dc-today{background:var(--dc-purple);color:var(--dc-bg)!important;border-radius:50%;font-weight:700}
+    #dart-calendar-sample .dc-event{display:block;width:100%;font-size:11px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:3px;padding:1px 4px;background:var(--dc-green-bg);color:var(--dc-green);border:1px solid color-mix(in srgb,var(--dc-green) 28%,transparent)}
+    #dart-calendar-sample .dc-event:before{content:'•';margin-right:3px}
+    #dart-calendar-sample .dc-event.ir{color:var(--dc-blue);background:var(--dc-blue-bg);border-color:color-mix(in srgb,var(--dc-blue) 28%,transparent)}
+    #dart-calendar-sample .dc-event.published{border:0;background:transparent;color:var(--dc-ink);padding:0 3px}
+    #dart-calendar-sample .dc-event.published:before{content:'';margin:0}
+    #dart-calendar-sample .dc-published-count{display:block;font-size:11px;background:var(--dc-gray);color:var(--dc-ink);border-radius:3px;padding:1px 4px;margin-bottom:1px;white-space:nowrap}
+    #dart-calendar-sample .dc-more{font-size:11px;color:var(--dc-muted);padding-left:3px}
+    #dart-calendar-sample .dc-tiny-count{display:none}
+    #dart-calendar-sample .dc-sidebar{border-left:1px solid var(--dc-line);background:var(--dc-soft);min-width:0}
+    #dart-calendar-sample .dc-sidebar-header{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:38px;padding:9px 13px;border-bottom:1px solid var(--dc-line);font-size:12px;font-weight:700}
+    #dart-calendar-sample .dc-selected-date{display:flex;gap:7px;align-items:center}
+    #dart-calendar-sample .dc-selected-date i{color:var(--dc-purple);width:14px;height:14px}
+    #dart-calendar-sample .dc-selected-count{font-size:11px;color:var(--dc-muted);font-weight:400}
+    #dart-calendar-sample .dc-details{padding:12px}
+    #dart-calendar-sample .dc-group{border:1px solid color-mix(in srgb,var(--dc-green) 32%,transparent);border-radius:4px;overflow:hidden;background:var(--dc-bg);margin-bottom:12px}
+    #dart-calendar-sample .dc-group.ir{border-color:color-mix(in srgb,var(--dc-blue) 32%,transparent)}
+    #dart-calendar-sample .dc-group.published{border-color:var(--dc-line)}
+    #dart-calendar-sample .dc-group-head{padding:6px 9px;color:var(--dc-green);background:var(--dc-green-bg);font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid color-mix(in srgb,var(--dc-green) 20%,transparent)}
+    #dart-calendar-sample .ir .dc-group-head{color:var(--dc-blue);background:var(--dc-blue-bg);border-color:color-mix(in srgb,var(--dc-blue) 20%,transparent)}
+    #dart-calendar-sample .published .dc-group-head{color:var(--dc-ink);background:var(--dc-gray);border-color:var(--dc-line)}
+    #dart-calendar-sample .dc-company-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding:2px 0}
+    #dart-calendar-sample .dc-company{display:block;padding:8px 9px 7px;min-width:0;text-decoration:none;color:var(--dc-ink);border-bottom:1px solid var(--dc-line)}
+    #dart-calendar-sample .dc-company:nth-last-child(-n+2){border-bottom:0}
+    #dart-calendar-sample .dc-company:nth-child(odd){border-right:1px solid var(--dc-line)}
+    #dart-calendar-sample a.dc-company:hover{background:var(--dc-soft)}
+    #dart-calendar-sample .dc-earnings-controls{display:flex;justify-content:space-between;gap:8px;align-items:center;margin:0 0 9px;font-size:11px;color:var(--dc-muted);flex-wrap:wrap}
+    #dart-calendar-sample .dc-sort{font:inherit;color:var(--dc-ink);background:var(--dc-bg);border:1px solid var(--dc-line);border-radius:4px;padding:4px 6px;max-width:100%}
+    #dart-calendar-sample .dc-result{border-bottom:1px solid var(--dc-line);padding:0;background:var(--dc-bg)}
+    #dart-calendar-sample .dc-result:last-child{border-bottom:0}
+    #dart-calendar-sample .dc-result[open]{background:var(--dc-picked)}
+    #dart-calendar-sample .dc-result-summary{display:block;list-style:none;padding:9px 10px;cursor:pointer}
+    #dart-calendar-sample .dc-result-summary::-webkit-details-marker{display:none}
+    #dart-calendar-sample .dc-result-top{display:flex;gap:4px 7px;align-items:center;margin-bottom:7px;min-width:0;flex-wrap:wrap}
+    #dart-calendar-sample .dc-result-name{font-size:12px;font-weight:700;overflow-wrap:anywhere}
+    #dart-calendar-sample .dc-period{font-size:11px;color:var(--dc-muted);white-space:nowrap}
+    #dart-calendar-sample .dc-chevron{margin-left:auto;font-size:14px;color:var(--dc-muted)}
+    #dart-calendar-sample .dc-chevron:after{content:'⌄'}
+    #dart-calendar-sample .dc-result[open] .dc-chevron:after{content:'⌃'}
+    #dart-calendar-sample .dc-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+    #dart-calendar-sample .dc-metric{min-width:0}
+    #dart-calendar-sample .dc-metric-label{display:block;font-size:11px;color:var(--dc-muted);margin-bottom:1px}
+    #dart-calendar-sample .dc-metric-value{display:block;font-size:12px;letter-spacing:-.5px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+    #dart-calendar-sample .dc-yoy{display:grid;grid-template-columns:25px minmax(0,1fr);gap:3px;font-size:11px;color:var(--dc-muted);font-variant-numeric:tabular-nums;min-height:17px}
+    #dart-calendar-sample .dc-growth-label{color:var(--dc-muted)}
+    #dart-calendar-sample .dc-yoy-up{color:light-dark(#d14246,#ff989c)}
+    #dart-calendar-sample .dc-yoy-down{color:var(--dc-blue)}
+    #dart-calendar-sample .dc-result-expanded{padding:0 10px 10px}
+    #dart-calendar-sample .dc-result-summary:focus-visible{outline:2px solid var(--dc-purple);outline-offset:-2px}
+    #dart-calendar-sample .dc-result-caption{font-size:11px;color:var(--dc-muted);padding:6px 0;border-top:1px dashed var(--dc-line)}
+    #dart-calendar-sample .dc-result-table{width:100%;border-collapse:collapse;font-size:11px;font-variant-numeric:tabular-nums;table-layout:fixed}
+    #dart-calendar-sample .dc-result-table th{font-weight:400;color:var(--dc-muted);padding:5px 0;text-align:right;border-bottom:1px solid var(--dc-line)}
+    #dart-calendar-sample .dc-result-table th:first-child,#dart-calendar-sample .dc-result-table td:first-child{text-align:left;width:60px}
+    #dart-calendar-sample .dc-result-table td{text-align:right;padding:5px 0;overflow-wrap:anywhere}
+    #dart-calendar-sample .dc-result-table tbody tr:first-child td{font-weight:700}
+    #dart-calendar-sample .dc-result-foot{font-size:11px;color:var(--dc-muted);margin-top:6px;overflow-wrap:anywhere}
+    #dart-calendar-sample .dc-surprise{display:inline-block;margin-left:auto;padding:1px 4px;border-radius:3px;font-size:11px;white-space:nowrap;color:var(--dc-blue);background:var(--dc-blue-bg)}
+    #dart-calendar-sample .dc-surprise.positive{color:light-dark(#c83a42,#ffa3a9);background:light-dark(#fff0f0,#3e252d)}
+    #dart-calendar-sample .dc-surprise+.dc-chevron{margin-left:0}
+    #dart-calendar-sample .dc-consensus{border-top:1px solid var(--dc-line);margin-top:8px;padding-top:7px}
+    #dart-calendar-sample .dc-consensus-label{font-size:11px;color:var(--dc-muted);margin-bottom:5px}
+    #dart-calendar-sample .dc-pagination{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:var(--dc-muted);margin-top:10px}
+    #dart-calendar-sample .dc-page-button{border:1px solid var(--dc-line);background:var(--dc-bg);border-radius:4px;padding:4px 8px}
+    #dart-calendar-sample .dc-page-button:disabled{opacity:.35;cursor:default}
+    #dart-calendar-sample .dc-company-name{display:block;font-size:12px;line-height:1.45;font-weight:700;overflow-wrap:anywhere}
+    #dart-calendar-sample .dc-company-meta{display:flex;align-items:center;gap:5px;font-size:11px;margin-top:4px;color:var(--dc-muted);flex-wrap:wrap}
+    #dart-calendar-sample .dc-market{background:var(--dc-gray);padding:0 3px;border-radius:2px}
+    #dart-calendar-sample .dc-ir-row{display:block;color:var(--dc-ink);text-decoration:none;padding:10px;border-bottom:1px solid var(--dc-line)}
+    #dart-calendar-sample .dc-ir-row:last-child{border:0}
+    #dart-calendar-sample .dc-ir-row:hover{background:var(--dc-soft)}
+    #dart-calendar-sample .dc-ir-top{display:flex;justify-content:space-between;gap:8px;align-items:start}
+    #dart-calendar-sample .dc-ir-time{font-size:11px;color:var(--dc-blue);white-space:nowrap}
+    #dart-calendar-sample .dc-ir-purpose{font-size:11px;color:var(--dc-muted);margin-top:5px;overflow-wrap:anywhere}
+    #dart-calendar-sample .dc-empty{padding:40px 10px;text-align:center;color:var(--dc-muted);font-size:12px}
+    #dart-calendar-sample .dc-empty i{display:block;width:23px;height:23px;margin:0 auto 12px;opacity:.6}
+    #dart-calendar-sample .dc-footer{display:flex;justify-content:space-between;gap:9px;padding:10px 14px;font-size:11px;color:var(--dc-muted);border-top:1px solid var(--dc-line);background:var(--dc-bg);flex-wrap:wrap}
+    @media(max-width:760px){#dart-calendar-sample .dc-layout{grid-template-columns:minmax(0,1fr)}#dart-calendar-sample .dc-sidebar{border-left:0;border-top:1px solid var(--dc-line)}#dart-calendar-sample .dc-details{padding:12px}#dart-calendar-sample .dc-company-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#dart-calendar-sample .dc-day{min-height:91px}#dart-calendar-sample .dc-shell{padding:12px 14px;gap:12px}#dart-calendar-sample .dc-nav{gap:13px}}
+    @media(max-width:450px){#dart-calendar-sample .dc-brand{width:100%}#dart-calendar-sample .dc-header{padding:14px 7px}#dart-calendar-sample .dc-month{font-size:16px}#dart-calendar-sample .dc-today-button{display:none}#dart-calendar-sample .dc-day{min-height:64px;padding:3px;gap:2px}#dart-calendar-sample .dc-day .dc-event,#dart-calendar-sample .dc-published-count,#dart-calendar-sample .dc-more{display:none}#dart-calendar-sample .dc-tiny-count{display:block;font-size:11px;line-height:1.5;color:var(--dc-green);padding-left:3px}#dart-calendar-sample .dc-tiny-count.ir{color:var(--dc-blue)}#dart-calendar-sample .dc-tiny-count.published{color:var(--dc-muted)}#dart-calendar-sample .dc-tab{padding:5px 9px}#dart-calendar-sample .dc-legend{gap:9px}#dart-calendar-sample .dc-toolbar{padding:7px 9px}}
+    @media(pointer:coarse){#dart-calendar-sample .dc-tab,#dart-calendar-sample .dc-arrow,#dart-calendar-sample .dc-today-button{min-height:44px;min-width:44px}#dart-calendar-sample .dc-company{min-height:58px}}
+  
+#dart-calendar-sample{color-scheme:light;max-width:100%;margin-bottom:24px}
+#dart-calendar-sample [data-tooltip]{cursor:inherit}
+.calendar-page-head{margin-bottom:18px}.calendar-page-head h1{margin:0 0 6px;color:#16354d;font-size:25px}.calendar-page-head p{margin:0;color:#718296;font-size:12px}.calendar-status{font-size:11px;color:#718296;margin-top:9px;line-height:1.6}
