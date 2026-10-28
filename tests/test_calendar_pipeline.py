@@ -1,8 +1,11 @@
 from pathlib import Path
 from datetime import date
 import copy,json,sys,tempfile,unittest
+from unittest.mock import patch
+from io import BytesIO
+from zipfile import ZipFile
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
-from investment_data.calendar import CollectionError,parse_filing,collect,merge,atomic_write,validate
+from investment_data.calendar import CollectionError,DocumentUnavailable,DartClient,parse_filing,collect,merge,atomic_write,validate
 from investment_data.calendar_quantiwise import enrich_calendar
 
 def filing(receipt='20261027800001',title='결산실적공시 예고(안내공시)'):
@@ -16,6 +19,51 @@ class Client:
     def document(self,receipt):self.calls+=1;return self.documents[receipt]
 
 class CalendarTests(unittest.TestCase):
+    def test_unavailable_original_does_not_block_other_filings_and_is_not_marked_processed(self):
+        first=filing();second=filing(receipt='20261027800002')
+        class WaitingClient(Client):
+            def document(self,receipt):
+                if receipt==first['rcept_no']:raise DocumentUnavailable(receipt,'014')
+                return NOTICE
+        base=dict(schemaVersion=1,events=[])
+        updated,count=collect(base,WaitingClient([first,second],{}),date(2026,10,28))
+        self.assertEqual(count,1);self.assertEqual(len(updated['events']),1)
+        self.assertNotIn(first['rcept_no'],updated['processedReceipts'])
+        self.assertFalse(updated['collection']['complete'])
+        self.assertEqual(updated['pendingDocuments'][0]['filing']['rcept_no'],first['rcept_no'])
+        self.assertEqual(base,dict(schemaVersion=1,events=[]))
+    def test_pending_original_retries_outside_list_window_and_clears_after_success(self):
+        original=filing(receipt='20260827800001')
+        queued=dict(filing=original,status='013',firstSeen='2026-08-27',lastAttemptAt='2026-08-27T00:00:00Z',attempts=1)
+        base=dict(schemaVersion=1,events=[],processedReceipts=[],pendingDocuments=[queued],collection=dict(through='2026-10-27'))
+        updated,count=collect(base,Client([],{original['rcept_no']:NOTICE}),date(2026,10,28))
+        self.assertEqual(count,1);self.assertEqual(updated['pendingDocuments'],[])
+        self.assertIn(original['rcept_no'],updated['processedReceipts']);self.assertTrue(updated['collection']['complete'])
+        again,count=collect(updated,Client([],{}),date(2026,10,28));self.assertEqual(count,0);self.assertEqual(again,updated)
+    def test_xml_missing_file_response_retries_then_recovers(self):
+        archive=BytesIO()
+        with ZipFile(archive,'w') as zipped:zipped.writestr('report.xml',NOTICE)
+        client=DartClient('test-key')
+        with patch.object(client,'request',side_effect=[b'<result><status>014</status></result>',archive.getvalue()]) as request,patch('investment_data.calendar.time.sleep'):
+            self.assertEqual(client.document('20261028800215'),NOTICE);self.assertEqual(request.call_count,2)
+    def test_xml_pending_is_typed_but_auth_limit_and_bad_responses_are_fatal(self):
+        client=DartClient('test-key')
+        with patch.object(client,'request',return_value=b'<result><status>013</status></result>') as request,patch('investment_data.calendar.time.sleep'):
+            with self.assertRaises(DocumentUnavailable) as context:client.document('20261028800215')
+            self.assertEqual(context.exception.status,'013');self.assertEqual(request.call_count,3)
+        for raw in (b'<result><status>010</status><message>test-key</message></result>',b'<result><status>020</status></result>',b'<html>unknown response</html>'):
+            with self.subTest(raw=raw),patch.object(client,'request',return_value=raw) as request:
+                with self.assertRaises(CollectionError) as context:client.document('20261028800215')
+                self.assertNotIsInstance(context.exception,DocumentUnavailable)
+                self.assertNotIn('test-key',str(context.exception));self.assertEqual(request.call_count,1)
+    def test_pending_retry_preserves_first_seen_and_updates_attempts(self):
+        original=filing()
+        class WaitingClient(Client):
+            def document(self,receipt):raise DocumentUnavailable(receipt,'013')
+        one,_=collect(dict(schemaVersion=1,events=[]),WaitingClient([original],{}),date(2026,10,27))
+        two,count=collect(one,WaitingClient([],{}),date(2026,10,28))
+        self.assertEqual(count,0);self.assertEqual(two['pendingDocuments'][0]['firstSeen'],'2026-10-27')
+        self.assertEqual(two['pendingDocuments'][0]['attempts'],2)
     def test_future_date_comes_from_body_and_reprocessing_is_idempotent(self):
         f=filing();c=Client([f],{f['rcept_no']:NOTICE});base=dict(schemaVersion=1,events=[])
         first,count=collect(base,c,date(2026,10,28));self.assertEqual(first['events'][0]['date'],'2026-10-30');self.assertEqual(count,1)

@@ -14,7 +14,16 @@ def main():
     reference=ROOT/'data/reference/quantiwise-calendar.json'
     if reference.exists():enrich_calendar(updated,json.loads(reference.read_text(encoding='utf-8')))
     if updated!=current:atomic_write(path,updated)
-    print(f'DART collection complete: {count} new filings; {len(updated["events"])} events')
+    pending=updated.get('pendingDocuments',[])
+    print(f'DART collection: {count} new filings; {len(updated["events"])} events; {len(pending)} originals pending')
+    for item in pending:
+        print(f'Original pending: {item["filing"]["rcept_no"]} [status {item["status"]}]; retained for retry')
+    if pending:print(f'::warning::DART originals pending: {len(pending)}. Other verified filings were saved; pending receipts will retry.')
+    summary=os.environ.get('GITHUB_STEP_SUMMARY')
+    if summary:
+        with open(summary,'a',encoding='utf-8') as stream:
+            stream.write(f'### DART calendar\n\nNew filings: {count} · Calendar events: {len(updated["events"])} · Originals pending: {len(pending)}\n\n')
+            for item in pending:stream.write(f'- Receipt {item["filing"]["rcept_no"]}: status {item["status"]}, retry retained (attempt {item["attempts"]}).\n')
 
 if __name__=='__main__':
     try:main()

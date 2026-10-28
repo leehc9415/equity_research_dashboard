@@ -7,10 +7,15 @@ from pathlib import Path
 from urllib.parse import urlencode, urlparse
 from urllib.request import urlopen
 from zipfile import ZipFile
+from xml.etree import ElementTree
 import copy, hashlib, json, os, re, tempfile, time
 
 KST=timezone(timedelta(hours=9))
 class CollectionError(RuntimeError): pass
+class DocumentUnavailable(CollectionError):
+    def __init__(self,receipt,status):
+        self.status=status
+        super().__init__('DART document pending: '+receipt+' [status '+status+']')
 
 class Rows(HTMLParser):
     def __init__(self):
@@ -70,8 +75,16 @@ class DartClient:
     def document(self,receipt):
         cached=self.cache/(receipt+'.html') if self.cache else None
         if cached and cached.exists():return cached.read_text(encoding='utf-8')
-        raw=self.request('document.xml',dict(rcept_no=receipt))
-        if not raw.startswith(b'PK'):raise CollectionError('DART document unavailable: '+receipt)
+        for attempt in range(3):
+            raw=self.request('document.xml',dict(rcept_no=receipt))
+            if raw.startswith(b'PK'):break
+            try:status=ElementTree.fromstring(raw).findtext('status')
+            except ElementTree.ParseError:status=None
+            if status not in ('013','014'):
+                safe_status=status if status and re.fullmatch(r'\d{3}',status) else 'unknown'
+                raise CollectionError('DART document response error: '+receipt+' [status '+safe_status+']')
+            if attempt==2:raise DocumentUnavailable(receipt,status)
+            time.sleep(attempt+1)
         with ZipFile(BytesIO(raw)) as archive:
             entries=[e for e in archive.infolist() if e.filename.lower().endswith(('.xml','.htm','.html'))]
             if not entries or sum(e.file_size for e in entries)>20_000_000:raise CollectionError('Unsupported DART document: '+receipt)
@@ -149,6 +162,13 @@ def parse_filing(filing,content):
 def validate(data):
     if data.get('schemaVersion')!=1 or not isinstance(data.get('events'),list):raise CollectionError('Invalid calendar schema')
     ids=set()
+    pending=set()
+    for item in data.get('pendingDocuments',[]):
+        receipt=item.get('filing',{}).get('rcept_no','')
+        if not re.fullmatch(r'\d{14}',receipt) or receipt in pending or item.get('status') not in ('013','014'):
+            raise CollectionError('Invalid pending document')
+        if receipt in data.get('processedReceipts',[]):raise CollectionError('Pending document was marked processed')
+        pending.add(receipt)
     for e in data['events']:
         if data.get('publicDataSources')==['OpenDART']:
             f=e.get('financials',{})
@@ -207,19 +227,31 @@ def collect(current,client,today=None):
     last=current.get('collection',{}).get('through')
     start=max(today-timedelta(days=80),date.fromisoformat(last)-timedelta(days=7)) if last else today-timedelta(days=31)
     filings=client.filings(start,today)
+    pending={item['filing']['rcept_no']:item for item in current.get('pendingDocuments',[])}
+    # Retry the saved filing even when it has aged out of the rolling list window.
+    candidates={key:item['filing'] for key,item in pending.items()}
+    candidates.update({filing['rcept_no']:filing for filing in filings})
     known=set(data.get('processedReceipts',[]))|{e['receipt'] for e in data['events']}
     known.update(s['receipt'] for e in data['events'] for s in e.get('sources',[]))
-    added=0
-    for filing in sorted(filings,key=lambda f:f['rcept_no']):
+    added=0;deferred=[]
+    for filing in sorted(candidates.values(),key=lambda f:f['rcept_no']):
         if filing['corp_cls'] not in ('Y','K') or not classify(filing['report_nm']) or filing['rcept_no'] in known:continue
         try:event=parse_filing(filing,client.document(filing['rcept_no']))
+        except DocumentUnavailable as error:
+            old=pending.get(filing['rcept_no'],{})
+            saved={k:filing[k] for k in ('rcept_no','rcept_dt','report_nm','corp_name','corp_code','stock_code','corp_cls')}
+            deferred.append(dict(filing=saved,status=error.status,firstSeen=old.get('firstSeen',today.isoformat()),lastAttemptAt=datetime.now(timezone.utc).isoformat(),attempts=old.get('attempts',0)+1))
+            continue
         except CollectionError as error:raise CollectionError(str(error)+' [receipt '+filing['rcept_no']+']') from None
         merge(data['events'],event);known.add(event['receipt']);added+=1
+    if deferred or current.get('pendingDocuments'):data['pendingDocuments']=deferred
+    # Deferred receipts never enter the processed journal; a successful retry clears them.
+    data['processedReceipts']=sorted(known)
     validate(data)
-    if added or not current.get('collection'):
+    if added or not current.get('collection') or deferred or current.get('pendingDocuments'):
         data.update(asOf=today.isoformat(),generatedAt=datetime.now(timezone.utc).isoformat(),sample=False)
         data['coverage']=start.isoformat()+'~'+today.isoformat()+' 접수 공시'
-        data['collection']=dict(source='OpenDART',fromDate=start.isoformat(),through=today.isoformat(),complete=True,newFilings=added)
+        data['collection']=dict(source='OpenDART',fromDate=start.isoformat(),through=today.isoformat(),complete=not deferred,newFilings=added,pendingDocuments=len(deferred))
         data['processedReceipts']=sorted(known)
         data['events'].sort(key=lambda e:(e['date'],e['company'],e['receipt']))
     return data,added

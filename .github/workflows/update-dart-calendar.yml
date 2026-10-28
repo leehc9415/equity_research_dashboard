@@ -26,7 +26,7 @@ jobs:
           python-version: '3.12'
       - name: Test calendar safety rules
         run: python -m unittest discover -s tests -p test_calendar_pipeline.py -v
-      - name: Collect new filings and preserve the last good calendar on failure
+      - name: Collect filings and retain unavailable originals for retry
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: python scripts/update_dart_calendar.py
