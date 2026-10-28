@@ -13,3 +13,8 @@ export function preferredCalendarEvents(events){
     return !key||event.basis==='연결'||!consolidated.has(key);
   });
 }
+
+export function calendarDayGroups(events,type){
+  const statuses=type==='ir'?['scheduled']:['scheduled','published'];
+  return statuses.map(status=>({status,events:events.filter(e=>e.type===type&&e.status===status)})).filter(group=>group.events.length);
+}

@@ -1,4 +1,4 @@
-import {preferredCalendarEvents} from './calendar-events.mjs?v=20261028-consolidated';
+import {preferredCalendarEvents,calendarDayGroups} from './calendar-events.mjs?v=20261028-status';
 let cachedData;
 let dataPromise;
 let remembered;
@@ -88,11 +88,14 @@ function initializeCalendar(dataset){
     const grid=[];
     for(let i=0;i<cells;i++){
       const d=new Date(year,month-1,i-first.getDay()+1,12),key=iso(d),items=dayEvents(key),outside=d.getMonth()!==month-1;
+      const groups=calendarDayGroups(items,state.tab),mixed=groups.length>1;
       const published=state.tab==='earnings'&&items.length>0&&items.every(e=>e.status==='published');
       const cls=state.tab==='ir'?'ir':published?'published':'';
       const label=`${d.getMonth()+1}월 ${d.getDate()}일, ${state.tab==='ir'?'IR':'실적'} ${items.length}건`;
       let content='';
-      if(items.length){
+      if(mixed){
+        content=groups.map(group=>`<span class="${group.status==='published'?'dc-published-count':'dc-scheduled-count'}">${group.status==='published'?'실적':'예정'} ${group.events.length}곳</span><span class="dc-tiny-count ${group.status==='published'?'published':''}">${group.status==='published'?'실적':'예정'} ${group.events.length}</span>`).join('');
+      }else if(items.length){
         if(published)content+=`<span class="dc-published-count">실적 ${items.length}곳</span>`;
         const limit=published?2:settings.visibleCompanies;
         content+=items.slice(0,limit).map(e=>`<span class="dc-event ${cls}" data-tooltip="${esc(e.company)}">${esc(e.company)}</span>`).join('');
@@ -110,8 +113,7 @@ function initializeCalendar(dataset){
     else if(state.tab==='ir'){
       details.innerHTML=`<section class="dc-group ir"><div class="dc-group-head"><span class="dc-key"><span class="dc-dot ir"></span>IR 일정</span><span>${items.length}건</span></div>${items.map(e=>`<a class="dc-ir-row" href="${esc(e.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(e.company)} IR 공시 원문 새 창"><div class="dc-ir-top"><span class="dc-company-name">${esc(e.company)}</span>${e.time&&e.time!=='시간 미공개'?`<span class="dc-ir-time">${esc(e.time)}</span>`:''}</div><span class="dc-company-meta">${esc(e.stock)} <span class="dc-market">${esc(e.market)}</span></span><div class="dc-ir-purpose">${esc(e.purpose||'기업설명회 개최')}</div></a>`).join('')}</section>`;
     }else{
-      details.innerHTML=['scheduled','published'].map(status=>{
-        const list=items.filter(e=>e.status===status);if(!list.length)return '';
+      details.innerHTML=calendarDayGroups(items,'earnings').map(({status,events:list})=>{
         if(status==='published'){
           if(state.sort==='operatingProfit')list.sort((a,b)=>(b.financials?.metrics.operatingProfit?.value??-Infinity)-(a.financials?.metrics.operatingProfit?.value??-Infinity));
           if(state.sort==='marketCap')list.sort((a,b)=>((Number.isFinite(b.marketCap)?b.marketCap:-Infinity)-(Number.isFinite(a.marketCap)?a.marketCap:-Infinity))||a.company.localeCompare(b.company,'ko'));

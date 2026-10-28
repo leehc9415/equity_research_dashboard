@@ -8,6 +8,7 @@ from urllib.parse import urlencode, urlparse
 from urllib.request import urlopen
 from zipfile import ZipFile
 from xml.etree import ElementTree
+from .calendar_lifecycle import reconcile_earnings
 import copy, hashlib, json, os, re, tempfile, time
 
 KST=timezone(timedelta(hours=9))
@@ -198,6 +199,7 @@ def merge(events,new):
         if key in reference:new[key]=reference[key]
     if match:
         new['sources']=match.get('sources',[dict(receipt=match['receipt'],url=match['url'])])+[dict(receipt=new['receipt'],url=new['url'])]
+        if match.get('announcements'):new['announcements']=copy.deepcopy(match['announcements'])
         if new['status']=='published':
             old=match.get('financials',{});fresh=new['financials']
             fresh['consensus']=old.get('consensus')
@@ -210,9 +212,6 @@ def merge(events,new):
     elif new['status']=='published':
         reference=next((e for e in same if e.get('financials',{}).get('period')==new['financials']['period'] and e.get('financials',{}).get('consensus')),None)
         if reference:new['financials']['consensus']=reference['financials']['consensus']
-    if new['status']=='published':
-        events[:]=[e for e in events if not(e['corp']==new['corp'] and e['type']=='earnings' and e['status']=='scheduled' and ((e.get('period') and e['period']==new['financials']['period']) or e['date']==new['date']))]
-    if new['type']=='earnings' and new['status']=='scheduled' and new.get('period') and any(e['corp']==new['corp'] and e['status']=='published' and e.get('financials',{}).get('period')==new['period'] for e in events):return
     if new['type']=='ir':
         start=date.fromisoformat(new['date']);end=date.fromisoformat(new.get('endDate',new['date']))
         if not 0<=(end-start).days<=366:raise CollectionError('Invalid IR date range')
@@ -244,14 +243,15 @@ def collect(current,client,today=None):
             continue
         except CollectionError as error:raise CollectionError(str(error)+' [receipt '+filing['rcept_no']+']') from None
         merge(data['events'],event);known.add(event['receipt']);added+=1
+    resolved=reconcile_earnings(data['events'])
     if deferred or current.get('pendingDocuments'):data['pendingDocuments']=deferred
     # Deferred receipts never enter the processed journal; a successful retry clears them.
     data['processedReceipts']=sorted(known)
     validate(data)
-    if added or not current.get('collection') or deferred or current.get('pendingDocuments'):
+    if added or resolved or not current.get('collection') or deferred or current.get('pendingDocuments'):
         data.update(asOf=today.isoformat(),generatedAt=datetime.now(timezone.utc).isoformat(),sample=False)
         data['coverage']=start.isoformat()+'~'+today.isoformat()+' 접수 공시'
-        data['collection']=dict(source='OpenDART',fromDate=start.isoformat(),through=today.isoformat(),complete=not deferred,newFilings=added,pendingDocuments=len(deferred))
+        data['collection']=dict(source='OpenDART',fromDate=start.isoformat(),through=today.isoformat(),complete=not deferred,newFilings=added,pendingDocuments=len(deferred),resolvedNotices=resolved)
         data['processedReceipts']=sorted(known)
         data['events'].sort(key=lambda e:(e['date'],e['company'],e['receipt']))
     return data,added

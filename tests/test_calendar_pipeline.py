@@ -7,6 +7,7 @@ from zipfile import ZipFile
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
 from investment_data.calendar import CollectionError,DocumentUnavailable,DartClient,parse_filing,collect,merge,atomic_write,validate
 from investment_data.calendar_quantiwise import enrich_calendar
+from investment_data.calendar_lifecycle import reconcile_earnings,reporting_period
 
 def filing(receipt='20261027800001',title='결산실적공시 예고(안내공시)'):
     return dict(corp_name='샘플기업',stock_code='000020',corp_code='00100000',corp_cls='Y',rcept_no=receipt,rcept_dt='20261027',report_nm=title)
@@ -19,6 +20,38 @@ class Client:
     def document(self,receipt):self.calls+=1;return self.documents[receipt]
 
 class CalendarTests(unittest.TestCase):
+    def lifecycle_pair(self):
+        notice=parse_filing(filing(receipt='20261019800001'),NOTICE)
+        notice.update(period='2026.01~09',received='20261019',date='2026-10-26')
+        result=dict(notice,status='published',receipt='20261026800001',received='20261026',basis='연결',financials=dict(period='2026.3Q',history=[],consensus=None))
+        result.pop('period')
+        return notice,result
+    def test_cumulative_notice_matches_quarter_result_and_preserves_receipt_history(self):
+        notice,result=self.lifecycle_pair();events=[notice,result]
+        self.assertEqual(reporting_period(notice),'2026.3Q')
+        self.assertEqual(reconcile_earnings(events),1);self.assertEqual(events,[result])
+        self.assertEqual(result['announcements'][0]['receipt'],notice['receipt'])
+        self.assertEqual(reconcile_earnings(events),0);self.assertEqual(len(result['announcements']),1)
+        correction=copy.deepcopy(result);correction.update(receipt='20261028800001');correction.pop('announcements')
+        merge(events,correction);self.assertEqual(events[0]['announcements'][0]['receipt'],notice['receipt'])
+    def test_no_new_filings_still_reconciles_existing_unresolved_notices(self):
+        notice,result=self.lifecycle_pair();base=dict(schemaVersion=1,events=[notice,result],collection=dict(through='2026-10-28'))
+        updated,count=collect(base,Client([],{}),date(2026,10,28))
+        self.assertEqual(count,0);self.assertEqual(len(updated['events']),1)
+        self.assertEqual(updated['collection']['resolvedNotices'],1)
+        self.assertIn(notice['receipt'],updated['processedReceipts']);self.assertEqual(len(base['events']),2)
+    def test_delayed_release_resolves_notice_by_period_not_receipt_day(self):
+        notice,result=self.lifecycle_pair();result['date']='2026-10-27';events=[notice,result]
+        self.assertEqual(reconcile_earnings(events),1)
+    def test_other_period_or_new_notice_after_old_release_is_not_removed(self):
+        notice,result=self.lifecycle_pair();notice['period']='2026.4Q';events=[notice,result]
+        self.assertEqual(reconcile_earnings(events),0)
+        notice['period']='2026.01~09';notice['received']='20261028'
+        self.assertEqual(reconcile_earnings(events),0)
+    def test_past_dates_and_ir_do_not_imply_an_earnings_release(self):
+        notice,result=self.lifecycle_pair();ir=dict(result,type='ir',status='scheduled');events=[notice,ir]
+        self.assertEqual(reconcile_earnings(events),0);self.assertEqual(len(events),2)
+        unknown=copy.deepcopy(notice);unknown.pop('period');self.assertEqual(reconcile_earnings([unknown,result]),0)
     def test_unavailable_original_does_not_block_other_filings_and_is_not_marked_processed(self):
         first=filing();second=filing(receipt='20261027800002')
         class WaitingClient(Client):
