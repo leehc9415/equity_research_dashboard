@@ -2,6 +2,8 @@
 
 The top-level Calendar menu loads `dashboard/data/calendar-data.json` on first entry. The export dashboard keeps its existing data and controls. Direct link: `#calendar`. The calendar body has a fixed height at each viewport size. Every selected-day event is rendered; only the right-hand details region scrolls, with no result pagination. Mobile stacks a fixed-height details region below the month grid.
 
+`dashboard/calendar-events.mjs` selects the display events before all monthly/day counts and list sorting. When the same DART corporation has published both consolidated and non-consolidated earnings for the same period on the same release date, only consolidated earnings appear. A standalone-only release, a different release date/period, an unknown period and IR/planned notices remain visible. Source JSON retains both accounting bases and their receipt/correction history. Display selection never substitutes one basis's figures into the other.
+
 The public bundle contains DART metadata and actual figures, plus the Quantiwise history, consensus and market capitalization used by the calendar. The user explicitly authorized publishing this supplement to the public GitHub repository and Pages site on 2026-10-28. The saved, normalized company reference is tracked at `data/reference/quantiwise-calendar.json` so newly arriving filings can join by stock and fiscal quarter. It includes only the required financial fields, fiscal month and source settings from the supplied universe. It excludes workbook internals, company-name duplicates, original source-row addresses and unrelated extraction files. The original Excel workbook is never opened, edited or refreshed by this integration.
 
 ## GitHub collection

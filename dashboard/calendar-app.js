@@ -1,3 +1,4 @@
+import {preferredCalendarEvents} from './calendar-events.mjs?v=20261028-consolidated';
 let cachedData;
 let dataPromise;
 let remembered;
@@ -16,17 +17,17 @@ export async function mountCalendar(container){
 function initializeCalendar(dataset){
 
   const root=document.getElementById('dart-calendar-sample');
-  const events=dataset.events;
+  const events=preferredCalendarEvents(dataset.events);
   const hasMarketCap=events.some(e=>Number.isFinite(e.marketCap));
   const refreshStamp=dataset.quantiwise?.savedRefreshAt?.slice(5,16).replace('-','/').replace('T',' ')||'';
   const capPeriod=dataset.quantiwise?.marketCapColumn?.period;
   const capPeriodLabel=capPeriod&&/^\d{6}$/.test(capPeriod)?`${capPeriod.slice(0,4)}.${capPeriod.slice(4)}`:'';
   const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date());
-  const months=[...new Set([today.slice(0,7),...dataset.events.map(e=>e.date.slice(0,7))])].sort();
+  const months=[...new Set([today.slice(0,7),...events.map(e=>e.date.slice(0,7))])].sort();
   const firstMonth=months[0],lastMonth=months.at(-1);
   const allowedMonth=month=>month>=firstMonth&&month<=lastMonth;
   const settings={visibleCompanies:3,panelWidth:320};
-  let state=remembered||{month:today.slice(0,7),selected:dataset.events.filter(e=>e.status==='published').map(e=>e.date).sort().at(-1)||today,tab:'earnings',sort:hasMarketCap?'marketCap':'operatingProfit',expanded:'20261027800226'};
+  let state=remembered||{month:today.slice(0,7),selected:events.filter(e=>e.status==='published').map(e=>e.date).sort().at(-1)||today,tab:'earnings',sort:hasMarketCap?'marketCap':'operatingProfit',expanded:'20261027800226'};
   state.month=state.selected.slice(0,7);
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -66,7 +67,7 @@ function initializeCalendar(dataset){
       surprise=`<span class="dc-surprise ${positive?'positive':''}" data-tooltip="Quantiwise 저장 컨센서스 기준 · 예상 영업이익 ${amount(expected)} · ${esc(consensus.baseDateSetting||'')}">예상比 영익 ${esc(text)}</span>`;
     }
     const estimates=consensus?`<div class="dc-consensus"><div class="dc-consensus-label">${esc(f.period)} 컨센서스</div><div class="dc-metrics">${keys.map(([key,label])=>`<span class="dc-metric"><span class="dc-metric-label">${label}</span><span class="dc-metric-value">${amount(consensus.metrics[key])}</span></span>`).join('')}</div><div class="dc-result-foot" data-tooltip="원본 설정 ${esc(consensus.baseDateSetting||'')} · 저장값을 그대로 사용">Quantiwise · 엑셀 갱신 ${esc(refreshStamp)}</div></div>`:'';
-    return `<details class="dc-result" data-receipt="${esc(e.receipt)}" ${state.expanded===e.receipt?'open':''}><summary class="dc-result-summary"><span class="dc-result-top"><span class="dc-result-name" ${Number.isFinite(e.marketCap)?`data-tooltip="시가총액 ${amount(e.marketCap)} · 원본 기준기간 ${esc(capPeriodLabel)}"`:''}>${esc(e.company)}</span><span class="dc-period">${esc(shortPeriod(f.period))}</span>${surprise}<span class="dc-chevron" aria-hidden="true"></span></span><span class="dc-metrics">${metrics}</span></summary><div class="dc-result-expanded"><div class="dc-result-caption">${f.historyHasQuantiwise?'최근 분기 실적':'공시 내 비교 실적'}</div><table class="dc-result-table" aria-label="${esc(e.company)} 비교기간별 실적"><thead><tr><th>기간</th><th>매출액</th><th>영업이익</th></tr></thead><tbody>${rows}</tbody></table><div class="dc-result-foot">${esc(e.basis)} · 잠정실적 · 단위 억원</div>${estimates}</div></details>`;
+    return `<details class="dc-result" data-receipt="${esc(e.receipt)}" ${state.expanded===e.receipt?'open':''}><summary class="dc-result-summary"><span class="dc-result-top"><span class="dc-result-name" ${Number.isFinite(e.marketCap)?`data-tooltip="시가총액 ${amount(e.marketCap)} · 원본 기준기간 ${esc(capPeriodLabel)}"`:''}>${esc(e.company)}</span><span class="dc-period">${esc(shortPeriod(f.period))}${e.basis==='연결'?' · 연결':e.basis==='별도'?' · 별도':''}</span>${surprise}<span class="dc-chevron" aria-hidden="true"></span></span><span class="dc-metrics">${metrics}</span></summary><div class="dc-result-expanded"><div class="dc-result-caption">${f.historyHasQuantiwise?'최근 분기 실적':'공시 내 비교 실적'}</div><table class="dc-result-table" aria-label="${esc(e.company)} 비교기간별 실적"><thead><tr><th>기간</th><th>매출액</th><th>영업이익</th></tr></thead><tbody>${rows}</tbody></table><div class="dc-result-foot">${esc(e.basis)} · 잠정실적 · 단위 억원</div>${estimates}</div></details>`;
   }
   function persist(){remembered={...state};}
   function draw(){

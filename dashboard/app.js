@@ -1,4 +1,4 @@
-import { mountCalendar } from './calendar-app.js?v=20261028-retry';
+import { mountCalendar } from './calendar-app.js?v=20261028-consolidated';
 const app = document.querySelector('#app');
 const fmt = new Intl.NumberFormat('ko-KR', {maximumFractionDigits: 1});
 const num = v => fmt.format(v ?? 0);

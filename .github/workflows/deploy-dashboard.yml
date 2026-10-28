@@ -27,6 +27,8 @@ jobs:
         run: pip install -r requirements-dev.txt
       - name: Run Python tests
         run: python -m pytest -q
+      - name: Test consolidated calendar display rules
+        run: node --test tests/calendar_events.test.mjs
       - name: Validate export and calendar data
         run: |
           python scripts/validate_web_data.py
