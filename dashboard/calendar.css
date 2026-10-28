@@ -105,9 +105,6 @@
     #dart-calendar-sample .dc-surprise+.dc-chevron{margin-left:0}
     #dart-calendar-sample .dc-consensus{border-top:1px solid var(--dc-line);margin-top:8px;padding-top:7px}
     #dart-calendar-sample .dc-consensus-label{font-size:11px;color:var(--dc-muted);margin-bottom:5px}
-    #dart-calendar-sample .dc-pagination{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:var(--dc-muted);margin-top:10px}
-    #dart-calendar-sample .dc-page-button{border:1px solid var(--dc-line);background:var(--dc-bg);border-radius:4px;padding:4px 8px}
-    #dart-calendar-sample .dc-page-button:disabled{opacity:.35;cursor:default}
     #dart-calendar-sample .dc-company-name{display:block;font-size:12px;line-height:1.45;font-weight:700;overflow-wrap:anywhere}
     #dart-calendar-sample .dc-company-meta{display:flex;align-items:center;gap:5px;font-size:11px;margin-top:4px;color:var(--dc-muted);flex-wrap:wrap}
     #dart-calendar-sample .dc-market{background:var(--dc-gray);padding:0 3px;border-radius:2px}
@@ -127,3 +124,15 @@
 #dart-calendar-sample{color-scheme:light;max-width:100%;margin-bottom:24px}
 #dart-calendar-sample [data-tooltip]{cursor:inherit}
 .calendar-page-head{margin-bottom:18px}.calendar-page-head h1{margin:0 0 6px;color:#16354d;font-size:25px}.calendar-page-head p{margin:0;color:#718296;font-size:12px}.calendar-status{font-size:11px;color:#718296;margin-top:9px;line-height:1.6}
+#dart-calendar-sample .dc-layout{height:clamp(520px,calc(100dvh - 330px),700px);min-height:0}
+#dart-calendar-sample .dc-calendar{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+#dart-calendar-sample .dc-weekdays{flex-shrink:0}
+#dart-calendar-sample .dc-grid{flex:1;min-height:0;grid-template-rows:repeat(var(--dc-week-rows,5),minmax(0,1fr))}
+#dart-calendar-sample .dc-day{min-height:0;overflow:hidden}
+#dart-calendar-sample .dc-sidebar{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+#dart-calendar-sample .dc-sidebar-header{flex-shrink:0}
+#dart-calendar-sample .dc-details{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:#b8c2d0 var(--dc-soft)}
+#dart-calendar-sample .dc-details:focus-visible{outline:2px solid var(--dc-purple);outline-offset:-2px}
+#dart-calendar-sample .dc-earnings-controls{position:sticky;top:-12px;z-index:1;background:var(--dc-soft);padding:8px 0;margin-top:-8px}
+@media(max-width:760px){#dart-calendar-sample .dc-layout{height:850px;grid-template-rows:420px minmax(0,1fr)}#dart-calendar-sample .dc-day{min-height:0}}
+@media(max-width:450px){#dart-calendar-sample .dc-layout{height:770px;grid-template-rows:340px minmax(0,1fr)}}

@@ -7,7 +7,7 @@ export async function mountCalendar(container){
     if(!dataPromise)dataPromise=fetch('data/calendar-data.json').then(async response=>{if(!response.ok)throw new Error('캘린더 데이터 '+response.status);const data=await response.json();if(data.schemaVersion!==1||!Array.isArray(data.events))throw new Error('캘린더 데이터 형식 오류');cachedData=data;return data;}).catch(error=>{dataPromise=null;throw error;});
     const dataset=cachedData||await dataPromise;
     if(!container.isConnected||!document.querySelector('[data-section="calendar"]')?.classList.contains('active'))return;
-    container.innerHTML='<div class="calendar-page-head"><div class="eyebrow">EVENT CALENDAR</div><h1>캘린더</h1><p>기업 실적 발표와 IR 일정을 확인합니다.</p><div class="calendar-status"></div></div>'+"<div id=\"dart-calendar-sample\" aria-label=\"투자 대시보드 일정 캘린더 샘플\">\n<div class=\"dc-header\">\n    <div class=\"dc-month-control\"><button type=\"button\" class=\"dc-arrow\" data-action=\"prev\" aria-label=\"이전 달\">‹</button><button type=\"button\" class=\"dc-today-button\" data-action=\"today\">오늘</button></div>\n    <div class=\"dc-heading\"><div class=\"dc-month\"></div><div class=\"dc-total\" aria-live=\"polite\"></div></div>\n    <div class=\"dc-month-control\"><button type=\"button\" class=\"dc-arrow\" data-action=\"next\" aria-label=\"다음 달\">›</button></div>\n  </div>\n  <div class=\"dc-toolbar\">\n    <div class=\"dc-tabs\" role=\"tablist\" aria-label=\"일정 종류\">\n      <button type=\"button\" id=\"dc-earnings-tab\" class=\"dc-tab\" role=\"tab\" aria-selected=\"true\" aria-controls=\"dc-content\" data-tab=\"earnings\">실적발표</button>\n      <button type=\"button\" id=\"dc-ir-tab\" class=\"dc-tab\" role=\"tab\" aria-selected=\"false\" aria-controls=\"dc-content\" data-tab=\"ir\">IR일정</button>\n    </div>\n    <div class=\"dc-legend\"></div>\n  </div>\n  <div id=\"dc-content\" role=\"tabpanel\" aria-labelledby=\"dc-earnings-tab\">\n    <div class=\"dc-layout\">\n      <div class=\"dc-calendar\"><div class=\"dc-weekdays\" aria-hidden=\"true\"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class=\"dc-grid\" role=\"group\" aria-label=\"월간 일정 날짜 선택\"></div></div>\n      <aside class=\"dc-sidebar\" aria-label=\"선택한 날짜의 기업 목록\"><div class=\"dc-sidebar-header\"><span class=\"dc-selected-date\"><span class=\"dc-date-label\"></span></span><span class=\"dc-selected-count\"></span></div><div class=\"dc-details\" aria-live=\"polite\"></div></aside>\n    </div>\n  </div>\n  <div class=\"dc-footer\"><span>실제 공시 표본 · 과거 실적·컨센서스 Quantiwise</span><span>QoQ 전분기 · YoY 전년동기 · 엑셀 갱신 10/28 02:41</span></div>\n</div>\n";
+    container.innerHTML='<div class="calendar-page-head"><div class="eyebrow">EVENT CALENDAR</div><h1>캘린더</h1><p>기업 실적 발표와 IR 일정을 확인합니다.</p><div class="calendar-status"></div></div>'+"<div id=\"dart-calendar-sample\" aria-label=\"투자 대시보드 일정 캘린더 샘플\">\n<div class=\"dc-header\">\n    <div class=\"dc-month-control\"><button type=\"button\" class=\"dc-arrow\" data-action=\"prev\" aria-label=\"이전 달\">‹</button><button type=\"button\" class=\"dc-today-button\" data-action=\"today\">오늘</button></div>\n    <div class=\"dc-heading\"><div class=\"dc-month\"></div><div class=\"dc-total\" aria-live=\"polite\"></div></div>\n    <div class=\"dc-month-control\"><button type=\"button\" class=\"dc-arrow\" data-action=\"next\" aria-label=\"다음 달\">›</button></div>\n  </div>\n  <div class=\"dc-toolbar\">\n    <div class=\"dc-tabs\" role=\"tablist\" aria-label=\"일정 종류\">\n      <button type=\"button\" id=\"dc-earnings-tab\" class=\"dc-tab\" role=\"tab\" aria-selected=\"true\" aria-controls=\"dc-content\" data-tab=\"earnings\">실적발표</button>\n      <button type=\"button\" id=\"dc-ir-tab\" class=\"dc-tab\" role=\"tab\" aria-selected=\"false\" aria-controls=\"dc-content\" data-tab=\"ir\">IR일정</button>\n    </div>\n    <div class=\"dc-legend\"></div>\n  </div>\n  <div id=\"dc-content\" role=\"tabpanel\" aria-labelledby=\"dc-earnings-tab\">\n    <div class=\"dc-layout\">\n      <div class=\"dc-calendar\"><div class=\"dc-weekdays\" aria-hidden=\"true\"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class=\"dc-grid\" role=\"group\" aria-label=\"월간 일정 날짜 선택\"></div></div>\n      <aside class=\"dc-sidebar\" aria-label=\"선택한 날짜의 기업 목록\"><div class=\"dc-sidebar-header\"><span class=\"dc-selected-date\"><span class=\"dc-date-label\"></span></span><span class=\"dc-selected-count\"></span></div><div class=\"dc-details\" tabindex=\"0\" aria-label=\"선택한 날짜의 전체 일정, 스크롤하여 보기\" aria-live=\"polite\"></div></aside>\n    </div>\n  </div>\n  <div class=\"dc-footer\"><span>실제 공시 표본 · 과거 실적·컨센서스 Quantiwise</span><span>QoQ 전분기 · YoY 전년동기 · 엑셀 갱신 10/28 02:41</span></div>\n</div>\n";
     const status=container.querySelector('.calendar-status');
     status.textContent=dataset.sample?'실제 공시 표본을 연결한 시범 화면입니다. 수집 범위에 포함되지 않은 일정은 표시되지 않습니다.':`DART 수집 기준 ${dataset.asOf}${dataset.quantiwise?' · Quantiwise 보강값은 별도 저장 기준':' · 공개 공시 데이터'}`;
     initializeCalendar(dataset);
@@ -26,7 +26,7 @@ function initializeCalendar(dataset){
   const firstMonth=months[0],lastMonth=months.at(-1);
   const allowedMonth=month=>month>=firstMonth&&month<=lastMonth;
   const settings={visibleCompanies:3,panelWidth:320};
-  let state=remembered||{month:today.slice(0,7),selected:dataset.events.filter(e=>e.status==='published').map(e=>e.date).sort().at(-1)||today,tab:'earnings',page:0,sort:hasMarketCap?'marketCap':'operatingProfit',expanded:'20261027800226'};
+  let state=remembered||{month:today.slice(0,7),selected:dataset.events.filter(e=>e.status==='published').map(e=>e.date).sort().at(-1)||today,tab:'earnings',sort:hasMarketCap?'marketCap':'operatingProfit',expanded:'20261027800226'};
   state.month=state.selected.slice(0,7);
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -83,6 +83,7 @@ function initializeCalendar(dataset){
     root.querySelector('#dc-content').setAttribute('aria-labelledby',state.tab==='earnings'?'dc-earnings-tab':'dc-ir-tab');
     root.querySelector('.dc-legend').innerHTML=state.tab==='ir'?'<span class="dc-key"><span class="dc-dot ir"></span>IR 일정</span>':'<span class="dc-key"><span class="dc-dot"></span>발표 예정</span><span class="dc-key"><span class="dc-dot published"></span>공시 발표</span>';
     const first=new Date(year,month-1,1,12);const count=new Date(year,month,0).getDate();const cells=Math.ceil((first.getDay()+count)/7)*7;
+    root.style.setProperty('--dc-week-rows',cells/7);
     const grid=[];
     for(let i=0;i<cells;i++){
       const d=new Date(year,month-1,i-first.getDay()+1,12),key=iso(d),items=dayEvents(key),outside=d.getMonth()!==month-1;
@@ -113,14 +114,14 @@ function initializeCalendar(dataset){
         if(status==='published'){
           if(state.sort==='operatingProfit')list.sort((a,b)=>(b.financials?.metrics.operatingProfit?.value??-Infinity)-(a.financials?.metrics.operatingProfit?.value??-Infinity));
           if(state.sort==='marketCap')list.sort((a,b)=>((Number.isFinite(b.marketCap)?b.marketCap:-Infinity)-(Number.isFinite(a.marketCap)?a.marketCap:-Infinity))||a.company.localeCompare(b.company,'ko'));
-          const pages=Math.ceil(list.length/5);state.page=Math.min(Math.max(Number(state.page)||0,0),pages-1);
-          const visible=list.slice(state.page*5,state.page*5+5);
-          return `<div class="dc-earnings-controls"><span data-tooltip="${state.sort==='marketCap'?'원본 S열의 시가총액 기준기간 '+esc(capPeriodLabel):'QoQ 전분기 대비 / YoY 전년동기 대비'}">잠정 실적 ${list.length}곳${state.sort==='marketCap'&&capPeriodLabel?' · 시총 '+esc(capPeriodLabel):' · QoQ / YoY'}</span><select class="dc-sort" aria-label="발표 실적 정렬"><option value="marketCap" ${state.sort==='marketCap'?'selected':''}>시가총액순</option><option value="operatingProfit" ${state.sort==='operatingProfit'?'selected':''}>영업이익순</option><option value="company" ${state.sort==='company'?'selected':''}>가나다순</option></select></div><section class="dc-group published">${visible.map(resultRow).join('')}</section>${pages>1?`<div class="dc-pagination"><button type="button" class="dc-page-button" data-page="prev" ${state.page===0?'disabled':''}>이전</button><span>${state.page*5+1}–${Math.min((state.page+1)*5,list.length)} / ${list.length}곳</span><button type="button" class="dc-page-button" data-page="next" ${state.page===pages-1?'disabled':''}>다음</button></div>`:''}`;
+          const visible=list;
+          return `<div class="dc-earnings-controls"><span data-tooltip="${state.sort==='marketCap'?'원본 S열의 시가총액 기준기간 '+esc(capPeriodLabel):'QoQ 전분기 대비 / YoY 전년동기 대비'}">잠정 실적 ${list.length}곳${state.sort==='marketCap'&&capPeriodLabel?' · 시총 '+esc(capPeriodLabel):' · QoQ / YoY'}</span><select class="dc-sort" aria-label="발표 실적 정렬"><option value="marketCap" ${state.sort==='marketCap'?'selected':''}>시가총액순</option><option value="operatingProfit" ${state.sort==='operatingProfit'?'selected':''}>영업이익순</option><option value="company" ${state.sort==='company'?'selected':''}>가나다순</option></select></div><section class="dc-group published">${visible.map(resultRow).join('')}</section>`;
         }
         return `<section class="dc-group"><div class="dc-group-head"><span class="dc-key"><span class="dc-dot"></span>실적 발표 예정</span><span>${list.length}건</span></div><div class="dc-company-grid">${list.map(e=>`<div class="dc-company"><span class="dc-company-name">${esc(e.company)}</span><span class="dc-company-meta"><span>${esc(e.stock)}</span><span class="dc-market">${esc(e.market)}</span></span></div>`).join('')}</div></section>`;
       }).join('');
     }
 
+    details.scrollTop=0;
     const capOption=root.querySelector('.dc-sort option[value="marketCap"]');
     if(capOption)capOption.disabled=!hasMarketCap;
   }
@@ -128,16 +129,15 @@ function initializeCalendar(dataset){
     const summary=event.target.closest('.dc-result-summary');
     if(summary){event.preventDefault();const detail=summary.parentElement;detail.open=!detail.open;root.querySelectorAll('.dc-result').forEach(other=>{if(other!==detail)other.open=false;});state.expanded=detail.open?detail.dataset.receipt:null;persist();return;}
     const day=event.target.closest('[data-date]');
-    if(day){const month=day.dataset.date.slice(0,7);if(!allowedMonth(month))return;state.selected=day.dataset.date;state.month=month;state.page=0;draw();persist();return;}
-    const tab=event.target.closest('[data-tab]');if(tab){state.tab=tab.dataset.tab;state.page=0;draw();persist();return;}
-    const paging=event.target.closest('[data-page]');if(paging){state.page+=paging.dataset.page==='next'?1:-1;draw();persist();return;}
+    if(day){const month=day.dataset.date.slice(0,7);if(!allowedMonth(month))return;state.selected=day.dataset.date;state.month=month;draw();persist();return;}
+    const tab=event.target.closest('[data-tab]');if(tab){state.tab=tab.dataset.tab;draw();persist();return;}
     const action=event.target.closest('[data-action]')?.dataset.action;
     if(action==='today'){state.month=today.slice(0,7);state.selected=today;draw();persist();}
     else if(action==='prev'||action==='next'){
       const shift=new Date(state.month+'-01T12:00:00');shift.setMonth(shift.getMonth()+(action==='next'?1:-1));state.month=iso(shift).slice(0,7);const available=events.filter(e=>e.type===state.tab&&e.date.startsWith(state.month)).map(e=>e.date).sort();state.selected=available[0]||state.month+'-01';draw();persist();
     }
   });
-  root.addEventListener('change',event=>{if(event.target.matches('.dc-sort')){state.sort=event.target.value;state.page=0;draw();persist();}});
+  root.addEventListener('change',event=>{if(event.target.matches('.dc-sort')){state.sort=event.target.value;draw();persist();}});
   root.querySelector('.dc-tabs').addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();state.tab=event.key==='Home'?'earnings':event.key==='End'?'ir':state.tab==='ir'?'earnings':'ir';draw();root.querySelector(`[data-tab="${state.tab}"]`).focus();persist();}});
   draw();
 }

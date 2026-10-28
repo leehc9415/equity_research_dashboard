@@ -3,6 +3,7 @@ from datetime import date
 import copy,json,sys,tempfile,unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
 from investment_data.calendar import CollectionError,parse_filing,collect,merge,atomic_write,validate
+from investment_data.calendar_quantiwise import enrich_calendar
 
 def filing(receipt='20261027800001',title='결산실적공시 예고(안내공시)'):
     return dict(corp_name='샘플기업',stock_code='000020',corp_code='00100000',corp_cls='Y',rcept_no=receipt,rcept_dt='20261027',report_nm=title)
@@ -51,5 +52,28 @@ class CalendarTests(unittest.TestCase):
         self.assertEqual(events[0]['financials']['consensus'],consensus)
         self.assertEqual([h['period'] for h in events[0]['financials']['history']],['2026.3Q','2026.1Q'])
         with self.assertRaises(CollectionError):validate(dict(schemaVersion=1,publicDataSources=['OpenDART'],events=events))
+    def test_newly_collected_company_joins_saved_quantiwise_by_stock_and_quarter(self):
+        event=parse_filing(filing(),NOTICE)
+        event.update(status='published',financials=dict(period='2026.3Q',metrics={m:dict(value=120,previous=100,priorYear=80) for m in ('revenue','operatingProfit','netIncome')},history=[],consensus=None))
+        snapshot=dict(metadata=dict(savedRefreshAt='2026-10-28T03:01:29+09:00',marketCapColumn=dict(period='202609'),columns=[dict(kind='consensus',period='202609',baseDateSetting='CPD-1TD')]),companies=[dict(stockCode='000020',fiscalMonth=12,marketCap=5000,actuals={'202509':dict(revenue=80,operatingProfit=80,netIncome=80),'202512':dict(revenue=90,operatingProfit=90,netIncome=90),'202603':dict(revenue=95,operatingProfit=95,netIncome=95),'202606':dict(revenue=100,operatingProfit=100,netIncome=100)},consensus={'202609':dict(revenue=130,operatingProfit=130,netIncome=130)})])
+        data=dict(schemaVersion=1,events=[event]);enrich_calendar(data,snapshot)
+        self.assertEqual(event['marketCap'],5000);self.assertEqual(len(event['financials']['history']),5)
+        self.assertEqual(event['financials']['consensus']['metrics']['operatingProfit'],130)
+        self.assertEqual(event['financials']['metrics']['operatingProfit']['value'],120)
+        before=copy.deepcopy(data);enrich_calendar(data,snapshot);self.assertEqual(data,before)
+        event['financials']['period']='2026.4Q';enrich_calendar(data,snapshot)
+        self.assertIsNone(event['financials']['consensus'])
+    def test_reference_basis_mismatch_does_not_override_dart_or_show_comparable_consensus(self):
+        event=parse_filing(filing(),NOTICE)
+        event.update(status='published',financials=dict(period='2026.3Q',metrics={m:dict(value=120,previous=100,priorYear=80) for m in ('revenue','operatingProfit','netIncome')},history=[]))
+        snapshot=dict(metadata={},companies=[dict(stockCode='000020',fiscalMonth=12,actuals={'202606':dict(revenue=1000,operatingProfit=1000,netIncome=1000)},consensus={'202609':dict(revenue=130,operatingProfit=130,netIncome=130)})])
+        enrich_calendar(dict(events=[event]),snapshot)
+        self.assertFalse(event['financials']['consensus']['comparable']['operatingProfit'])
+        self.assertEqual(event['financials']['history'][1]['operatingProfit'],100)
+    def test_non_quarter_and_unverified_currency_do_not_join_consensus(self):
+        event=parse_filing(filing(),NOTICE);event['financials']=dict(period='2026.FY',metrics={},history=[])
+        snapshot=dict(metadata={},companies=[dict(stockCode='000020',fiscalMonth=12,localCurrencyUnverified=True,marketCap=5000,actuals={},consensus={})])
+        enrich_calendar(dict(events=[event]),snapshot);self.assertNotIn('marketCap',event)
+        self.assertNotIn('consensus',event['financials'])
 
 if __name__=='__main__':unittest.main()

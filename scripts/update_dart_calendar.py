@@ -3,6 +3,7 @@ import json, os, sys
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'src'))
 from investment_data.calendar import DartClient, CollectionError, collect, atomic_write
+from investment_data.calendar_quantiwise import enrich_calendar
 
 def main():
     key=os.environ.get('DART_API_KEY')
@@ -10,6 +11,8 @@ def main():
     path=ROOT/'dashboard/data/calendar-data.json'
     current=json.loads(path.read_text(encoding='utf-8'))
     updated,count=collect(current,DartClient(key,ROOT/'data/local/calendar/documents'))
+    reference=ROOT/'data/reference/quantiwise-calendar.json'
+    if reference.exists():enrich_calendar(updated,json.loads(reference.read_text(encoding='utf-8')))
     if updated!=current:atomic_write(path,updated)
     print(f'DART collection complete: {count} new filings; {len(updated["events"])} events')
 

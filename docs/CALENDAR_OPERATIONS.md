@@ -1,8 +1,8 @@
 # Calendar integration and DART updates
 
-The top-level Calendar menu loads `dashboard/data/calendar-data.json` on first entry. The export dashboard keeps its existing data and controls. Direct link: `#calendar`.
+The top-level Calendar menu loads `dashboard/data/calendar-data.json` on first entry. The export dashboard keeps its existing data and controls. Direct link: `#calendar`. The calendar body has a fixed height at each viewport size. Every selected-day event is rendered; only the right-hand details region scrolls, with no result pagination. Mobile stacks a fixed-height details region below the month grid.
 
-The public bundle contains DART metadata and actual figures, plus the minimal Quantiwise history, consensus and market capitalization used by the calendar. The user explicitly authorized publishing this supplement to the public GitHub repository and Pages site on 2026-10-28. The whole workbook, unrelated companies and extraction files are not published. The original Excel workbook is never opened, edited or refreshed by this integration.
+The public bundle contains DART metadata and actual figures, plus the Quantiwise history, consensus and market capitalization used by the calendar. The user explicitly authorized publishing this supplement to the public GitHub repository and Pages site on 2026-10-28. The saved, normalized company reference is tracked at `data/reference/quantiwise-calendar.json` so newly arriving filings can join by stock and fiscal quarter. It includes only the required financial fields, fiscal month and source settings from the supplied universe. It excludes workbook internals, company-name duplicates, original source-row addresses and unrelated extraction files. The original Excel workbook is never opened, edited or refreshed by this integration.
 
 ## GitHub collection
 
@@ -12,7 +12,9 @@ The first collection checks the preceding 31 days. Later runs overlap the last s
 
 Collection and validation complete before atomically replacing the published calendar. If an API response, date, earnings unit or correction relationship cannot be interpreted, collection fails and the existing file remains unchanged. Unknown correction relationships require review rather than silently changing an unrelated event.
 
-The updater does not acquire fresh Quantiwise estimates or market capitalizations on GitHub. Published supplements retain the workbook's saved timestamp and original period/base-date settings; they are not represented as a live feed or guaranteed pre-announcement consensus vintage. New DART collections preserve matching supplements and do not reuse a different quarter's consensus. DART-only bundles still reject Quantiwise enrichments during validation. The browser never receives the API key or the whole workbook.
+After each collection, the updater applies `calendar_quantiwise.enrich_calendar` to all calendar events, including filings newly received that day. A current-period consensus joins by stock and quarter; no prior published event for that stock is required. Historical comparisons rebuild from DART values and the saved company reference, so repeated runs are idempotent and corrections recompute comparability. DART figures stay authoritative. Material discrepancies disable the affected consensus comparison; unverified currencies and non-December fiscal calendars do not join quarter financials.
+
+The updater does not acquire fresh Quantiwise estimates or market capitalizations on GitHub. Published supplements retain the workbook's saved timestamp and original period/base-date settings; they are not represented as a live feed or guaranteed pre-announcement consensus vintage. A different quarter's consensus is not reused. DART-only bundles still reject Quantiwise enrichments during validation. The browser receives only the events' joined values, never the API key, whole workbook or whole company reference.
 
 ## Deployment
 
