@@ -2,7 +2,7 @@
 
 The top-level Calendar menu loads `dashboard/data/calendar-data.json` on first entry. The export dashboard keeps its existing data and controls. Direct link: `#calendar`.
 
-The public bundle contains exclusively public DART metadata and figures reparsed from original DART documents. Quantiwise history, consensus and market capitalization remain in the local preview and are not published without explicit authorization for the public repository and Pages destination. The original Excel workbook is never opened, edited or refreshed by this integration.
+The public bundle contains DART metadata and actual figures, plus the minimal Quantiwise history, consensus and market capitalization used by the calendar. The user explicitly authorized publishing this supplement to the public GitHub repository and Pages site on 2026-10-28. The whole workbook, unrelated companies and extraction files are not published. The original Excel workbook is never opened, edited or refreshed by this integration.
 
 ## GitHub collection
 
@@ -12,7 +12,7 @@ The first collection checks the preceding 31 days. Later runs overlap the last s
 
 Collection and validation complete before atomically replacing the published calendar. If an API response, date, earnings unit or correction relationship cannot be interpreted, collection fails and the existing file remains unchanged. Unknown correction relationships require review rather than silently changing an unrelated event.
 
-The updater does not acquire Quantiwise estimates or market capitalizations on GitHub. DART-only public bundles reject private enrichments during validation. The locally enriched preview is separate. The browser never receives the API key or the whole workbook.
+The updater does not acquire fresh Quantiwise estimates or market capitalizations on GitHub. Published supplements retain the workbook's saved timestamp and original period/base-date settings; they are not represented as a live feed or guaranteed pre-announcement consensus vintage. New DART collections preserve matching supplements and do not reuse a different quarter's consensus. DART-only bundles still reject Quantiwise enrichments during validation. The browser never receives the API key or the whole workbook.
 
 ## Deployment
 

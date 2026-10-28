@@ -39,5 +39,17 @@ class CalendarTests(unittest.TestCase):
     def test_same_quarter_can_have_distinct_preliminary_release_dates(self):
         base=parse_filing(filing(),NOTICE);base.update(status='published',date='2026-10-07',basis='연결',financials=dict(period='2026.3Q',history=[],consensus=None))
         events=[base];new=copy.deepcopy(base);new.update(date='2026-10-30',receipt='20261030800001');merge(events,new);self.assertEqual(len(events),2)
+    def test_dart_correction_keeps_approved_matching_supplement(self):
+        base=parse_filing(filing(),NOTICE)
+        consensus=dict(period='2026.3Q',metrics=dict(operatingProfit=100),source='Quantiwise')
+        base.update(status='published',basis='연결',marketCap=5000,marketCapPeriod='202609',financials=dict(period='2026.3Q',consensus=consensus,history=[dict(period='2026.1Q',source='Quantiwise',operatingProfit=80)],historyHasQuantiwise=True))
+        revised=copy.deepcopy(base);revised.update(receipt='20261028800002');revised.pop('marketCap');revised.pop('marketCapPeriod')
+        revised['financials']=dict(period='2026.3Q',consensus=None,history=[dict(period='2026.3Q',source='DART',operatingProfit=120)])
+        events=[base];merge(events,revised)
+        validate(dict(schemaVersion=1,publicDataSources=['OpenDART','Quantiwise'],events=events))
+        self.assertEqual(len(events),1);self.assertEqual(events[0]['marketCap'],5000)
+        self.assertEqual(events[0]['financials']['consensus'],consensus)
+        self.assertEqual([h['period'] for h in events[0]['financials']['history']],['2026.3Q','2026.1Q'])
+        with self.assertRaises(CollectionError):validate(dict(schemaVersion=1,publicDataSources=['OpenDART'],events=events))
 
 if __name__=='__main__':unittest.main()
