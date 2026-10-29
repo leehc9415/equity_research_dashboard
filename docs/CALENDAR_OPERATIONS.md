@@ -26,6 +26,8 @@ The updater does not acquire fresh Quantiwise estimates or market capitalization
 
 ## Deployment
 
+For Samsung SDI (DART corp 00126362), consolidated 2026.3Q only, the user explicitly requested comparison of the reported DART operating profit against the saved consensus despite the AMPC presentation change. `useReportedBasis` applies this narrow display policy, retains the reported actual/QoQ/YoY, filters the history table to DART source rows, and labels the comparison as a direct calculation using reported figures. No AMPC adjustment is inferred or applied. The source JSON and its comparability flags remain unchanged. Other companies, periods and standalone releases retain normal basis review.
+
 `Deploy investment dashboard` publishes dashboard changes on main and can be called by either collector. Export and DART collection remain independent. All deployments use the same concurrency group and check out current main so they publish the current combined dashboard. GITHUB_TOKEN-generated data commits do not need to trigger another push workflow: each collector calls deployment directly after a verified update.
 
 ## Checks

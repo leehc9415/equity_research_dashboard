@@ -1,4 +1,4 @@
-import {preferredCalendarEvents,calendarDayGroups} from './calendar-events.mjs?v=20261028-status';
+import {preferredCalendarEvents,calendarDayGroups,useReportedBasis} from './calendar-events.mjs?v=20261029-reported';
 let cachedData;
 let dataPromise;
 let remembered;
@@ -54,23 +54,26 @@ function initializeCalendar(dataset){
     if(!f)return `<div class="dc-company"><span class="dc-company-name">${esc(e.company)}</span></div>`;
     const keys=[['revenue','매출'],['operatingProfit','영업이익'],['netIncome','순이익']];
     const metrics=keys.map(([key,label])=>`<span class="dc-metric"><span class="dc-metric-label">${label}</span><span class="dc-metric-value">${amount(f.metrics[key]?.value)}</span>${growth(f.metrics[key])}</span>`).join('');
-    const rows=f.history.map(row=>`<tr><td data-tooltip="${esc(row.source||'DART')}">${esc(row.period)}</td><td>${amount(row.revenue)}</td><td>${amount(row.operatingProfit)}</td></tr>`).join('');
+    const reportedBasis=useReportedBasis(e);
+    const history=reportedBasis?f.history.filter(row=>row.source==='DART'):f.history;
+    const rows=history.map(row=>`<tr><td data-tooltip="${esc(row.source||'DART')}">${esc(row.period)}</td><td>${amount(row.revenue)}</td><td>${amount(row.operatingProfit)}</td></tr>`).join('');
     const consensus=f.consensus;
     const expected=consensus?.metrics.operatingProfit;
     const actual=f.metrics.operatingProfit?.value;
-    const blocked=expected!==null&&expected!==undefined&&actual!==null&&actual!==undefined&&consensus?.comparable.operatingProfit===false;
+    const hasComparisonValues=expected!==null&&expected!==undefined&&actual!==null&&actual!==undefined;
+    const blocked=hasComparisonValues&&!reportedBasis&&consensus?.comparable.operatingProfit===false;
     let surprise='';
-    if(expected!==null&&expected!==undefined&&actual!==null&&actual!==undefined&&consensus?.comparable.operatingProfit!==false){
+    if(hasComparisonValues&&(reportedBasis||consensus?.comparable.operatingProfit!==false)){
       let text='',positive=false;
       if(expected>0){const pct=(actual-expected)/expected*100;text=`${pct>=0?'+':''}${pct.toFixed(1)}%`;positive=pct>=0;}
       else if(expected<0){text=actual>=0?'예상 적자→흑자':actual>expected?'예상보다 적자 축소':actual<expected?'예상보다 적자 확대':'예상 부합';positive=actual>=expected;}
       else{text=actual>0?'예상 0→흑자':actual<0?'예상 0→적자':'예상 부합';positive=actual>=0;}
-      surprise=`<span class="dc-surprise ${positive?'positive':''}" data-tooltip="Quantiwise 저장 컨센서스 기준 · 예상 영업이익 ${amount(expected)} · ${esc(consensus.baseDateSetting||'')}">예상比 영익 ${esc(text)}</span>`;
+      surprise=`<span class="dc-surprise ${positive?'positive':''}" data-tooltip="${reportedBasis?'공시 수치로 단순 비교 · AMPC 회계 표시 기준 변경 유의':'Quantiwise 저장 컨센서스 기준'} · 예상 영업이익 ${amount(expected)} · ${esc(consensus.baseDateSetting||'')}">예상比 영익 ${esc(text)}</span>`;
     }
     if(blocked)surprise=`<span class="dc-comparison-note" data-tooltip="예상 영업이익 ${amount(expected)} · 공시와 Quantiwise의 과거 비교 실적 기준이 다릅니다">컨센 기준 차이</span>`;
-    const comparisonExplanation=blocked?`<div class="dc-comparison-explanation"><strong>예상 대비 비교 보류</strong><div>공시와 Quantiwise의 과거 영업이익 수치가 달라 기준 확인이 필요합니다.</div>${(consensus.comparisonIssues?.operatingProfit||[]).map(issue=>`<div>${esc(issue.period)} · 공시 ${amount(issue.dart)} / Quantiwise ${amount(issue.quantiwise)}</div>`).join('')}</div>`:'';
+    const comparisonExplanation=reportedBasis&&hasComparisonValues?`<div class="dc-comparison-explanation"><strong>공시 수치로 단순 비교</strong><div>공시 영업이익과 저장 컨센서스를 직접 비교했습니다. AMPC 회계 표시 기준 변경에 유의해 주세요.</div></div>`:blocked?`<div class="dc-comparison-explanation"><strong>예상 대비 비교 보류</strong><div>공시와 Quantiwise의 과거 영업이익 수치가 달라 기준 확인이 필요합니다.</div>${(consensus.comparisonIssues?.operatingProfit||[]).map(issue=>`<div>${esc(issue.period)} · 공시 ${amount(issue.dart)} / Quantiwise ${amount(issue.quantiwise)}</div>`).join('')}</div>`:'';
     const estimates=consensus?`<div class="dc-consensus"><div class="dc-consensus-label">${esc(f.period)} 컨센서스</div><div class="dc-metrics">${keys.map(([key,label])=>`<span class="dc-metric"><span class="dc-metric-label">${label}</span><span class="dc-metric-value">${amount(consensus.metrics[key])}</span></span>`).join('')}</div><div class="dc-result-foot" data-tooltip="원본 설정 ${esc(consensus.baseDateSetting||'')} · 저장값을 그대로 사용">Quantiwise · 엑셀 갱신 ${esc(refreshStamp)}</div></div>`:'';
-    return `<details class="dc-result" data-receipt="${esc(e.receipt)}" ${state.expanded===e.receipt?'open':''}><summary class="dc-result-summary"><span class="dc-result-top"><span class="dc-result-name" ${Number.isFinite(e.marketCap)?`data-tooltip="시가총액 ${amount(e.marketCap)} · 원본 기준기간 ${esc(capPeriodLabel)}"`:''}>${esc(e.company)}</span><span class="dc-period">${esc(shortPeriod(f.period))}${e.basis==='연결'?' · 연결':e.basis==='별도'?' · 별도':''}</span>${surprise}<span class="dc-chevron" aria-hidden="true"></span></span><span class="dc-metrics">${metrics}</span></summary><div class="dc-result-expanded"><div class="dc-result-caption">${f.historyHasQuantiwise?'최근 분기 실적':'공시 내 비교 실적'}</div><table class="dc-result-table" aria-label="${esc(e.company)} 비교기간별 실적"><thead><tr><th>기간</th><th>매출액</th><th>영업이익</th></tr></thead><tbody>${rows}</tbody></table><div class="dc-result-foot">${esc(e.basis)} · 잠정실적 · 단위 억원</div>${comparisonExplanation}${estimates}</div></details>`;
+    return `<details class="dc-result" data-receipt="${esc(e.receipt)}" ${state.expanded===e.receipt?'open':''}><summary class="dc-result-summary"><span class="dc-result-top"><span class="dc-result-name" ${Number.isFinite(e.marketCap)?`data-tooltip="시가총액 ${amount(e.marketCap)} · 원본 기준기간 ${esc(capPeriodLabel)}"`:''}>${esc(e.company)}</span><span class="dc-period">${esc(shortPeriod(f.period))}${e.basis==='연결'?' · 연결':e.basis==='별도'?' · 별도':''}</span>${surprise}<span class="dc-chevron" aria-hidden="true"></span></span><span class="dc-metrics">${metrics}</span></summary><div class="dc-result-expanded"><div class="dc-result-caption">${!reportedBasis&&f.historyHasQuantiwise?'최근 분기 실적':'공시 내 비교 실적'}</div><table class="dc-result-table" aria-label="${esc(e.company)} 비교기간별 실적"><thead><tr><th>기간</th><th>매출액</th><th>영업이익</th></tr></thead><tbody>${rows}</tbody></table><div class="dc-result-foot">${esc(e.basis)} · 잠정실적 · 단위 억원</div>${comparisonExplanation}${estimates}</div></details>`;
   }
   function persist(){remembered={...state};}
   function draw(){

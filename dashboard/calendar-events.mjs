@@ -18,3 +18,9 @@ export function calendarDayGroups(events,type){
   const statuses=type==='ir'?['scheduled']:['scheduled','published'];
   return statuses.map(status=>({status,events:events.filter(e=>e.type===type&&e.status===status)})).filter(group=>group.events.length);
 }
+
+// Explicit display policy requested for Samsung SDI's reclassified 2026 Q3.
+// Other companies and periods retain the ordinary basis-review requirement.
+export function useReportedBasis(event){
+  return event.corp==='00126362'&&event.type==='earnings'&&event.status==='published'&&event.basis==='연결'&&event.financials?.period==='2026.3Q';
+}

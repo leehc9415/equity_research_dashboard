@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {preferredCalendarEvents,calendarDayGroups} from '../dashboard/calendar-events.mjs';
+import {preferredCalendarEvents,calendarDayGroups,useReportedBasis} from '../dashboard/calendar-events.mjs';
 
 const release=overrides=>({corp:'00100000',date:'2026-10-28',type:'earnings',status:'published',basis:'개별 등',receipt:'separate',financials:{period:'2026.3Q'},...overrides});
 
@@ -42,4 +42,13 @@ test('published-only and IR days do not inherit an earnings scheduled state',()=
   assert.deepEqual(calendarDayGroups([release({})],'earnings').map(g=>g.status),['published']);
   const ir=release({type:'ir',status:'scheduled'});
   assert.deepEqual(calendarDayGroups([ir,release({})],'ir')[0].events,[ir]);
+});
+test('SDI requested reported-basis policy survives a correction of that quarter',()=>{
+  const sdi=release({corp:'00126362',basis:'연결',receipt:'20261029800053'});
+  assert.equal(useReportedBasis(sdi),true);
+  assert.equal(useReportedBasis({...sdi,receipt:'20261030800099'}),true);
+});
+test('SDI exception does not bypass review for other periods, bases or corporations',()=>{
+  const sdi=release({corp:'00126362',basis:'연결'});
+  for(const event of [{...sdi,corp:'00100000'},{...sdi,financials:{period:'2026.4Q'}},{...sdi,basis:'별도'},{...sdi,status:'scheduled'}])assert.equal(useReportedBasis(event),false);
 });
