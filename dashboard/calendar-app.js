@@ -58,6 +58,7 @@ function initializeCalendar(dataset){
     const consensus=f.consensus;
     const expected=consensus?.metrics.operatingProfit;
     const actual=f.metrics.operatingProfit?.value;
+    const blocked=expected!==null&&expected!==undefined&&actual!==null&&actual!==undefined&&consensus?.comparable.operatingProfit===false;
     let surprise='';
     if(expected!==null&&expected!==undefined&&actual!==null&&actual!==undefined&&consensus?.comparable.operatingProfit!==false){
       let text='',positive=false;
@@ -66,8 +67,10 @@ function initializeCalendar(dataset){
       else{text=actual>0?'예상 0→흑자':actual<0?'예상 0→적자':'예상 부합';positive=actual>=0;}
       surprise=`<span class="dc-surprise ${positive?'positive':''}" data-tooltip="Quantiwise 저장 컨센서스 기준 · 예상 영업이익 ${amount(expected)} · ${esc(consensus.baseDateSetting||'')}">예상比 영익 ${esc(text)}</span>`;
     }
+    if(blocked)surprise=`<span class="dc-comparison-note" data-tooltip="예상 영업이익 ${amount(expected)} · 공시와 Quantiwise의 과거 비교 실적 기준이 다릅니다">컨센 기준 차이</span>`;
+    const comparisonExplanation=blocked?`<div class="dc-comparison-explanation"><strong>예상 대비 비교 보류</strong><div>공시와 Quantiwise의 과거 영업이익 수치가 달라 기준 확인이 필요합니다.</div>${(consensus.comparisonIssues?.operatingProfit||[]).map(issue=>`<div>${esc(issue.period)} · 공시 ${amount(issue.dart)} / Quantiwise ${amount(issue.quantiwise)}</div>`).join('')}</div>`:'';
     const estimates=consensus?`<div class="dc-consensus"><div class="dc-consensus-label">${esc(f.period)} 컨센서스</div><div class="dc-metrics">${keys.map(([key,label])=>`<span class="dc-metric"><span class="dc-metric-label">${label}</span><span class="dc-metric-value">${amount(consensus.metrics[key])}</span></span>`).join('')}</div><div class="dc-result-foot" data-tooltip="원본 설정 ${esc(consensus.baseDateSetting||'')} · 저장값을 그대로 사용">Quantiwise · 엑셀 갱신 ${esc(refreshStamp)}</div></div>`:'';
-    return `<details class="dc-result" data-receipt="${esc(e.receipt)}" ${state.expanded===e.receipt?'open':''}><summary class="dc-result-summary"><span class="dc-result-top"><span class="dc-result-name" ${Number.isFinite(e.marketCap)?`data-tooltip="시가총액 ${amount(e.marketCap)} · 원본 기준기간 ${esc(capPeriodLabel)}"`:''}>${esc(e.company)}</span><span class="dc-period">${esc(shortPeriod(f.period))}${e.basis==='연결'?' · 연결':e.basis==='별도'?' · 별도':''}</span>${surprise}<span class="dc-chevron" aria-hidden="true"></span></span><span class="dc-metrics">${metrics}</span></summary><div class="dc-result-expanded"><div class="dc-result-caption">${f.historyHasQuantiwise?'최근 분기 실적':'공시 내 비교 실적'}</div><table class="dc-result-table" aria-label="${esc(e.company)} 비교기간별 실적"><thead><tr><th>기간</th><th>매출액</th><th>영업이익</th></tr></thead><tbody>${rows}</tbody></table><div class="dc-result-foot">${esc(e.basis)} · 잠정실적 · 단위 억원</div>${estimates}</div></details>`;
+    return `<details class="dc-result" data-receipt="${esc(e.receipt)}" ${state.expanded===e.receipt?'open':''}><summary class="dc-result-summary"><span class="dc-result-top"><span class="dc-result-name" ${Number.isFinite(e.marketCap)?`data-tooltip="시가총액 ${amount(e.marketCap)} · 원본 기준기간 ${esc(capPeriodLabel)}"`:''}>${esc(e.company)}</span><span class="dc-period">${esc(shortPeriod(f.period))}${e.basis==='연결'?' · 연결':e.basis==='별도'?' · 별도':''}</span>${surprise}<span class="dc-chevron" aria-hidden="true"></span></span><span class="dc-metrics">${metrics}</span></summary><div class="dc-result-expanded"><div class="dc-result-caption">${f.historyHasQuantiwise?'최근 분기 실적':'공시 내 비교 실적'}</div><table class="dc-result-table" aria-label="${esc(e.company)} 비교기간별 실적"><thead><tr><th>기간</th><th>매출액</th><th>영업이익</th></tr></thead><tbody>${rows}</tbody></table><div class="dc-result-foot">${esc(e.basis)} · 잠정실적 · 단위 억원</div>${comparisonExplanation}${estimates}</div></details>`;
   }
   function persist(){remembered={...state};}
   function draw(){
