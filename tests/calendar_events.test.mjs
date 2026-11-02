@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {preferredCalendarEvents,calendarDayGroups,useReportedBasis} from '../dashboard/calendar-events.mjs';
+import {preferredCalendarEvents,calendarDayGroups,useReportedBasis,hasBasisDifference,financialHistory} from '../dashboard/calendar-events.mjs';
 
 const release=overrides=>({corp:'00100000',date:'2026-10-28',type:'earnings',status:'published',basis:'개별 등',receipt:'separate',financials:{period:'2026.3Q'},...overrides});
 
@@ -43,12 +43,26 @@ test('published-only and IR days do not inherit an earnings scheduled state',()=
   const ir=release({type:'ir',status:'scheduled'});
   assert.deepEqual(calendarDayGroups([ir,release({})],'ir')[0].events,[ir]);
 });
-test('SDI requested reported-basis policy survives a correction of that quarter',()=>{
-  const sdi=release({corp:'00126362',basis:'연결',receipt:'20261029800053'});
-  assert.equal(useReportedBasis(sdi),true);
-  assert.equal(useReportedBasis({...sdi,receipt:'20261030800099'}),true);
+test('reported actuals are used for all companies, periods and accounting bases',()=>{
+  for(const event of [release({corp:'00126362'}),release({corp:'00155276'}),release({financials:{period:'2026.4Q'}}),release({basis:'별도'}),release({basis:'연결'})])assert.equal(useReportedBasis(event),true);
 });
-test('SDI exception does not bypass review for other periods, bases or corporations',()=>{
-  const sdi=release({corp:'00126362',basis:'연결'});
-  for(const event of [{...sdi,corp:'00100000'},{...sdi,financials:{period:'2026.4Q'}},{...sdi,basis:'별도'},{...sdi,status:'scheduled'}])assert.equal(useReportedBasis(event),false);
+test('scheduled and IR events never acquire an actual-result comparison',()=>{
+  assert.equal(useReportedBasis(release({status:'scheduled'})),false);
+  assert.equal(useReportedBasis(release({type:'ir'})),false);
+});
+test('a source mismatch keeps reported history and preserves actual zero values',()=>{
+  const event=release({financials:{consensus:{comparable:{operatingProfit:false}},history:[{period:'2026.3Q',source:'DART',operatingProfit:0},{period:'2026.2Q',source:'DART',operatingProfit:120},{period:'2026.1Q',source:'Quantiwise',operatingProfit:null}]}});
+  const before=structuredClone(event);
+  assert.equal(hasBasisDifference(event),true);
+  assert.deepEqual(financialHistory(event).map(row=>row.operatingProfit),[0,120]);
+  assert.deepEqual(event,before);
+});
+test('consistent reference history remains available',()=>{
+  const event=release({financials:{consensus:{comparable:{revenue:true,operatingProfit:true,netIncome:true}},history:[{source:'DART',operatingProfit:120},{source:'Quantiwise',operatingProfit:100}]}});
+  assert.equal(hasBasisDifference(event),false);assert.equal(financialHistory(event).length,2);
+});
+test('a discrepancy in any metric uses reported history without inventing consensus',()=>{
+  const event=release({financials:{consensus:{comparable:{revenue:true,operatingProfit:true,netIncome:false}},history:[{source:'DART',operatingProfit:120},{source:'Quantiwise',operatingProfit:100}]}});
+  assert.equal(hasBasisDifference(event),true);assert.equal(financialHistory(event).length,1);
+  delete event.financials.consensus;assert.equal(hasBasisDifference(event),false);assert.equal(event.financials.consensus,undefined);
 });
