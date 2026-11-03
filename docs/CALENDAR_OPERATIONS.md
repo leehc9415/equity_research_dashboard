@@ -10,6 +10,12 @@ Month cells and the right-hand list use the same `calendarDayGroups` for earning
 
 The public bundle contains DART metadata and actual figures, plus the Quantiwise history, consensus and market capitalization used by the calendar. The user explicitly authorized publishing this supplement to the public GitHub repository and Pages site on 2026-10-28. The saved, normalized company reference is tracked at `data/reference/quantiwise-calendar.json` so newly arriving filings can join by stock and fiscal quarter. It includes only the required financial fields, fiscal month and source settings from the supplied universe. It excludes workbook internals, company-name duplicates, original source-row addresses and unrelated extraction files. The original Excel workbook is never opened, edited or refreshed by this integration.
 
+## Browser freshness
+
+An open, visible calendar revalidates its data every five minutes with browser caching disabled. Returning to the window/tab triggers a check when the last successful browser read is at least a minute old. Reentering the calendar reloads a cache older than five minutes. In-flight requests are shared; background checks stop when another dashboard section is active.
+
+Only changed JSON rebuilds the calendar. Selected date, tab, sort, expanded company and details scroll position are preserved. A failed background response leaves the last good data visible and retries later. The visible status shows the data file's `generatedAt` in Korea time; this is the last data change, not proof of the latest empty collector run. The status tooltip separately records the browser's last successful file check. Browser refresh does not trigger DART collection or Quantiwise Refresh.
+
 ## GitHub collection
 
 Add the OpenDART API key as repository Actions secret `DART_API_KEY`. Do not put it in any tracked file. The `Update DART calendar` workflow queries filings every 30 minutes on weekdays from 09:07 through 21:37 KST. Scheduled execution can be delayed by GitHub. Manual execution is also available.

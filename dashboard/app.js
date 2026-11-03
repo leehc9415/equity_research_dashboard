@@ -1,5 +1,5 @@
 import { mountMarkets } from './markets-app.js?v=20261103-trim';
-import { mountCalendar } from './calendar-app.js?v=20261102-reported';
+import { mountCalendar } from './calendar-app.js?v=20261103-refresh';
 const app = document.querySelector('#app');
 const fmt = new Intl.NumberFormat('ko-KR', {maximumFractionDigits: 1});
 const num = v => fmt.format(v ?? 0);

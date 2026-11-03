@@ -2,17 +2,65 @@ import {preferredCalendarEvents,calendarDayGroups,useReportedBasis,hasBasisDiffe
 let cachedData;
 let dataPromise;
 let remembered;
-export async function mountCalendar(container){
-  container.innerHTML='<div class="loading">공시 캘린더를 불러오는 중입니다…</div>';
+const REFRESH_MS=5*60*1000;
+let activeContainer,refreshTimer,lastCheckedAt=0,refreshing=false;
+const kstStamp=value=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(value));
+function calendarActive(container=activeContainer){
+  return !!container?.isConnected&&!!document.querySelector('[data-section="calendar"]')?.classList.contains('active');
+}
+async function loadCalendar(force=false){
+  if(dataPromise)return dataPromise;
+  if(cachedData&&!force&&Date.now()-lastCheckedAt<REFRESH_MS)return cachedData;
+  dataPromise=fetch('data/calendar-data.json',{cache:'no-store'}).then(async response=>{
+    if(!response.ok)throw new Error('캘린더 데이터 '+response.status);
+    const data=await response.json();
+    if(data.schemaVersion!==1||!Array.isArray(data.events))throw new Error('캘린더 데이터 형식 오류');
+    cachedData=data;lastCheckedAt=Date.now();return data;
+  }).finally(()=>{dataPromise=null;});
+  return dataPromise;
+}
+function updateCalendarStatus(container,dataset,failed=false){
+  const status=container.querySelector('.calendar-status');if(!status)return;
+  const generated=Date.parse(dataset.generatedAt);
+  const updated=Number.isFinite(generated)?kstStamp(generated):dataset.asOf;
+  status.textContent=dataset.sample?'실제 공시 표본을 연결한 시범 화면입니다. 수집 범위에 포함되지 않은 일정은 표시되지 않습니다.':`DART 데이터 갱신 ${updated} (한국시간)${dataset.quantiwise?' · Quantiwise 보강값은 별도 저장 기준':' · 공개 공시 데이터'}${dataset.pendingDocuments?.length?' · 공시 원문 대기 '+dataset.pendingDocuments.length+'건':''}${failed?' · 화면 갱신 재시도 중':''}`;
+  status.title=lastCheckedAt?'화면 데이터 확인 '+kstStamp(lastCheckedAt)+' (한국시간)':'';
+}
+function scheduleRefresh(){
+  clearTimeout(refreshTimer);
+  if(calendarActive())refreshTimer=setTimeout(refreshVisibleCalendar,REFRESH_MS);
+}
+async function refreshVisibleCalendar(){
+  if(refreshing||!cachedData||document.hidden||!calendarActive())return;
+  const container=activeContainer,previous=cachedData;refreshing=true;
   try{
-    if(!dataPromise)dataPromise=fetch('data/calendar-data.json').then(async response=>{if(!response.ok)throw new Error('캘린더 데이터 '+response.status);const data=await response.json();if(data.schemaVersion!==1||!Array.isArray(data.events))throw new Error('캘린더 데이터 형식 오류');cachedData=data;return data;}).catch(error=>{dataPromise=null;throw error;});
-    const dataset=cachedData||await dataPromise;
-    if(!container.isConnected||!document.querySelector('[data-section="calendar"]')?.classList.contains('active'))return;
+    const next=await loadCalendar(true);
+    if(!calendarActive(container))return;
+    if(JSON.stringify(next)!==JSON.stringify(previous)){
+      const scroll=container.querySelector('.dc-details')?.scrollTop||0;
+      const selected=container.querySelector('.dc-day[aria-pressed="true"]')?.dataset.date;
+      await mountCalendar(container,{preserveView:true,data:next});
+      if(container.querySelector('.dc-day[aria-pressed="true"]')?.dataset.date===selected){
+        const details=container.querySelector('.dc-details');if(details)details.scrollTop=scroll;
+      }
+    }else updateCalendarStatus(container,next);
+  }catch(error){if(calendarActive(container))updateCalendarStatus(container,previous,true);}
+  finally{refreshing=false;scheduleRefresh();}
+}
+function refreshOnReturn(){if(Date.now()-lastCheckedAt>=60*1000)refreshVisibleCalendar();}
+window.addEventListener('focus',refreshOnReturn);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshOnReturn();});
+export async function mountCalendar(container,options={}){
+  activeContainer=container;
+  if(!options.preserveView)container.innerHTML='<div class="loading">공시 캘린더를 불러오는 중입니다…</div>';
+  try{
+    const dataset=options.data||await loadCalendar();
+    if(!calendarActive(container))return;
     container.innerHTML='<div class="calendar-page-head"><div class="eyebrow">EVENT CALENDAR</div><h1>캘린더</h1><p>기업 실적 발표와 IR 일정을 확인합니다.</p><div class="calendar-status"></div></div>'+"<div id=\"dart-calendar-sample\" aria-label=\"투자 대시보드 일정 캘린더 샘플\">\n<div class=\"dc-header\">\n    <div class=\"dc-month-control\"><button type=\"button\" class=\"dc-arrow\" data-action=\"prev\" aria-label=\"이전 달\">‹</button><button type=\"button\" class=\"dc-today-button\" data-action=\"today\">오늘</button></div>\n    <div class=\"dc-heading\"><div class=\"dc-month\"></div><div class=\"dc-total\" aria-live=\"polite\"></div></div>\n    <div class=\"dc-month-control\"><button type=\"button\" class=\"dc-arrow\" data-action=\"next\" aria-label=\"다음 달\">›</button></div>\n  </div>\n  <div class=\"dc-toolbar\">\n    <div class=\"dc-tabs\" role=\"tablist\" aria-label=\"일정 종류\">\n      <button type=\"button\" id=\"dc-earnings-tab\" class=\"dc-tab\" role=\"tab\" aria-selected=\"true\" aria-controls=\"dc-content\" data-tab=\"earnings\">실적발표</button>\n      <button type=\"button\" id=\"dc-ir-tab\" class=\"dc-tab\" role=\"tab\" aria-selected=\"false\" aria-controls=\"dc-content\" data-tab=\"ir\">IR일정</button>\n    </div>\n    <div class=\"dc-legend\"></div>\n  </div>\n  <div id=\"dc-content\" role=\"tabpanel\" aria-labelledby=\"dc-earnings-tab\">\n    <div class=\"dc-layout\">\n      <div class=\"dc-calendar\"><div class=\"dc-weekdays\" aria-hidden=\"true\"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class=\"dc-grid\" role=\"group\" aria-label=\"월간 일정 날짜 선택\"></div></div>\n      <aside class=\"dc-sidebar\" aria-label=\"선택한 날짜의 기업 목록\"><div class=\"dc-sidebar-header\"><span class=\"dc-selected-date\"><span class=\"dc-date-label\"></span></span><span class=\"dc-selected-count\"></span></div><div class=\"dc-details\" tabindex=\"0\" aria-label=\"선택한 날짜의 전체 일정, 스크롤하여 보기\" aria-live=\"polite\"></div></aside>\n    </div>\n  </div>\n  <div class=\"dc-footer\"><span>실제 공시 표본 · 과거 실적·컨센서스 Quantiwise</span><span>QoQ 전분기 · YoY 전년동기 · 엑셀 갱신 10/28 02:41</span></div>\n</div>\n";
-    const status=container.querySelector('.calendar-status');
-    status.textContent=dataset.sample?'실제 공시 표본을 연결한 시범 화면입니다. 수집 범위에 포함되지 않은 일정은 표시되지 않습니다.':`DART 수집 기준 ${dataset.asOf}${dataset.quantiwise?' · Quantiwise 보강값은 별도 저장 기준':' · 공개 공시 데이터'}${dataset.pendingDocuments?.length?' · 공시 원문 대기 '+dataset.pendingDocuments.length+'건':''}`;
+    updateCalendarStatus(container,dataset);
     initializeCalendar(dataset);
-  }catch(error){container.innerHTML='<div class="card card-pad"><h2>캘린더를 불러오지 못했습니다</h2><p>잠시 후 다시 시도해 주세요.</p><button id="calendar-retry">다시 시도</button></div>';container.querySelector('#calendar-retry').onclick=()=>mountCalendar(container);}
+    scheduleRefresh();
+  }catch(error){if(!calendarActive(container))return;container.innerHTML='<div class="card card-pad"><h2>캘린더를 불러오지 못했습니다</h2><p>잠시 후 다시 시도해 주세요.</p><button id="calendar-retry">다시 시도</button></div>';container.querySelector('#calendar-retry').onclick=()=>mountCalendar(container);}
 }
 function initializeCalendar(dataset){
 
