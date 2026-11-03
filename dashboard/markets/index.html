@@ -91,6 +91,11 @@ table.t th.l,table.t td.l{text-align:left}
 table.t td{text-align:right;padding:6px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
 table.t tr.sel td{background:var(--chip)}
 table.t tr.idx td{background:var(--chip);font-weight:600}
+table.sectbl tbody tr{cursor:pointer}
+table.sectbl td.sub{color:var(--sub);font-size:12px}
+.wbar{display:inline-block;width:70px;height:9px;border:1px solid #6b8fd6;border-radius:5px;margin-right:6px;vertical-align:middle;overflow:hidden}
+.wbar i{display:block;height:100%;background:#dbe6fb}
+@media (max-width:700px){table.sectbl .upj{display:none}.wbar{width:34px}}
 table.t tbody tr:hover td{background:var(--chip)}
 .q{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:5px;color:#fff}
 .q-주도{background:#e0383e}.q-약화{background:#f0913a}.q-소외{background:#2f6fdf}.q-개선{background:#22a06b}
@@ -310,8 +315,10 @@ function renderGroup(tab){
   mountGrid($("#grid"), g.cards);
 }
 
-const SECTOR_SORT = [["rel_3m","3개월 상대"],["ret_1m","1개월"],["chg_1d","당일"],["rs","RS"],["mcap","시가총액"],["dd_52w","52주 고점 대비"]];
-let secSort = "rel_3m", secQuery = "";
+// 섹터 구성 종목 표
+const SEC_COLS = [["name","종목","l"],["upjong","네이버 업종","l upj"],["mcap","시총(억)",""],["w","비중",""],["chg_1d","당일",""],
+  ["ret_1m","1개월",""],["ret_3m","3개월",""],["rs","RS",""]];
+let secSort = "mcap", secDir = -1, secQuery = "";
 function loadScript(src){
   return new Promise((ok, no) => { const s = document.createElement("script");
     s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
@@ -321,33 +328,45 @@ async function renderSector(sec){
   const sc = g && g.cards.find(c => c.sector === sec);
   if (!(window.DASH_SECTOR && window.DASH_SECTOR[sec])){
     $("#main").innerHTML = `<div class="empty">불러오는 중…</div>`;
-    try { await loadScript(`data/kr_${encodeURIComponent(sec)}.js`); }
+    try { await loadScript(`data/kr_${encodeURIComponent(sec)}.js?v=${encodeURIComponent(D.generated || "")}`); }
     catch { $("#main").innerHTML = `<div class="empty">섹터 데이터를 찾을 수 없습니다.</div>`; return; }
   }
   const S = window.DASH_SECTOR[sec];
+  const tot = S.cards.reduce((a, c) => a + (c.mcap || 0), 0);
+  const rows = S.cards.map(c => ({...c, w: tot ? (c.mcap || 0) / tot : null}));
+  const wmax = Math.max(...rows.map(r => r.w || 0), 1e-9);
+  const asof = S.cards.reduce((a, c) => c.date && c.date > a ? c.date : a, "");
   const draw = () => {
     const q = secQuery.trim().toLowerCase();
-    const list = sortCards(S.cards.filter(c => !q || c.name.toLowerCase().includes(q) || c.id.includes(q)), secSort);
-    const nChg = S.cards.filter(c => c.changed).length;
-    $("#grid").innerHTML = list.map(c => cardHTML(c, ["ret_1m","rel_3m","rs"], c.id)).join("") ||
-      `<div class="empty">검색 결과 없음</div>`;
-    $("#cnt").textContent = `${list.length}/${S.cards.length}종목 · 바뀐 카드 ${nChg}개`;
-    mountGrid($("#grid"), S.cards);
+    const list = rows.filter(r => !q || r.name.toLowerCase().includes(q) || r.id.includes(q)).sort((x, y) => {
+      const a = x[secSort], b = y[secSort];
+      if (a == null && b == null) return 0; if (a == null) return 1; if (b == null) return -1;
+      return (typeof a === "string" ? a.localeCompare(b, "ko") : a - b) * secDir;
+    });
+    const th = ([k, l, al]) => `<th class="${al}" data-k="${k}">${l}${k === secSort ? (secDir < 0 ? " ▼" : " ▲") : ""}</th>`;
+    const pc = v => `<td class="${cls(v)}">${pct(v)}</td>`;
+    $("#sectbl").innerHTML = `<thead><tr>${SEC_COLS.map(th).join("")}</tr></thead><tbody>${list.map(r => `
+      <tr data-link="${esc(r.link || "")}"><td class="l"><b>${esc(r.name)}</b> <span class="code">${esc(r.market || "")}</span></td>
+      <td class="l sub upj">${esc(r.upjong || "")}</td>
+      <td>${r.mcap == null ? "–" : Math.round(r.mcap).toLocaleString()}</td>
+      <td><span class="wbar"><i style="width:${r.w == null ? 0 : Math.max(2, r.w / wmax * 100)}%"></i></span>${r.w == null ? "–" : (r.w * 100).toFixed(1) + "%"}</td>
+      ${pc(r.chg_1d)}${pc(r.ret_1m)}${pc(r.ret_3m)}<td>${r.rs ?? "–"}</td></tr>`).join("")
+      || `<tr><td colspan="${SEC_COLS.length}" class="l"><div class="empty">검색 결과 없음</div></td></tr>`}</tbody>`;
+    $("#cnt").textContent = q ? `${list.length}/${S.cards.length}종목` : "";
+    $("#sectbl").querySelectorAll("th").forEach(h => h.onclick = () => {
+      const k = h.dataset.k; if (k === secSort) secDir = -secDir; else { secSort = k; secDir = ["name","upjong"].includes(k) ? 1 : -1; } draw(); });
+    $("#sectbl").querySelectorAll("tbody tr[data-link]").forEach(tr => tr.onclick = () => { if (tr.dataset.link) window.open(tr.dataset.link, "_blank", "noopener"); });
   };
+  const idx = sc ? ` · 지수 <span class="${cls(sc.chg_1d)}">${pct(sc.chg_1d)}</span> · 1개월 <span class="${cls(sc.ret_1m)}">${pct0(sc.ret_1m)}</span> · 3개월 <span class="${cls(sc.ret_3m)}">${pct0(sc.ret_3m)}</span>` : "";
   $("#main").innerHTML = `
     <div class="tools"><button class="back" id="back">← 한국 업종</button>
       <h2>${esc(sc ? sc.name : sec)}</h2>
-      ${sc ? `<span class="chg ${cls(sc.chg_1d)}" style="margin-left:0">${pct(sc.chg_1d)}</span>
-      <span class="note" style="margin:0">${footer(sc, ["ret_1m","rel_3m","dd_52w"])}</span>` : ""}</div>
-    <div class="note">${S.cards.length}종목 · 시총가중 (시총 300억↑) · 정렬 기준을 바꾸거나 이름·코드로 찾을 수 있음 · 카드를 누르면 네이버 증권</div>
-    <div class="tools">
-      <select id="sort">${SECTOR_SORT.map(([k, l]) => `<option value="${k}" ${k===secSort?"selected":""}>${l} 순</option>`).join("")}</select>
-      <input id="q" placeholder="종목명·코드" value="${esc(secQuery)}" size="12">
-      <span class="note" id="cnt" style="margin:0"></span></div>
-    <div class="grid" id="grid"></div>
-    <div class="foot">포함 네이버 업종 — ${S.upjong.map(([u, n]) => `${esc(u)} ${n}`).join(" · ")}</div>`;
+      <span class="note" style="margin:0">${S.cards.length}종목 · 시총가중 (시총 300억↑)${idx}${asof ? ` · ${asof} 기준` : ""}</span></div>
+    <div class="note">포함 네이버 업종 — ${S.upjong.map(([u, n]) => `${esc(u)} ${n}`).join(" · ")}</div>
+    <div class="tools"><input id="q" placeholder="종목명·코드" value="${esc(secQuery)}" size="12">
+      <span class="note" id="cnt" style="margin:0"></span><span class="note" style="margin:0 0 0 auto">제목을 누르면 정렬 · 종목을 누르면 네이버 증권</span></div>
+    <div class="tw"><table class="t sectbl" id="sectbl"></table></div>`;
   $("#back").onclick = () => { location.hash = "#kr"; };
-  $("#sort").onchange = e => { secSort = e.target.value; draw(); };
   $("#q").oninput = e => { secQuery = e.target.value; draw(); };
   draw();
 }

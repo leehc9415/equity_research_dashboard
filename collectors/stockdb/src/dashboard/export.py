@@ -140,6 +140,18 @@ def _card(sid: str, s: pd.Series | None, lt: pd.Series | None, bench3m: float | 
     return c
 
 
+def _member(code: str, s: pd.Series | None, lt: pd.Series | None, **extra) -> dict:
+    """섹터 구성 종목 표 한 줄 (차트 시계열 없음)."""
+    chg = float(s.iloc[-1] / s.iloc[-2] - 1) if s is not None and len(s) > 1 else None
+    c = {"id": code, **extra, "date": None, "chg_1d": _pct(chg)}
+    if lt is not None:
+        c.update(date=str(lt["date"])[:10], close=_sig(lt["close"], 6), ret_1m=_pct(lt["ret_1m"]), ret_3m=_pct(lt["ret_3m"]),
+                 mcap=_sig(lt["mcap"] / 1e8, 4) if pd.notna(lt["mcap"]) else None,
+                 value=_sig(lt["value"] / 1e8, 4) if pd.notna(lt["value"]) else None,
+                 rs=None if pd.isna(lt["rs"]) else int(lt["rs"]))
+    return c
+
+
 def _write_js(path: Path, var: str, key: str | None, obj) -> int:
     txt = json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
     if key is None:
@@ -201,20 +213,14 @@ def export(con=None, verbose: bool = True, kr: bool = True) -> dict:
     size = {"overview.js": _write_js(SITE / "data" / "overview.js", "DASH_OVERVIEW", None, overview)}
 
     if kr:
-        # 섹터 구성 종목
-        b3 = bench_3m("KS11")
+        # 섹터 구성 종목 (표: 시총·비중·등락·RS — 차트 시계열은 넣지 않음)
         for sec, g in members.groupby("sector_id"):
             cards = []
             for _, r in g.iterrows():
                 code = r["code"]
-                lt = latest.loc[code] if code in latest.index else None
-                c = _card(code, series.get(code), lt, b3, name=r["name"], market=r["market"], upjong=r["upjong"],
-                          link=f"https://m.stock.naver.com/domestic/stock/{code}/total")
-                if lt is not None:
-                    c.update(mcap=_sig(lt["mcap"] / 1e8, 4) if pd.notna(lt["mcap"]) else None,
-                             value=_sig(lt["value"] / 1e8, 4) if pd.notna(lt["value"]) else None,
-                             rs=None if pd.isna(lt["rs"]) else int(lt["rs"]))
-                cards.append(c)
+                cards.append(_member(code, series.get(code), latest.loc[code] if code in latest.index else None,
+                                     name=r["name"], market=r["market"], upjong=r["upjong"],
+                                     link=f"https://m.stock.naver.com/domestic/stock/{code}/total"))
             upj = g.groupby("upjong").size().sort_values(ascending=False)
             obj = {"sector": sec, "upjong": [[k, int(v)] for k, v in upj.items()], "cards": cards}
             size[f"kr_{sec}.js"] = _write_js(SITE / "data" / f"kr_{sec}.js", "DASH_SECTOR", sec, obj)

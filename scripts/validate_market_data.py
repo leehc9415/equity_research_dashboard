@@ -51,6 +51,26 @@ def validate_cards(cards):
     return ids
 
 
+def validate_members(cards):
+    """섹터 구성 종목 표 (차트 시계열 없음)."""
+    ids = set()
+    if not cards:
+        raise ValueError('Empty sector member list')
+    for card in cards:
+        sid = card['id']
+        if not sid or sid in ids:
+            raise ValueError(f'Duplicate/empty member ID: {sid}')
+        ids.add(sid)
+        date.fromisoformat(card['date'])
+        for name in ('chg_1d', 'ret_1m', 'ret_3m', 'close', 'mcap', 'value'):
+            value = card.get(name)
+            if value is not None and (not isinstance(value, (int, float)) or not math.isfinite(value)):
+                raise ValueError(f'Invalid {name}: {sid}')
+        if card.get('rs') is not None and not 0 <= card['rs'] <= 99:
+            raise ValueError(f'Invalid RS: {sid}')
+    return ids
+
+
 def validate_directory(directory=DEFAULT, baseline=None):
     directory = Path(directory)
     overview = read_assignment(directory / 'overview.js', 'window.DASH_OVERVIEW=')
@@ -85,7 +105,7 @@ def validate_directory(directory=DEFAULT, baseline=None):
             sectors.add(sector)
             prefix = f'window.DASH_SECTOR=window.DASH_SECTOR||{{}};window.DASH_SECTOR[{json.dumps(sector)}]='
             detail = read_assignment(directory / f'kr_{sector}.js', prefix)
-            validate_cards(detail['cards'])
+            validate_members(detail['cards'])
             if detail['sector'] != sector or len(detail['cards']) != card['count']:
                 raise ValueError(f'Sector membership/count mismatch: {sector}')
             if baseline and (Path(baseline) / f'kr_{sector}.js').exists():
