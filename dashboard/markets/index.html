@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Market Charts</title>
+<style>
+:root{
+  --bg:#eef0f5; --card:#fff; --ink:#1b2236; --sub:#6b7280; --line:#e5e7eb;
+  --px:#1f2a44; --ma:#f0913a; --up:#e0383e; --dn:#2f6fdf; --flat:#9ca3af;
+  --up-bg:#fdecec; --dn-bg:#e9f0fd; --hl:#f0913a; --chip:#f3f4f6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f131b; --card:#171c27; --ink:#e7eaf0; --sub:#9aa3b2; --line:#2a3140;
+    --px:#d5dbe7; --ma:#f0913a; --up:#ff5a5f; --dn:#5b8ff9; --flat:#6b7280;
+    --up-bg:#3a1e22; --dn-bg:#1c2940; --chip:#222837;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f131b; --card:#171c27; --ink:#e7eaf0; --sub:#9aa3b2; --line:#2a3140;
+  --px:#d5dbe7; --ma:#f0913a; --up:#ff5a5f; --dn:#5b8ff9; --flat:#6b7280;
+  --up-bg:#3a1e22; --dn-bg:#1c2940; --chip:#222837;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:14px/1.4 -apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar{max-width:1500px;margin:0 auto;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.brand{font-weight:800;letter-spacing:-.02em;margin-right:8px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tab{border:0;background:none;color:var(--sub);font:inherit;font-weight:600;padding:6px 10px;border-radius:8px;cursor:pointer}
+.tab.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.tf{margin-left:auto;display:flex;gap:4px}
+.tf button{border:1px solid var(--line);background:var(--card);color:var(--sub);font:inherit;font-size:12px;padding:4px 10px;border-radius:6px;cursor:pointer}
+.tf button.on{color:var(--ink);border-color:var(--ink)}
+main{max-width:1500px;margin:0 auto;padding:12px 16px 40px}
+.note{color:var(--sub);font-size:12px;margin:2px 0 10px}
+.note b{color:var(--ink)}
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0 10px}
+.tools select,.tools input{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
+.back{border:0;background:var(--card);color:var(--ink);font:inherit;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer}
+h2{font-size:18px;margin:4px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:10px}
+.sep{grid-column:1/-1;height:0}
+.card{background:var(--card);border-radius:12px;padding:10px 12px 8px;border:1.5px solid transparent;cursor:pointer;min-width:0}
+.card:hover{box-shadow:0 2px 10px rgba(0,0,0,.08)}
+.card.hl{border-color:var(--hl)}
+.top{display:flex;align-items:baseline;gap:6px;min-width:0}
+.nm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.02em}
+.tk{color:var(--sub);font-size:11px;white-space:nowrap}
+.chg{margin-left:auto;font-weight:700;white-space:nowrap}
+.up{color:var(--up)} .dn{color:var(--dn)} .fl{color:var(--flat)}
+svg.ch{display:block;width:100%;height:auto;margin:4px 0 2px}
+svg.ch text{font-size:9px;fill:var(--sub)}
+svg.ch .lab{font-size:10.5px;font-weight:700;fill:var(--ink)}
+.bot{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.bd{font-size:11px;font-weight:700;padding:1px 6px;border-radius:5px;border:1px solid transparent;cursor:pointer;background:var(--chip);color:var(--flat)}
+.bd.u{background:var(--up-bg);color:var(--up)} .bd.d{background:var(--dn-bg);color:var(--dn)}
+.bd.on{border-color:currentColor}
+.ft{margin-left:auto;color:var(--sub);font-size:11px;white-space:nowrap}
+.foot{color:var(--sub);font-size:12px;margin-top:14px}
+.empty{color:var(--sub);padding:30px 0}
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <span class="brand">Market Charts</span>
+  <nav class="tabs" id="tabs"></nav>
+  <div class="tf" id="tf" title="모든 카드의 봉 단위"></div>
+</div></header>
+<main id="main"><div class="empty">데이터를 불러오는 중…</div></main>
+
+<script src="data/overview.js"></script>
+<script>
+"use strict";
+const D = window.DASH_OVERVIEW;
+const TABS = [["kr","KR_SECTOR","한국 업종"],["us","US_SECTOR_ETF","미국 지수·섹터"],["macro","MACRO","상품·통화·금리"]];
+const TF = [["d","일"],["w","주"],["m","월"]];
+const EPOCH = Date.UTC(2000,0,1), DAY = 864e5;
+const BENCH = {KS11:"코스피", SPY:"SPY"};
+let gTF = "d";
+const cardTF = new Map();          // 카드별로 바꾼 봉 단위
+const $ = (s, el=document) => el.querySelector(s);
+
+// ---------------------------------------------------------------- 포맷
+const sign = v => v > 0 ? "+" : "";
+const cls = v => v == null ? "fl" : v > 0.00005 ? "up" : v < -0.00005 ? "dn" : "fl";
+const pct = (v, nd=1) => v == null ? "–" : sign(v) + (v*100).toFixed(nd) + "%";
+const pp = v => v == null ? "–" : sign(v) + Math.round(v*100) + "%p";
+const pct0 = v => v == null ? "–" : sign(v) + Math.round(v*100) + "%";
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function footer(c, keys){
+  const f = {
+    ret_1m: () => `1개월 ${pct0(c.ret_1m)}`,
+    rel_3m: () => `3개월 상대 ${pp(c.rel_3m)}`,
+    dd_52w: () => `52주 고점 대비 ${pct0(c.dd_52w)}`,
+    rs:     () => `RS ${c.rs ?? "–"}`,
+  };
+  return keys.map(k => f[k] ? f[k]() : "").filter(Boolean).join(" · ");
+}
+
+// ---------------------------------------------------------------- 차트
+function decode(s){
+  const t = new Array(s.t.length); let d = 0;
+  for (let i = 0; i < s.t.length; i++){ d += s.t[i]; t[i] = d; }
+  return t;
+}
+function sma(c, n){
+  const out = new Array(c.length).fill(null); let sum = 0;
+  for (let i = 0; i < c.length; i++){
+    sum += c[i]; if (i >= n) sum -= c[i-n];
+    if (i >= n-1) out[i] = sum / n;
+  }
+  return out;
+}
+function chartSVG(card, tf){
+  const s = card.series && card.series[tf];
+  const W = 260, H = 92, L = 2, R = 46, T = 6, B = 16;
+  if (!s || !s.c || s.c.length < 2) return `<svg class="ch" viewBox="0 0 ${W} ${H}"><text x="${W/2}" y="${H/2}" text-anchor="middle">데이터 없음</text></svg>`;
+  const days = decode(s), ma = sma(s.c, D.ma[tf]);
+  const c = s.c.slice(s.k), m = ma.slice(s.k), t = days.slice(s.k);
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < c.length; i++){
+    lo = Math.min(lo, c[i], m[i] ?? Infinity); hi = Math.max(hi, c[i], m[i] ?? -Infinity);
+  }
+  if (hi === lo){ hi += 1; lo -= 1; }
+  const x = i => L + (W - L - R) * i / (c.length - 1);
+  const y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+  const path = arr => { let p = "", pen = false;
+    arr.forEach((v, i) => { if (v == null){ pen = false; return; }
+      p += (pen ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1); pen = true; }); return p; };
+  // x축 눈금: 일봉 1·7월, 주·월봉 1월
+  let ticks = "", pm = -1;
+  for (let i = 0; i < t.length; i++){
+    const dt = new Date(EPOCH + t[i]*DAY), mo = dt.getUTCMonth();
+    if (pm !== -1 && mo !== pm && (tf === "d" ? (mo === 0 || mo === 6) : mo === 0)){
+      const lab = String(dt.getUTCFullYear()).slice(2) + (tf === "d" ? "." + String(mo+1).padStart(2,"0") : "");
+      ticks += `<text x="${x(i).toFixed(1)}" y="${H-3}" text-anchor="middle">${lab}</text>`;
+    }
+    pm = mo;
+  }
+  const cum = c[c.length-1] / c[0] - 1, ly = y(c[c.length-1]);
+  return `<svg class="ch" viewBox="0 0 ${W} ${H}">
+    <line x1="${L}" x2="${W-R}" y1="${H-B}" y2="${H-B}" stroke="var(--line)"/>
+    <path d="${path(m)}" fill="none" stroke="var(--ma)" stroke-width="1.3"/>
+    <path d="${path(c)}" fill="none" stroke="var(--px)" stroke-width="1.2" stroke-linejoin="round"/>
+    <circle cx="${x(c.length-1)}" cy="${ly}" r="2.4" fill="var(--px)"/>
+    <text class="lab" x="${W-R+5}" y="${Math.max(10, Math.min(H-B, ly+4))}">${pct0(cum)}</text>
+    ${ticks}</svg>`;
+}
+
+// ---------------------------------------------------------------- 카드
+function cardHTML(c, keys, sub){
+  const tf = cardTF.get(c.id) || gTF;
+  const b = c.badges || {};
+  const badges = TF.map(([k, lab]) => {
+    const v = b[k], st = v === 1 ? "u" : v === 0 ? "d" : "";
+    return `<span class="bd ${st} ${k === tf ? "on" : ""}" data-tf="${k}" title="${lab}봉 ${k==="d"?"50일":k==="w"?"30주":"10개월"}선 ${v===1?"위":v===0?"아래":"–"}">${lab}${v===1?"▲":v===0?"▼":"·"}</span>`;
+  }).join("");
+  return `<div class="card ${c.changed ? "hl" : ""}" data-id="${esc(c.id)}">
+    <div class="top"><span class="nm">${esc(c.name)}</span><span class="tk">${esc(sub)}</span>
+      <span class="chg ${cls(c.chg_1d)}">${pct(c.chg_1d)}</span></div>
+    <div class="cv" data-tf="${tf}"></div>
+    <div class="bot">${badges}<span class="ft">${footer(c, keys)}</span></div></div>`;
+}
+
+const io = new IntersectionObserver(es => es.forEach(e => {
+  if (!e.isIntersecting) return; io.unobserve(e.target); drawCard(e.target);
+}), {rootMargin: "300px"});
+let CARDS = new Map();
+function drawCard(el){
+  const c = CARDS.get(el.dataset.id); if (!c) return;
+  const tf = cardTF.get(c.id) || gTF;
+  $(".cv", el).innerHTML = chartSVG(c, tf);
+  el.querySelectorAll(".bd").forEach(b => b.classList.toggle("on", b.dataset.tf === tf));
+}
+function mountGrid(root, list){
+  CARDS = new Map(list.map(c => [c.id, c]));
+  root.querySelectorAll(".card").forEach(el => io.observe(el));
+  root.onclick = e => {
+    const card = e.target.closest(".card"); if (!card) return;
+    const c = CARDS.get(card.dataset.id), bd = e.target.closest(".bd");
+    if (bd){ cardTF.set(c.id, bd.dataset.tf); drawCard(card); return; }
+    if (c.sector){ location.hash = "#kr/" + c.sector; return; }
+    if (c.link) window.open(c.link, "_blank", "noopener");
+  };
+}
+
+// ---------------------------------------------------------------- 화면
+function sortCards(list, key, dir=-1){
+  return list.slice().sort((a, b) => {
+    const va = a[key], vb = b[key];
+    if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1;
+    return dir * (va - vb);
+  });
+}
+function renderGroup(tab){
+  const [, gid] = TABS.find(t => t[0] === tab);
+  const g = D.groups.find(x => x.id === gid);
+  if (!g){ $("#main").innerHTML = `<div class="empty">그룹 없음</div>`; return; }
+  const pinned = g.cards.filter(c => c.pinned).sort((a, b) => a.order - b.order);
+  let rest = g.cards.filter(c => !c.pinned);
+  rest = g.sort === "rel_3m_desc" ? sortCards(rest, "rel_3m") : rest.sort((a, b) => a.order - b.order);
+  const bench = BENCH[g.benchmark] || g.benchmark;
+  const n = g.cards.filter(c => c.changed).length;
+  const note = (g.sort === "rel_3m_desc" ? `정렬: 3개월 상대수익률(${esc(bench)} 대비) · ` : "자산군 순서 · ")
+    + (gid === "MACRO" ? "환율은 달러 기준(오르면 원·엔 약세), 금리는 수익률(%) 자체의 등락 · " : "")
+    + `<b>주황 테두리</b> = 오늘 일·주·월 뱃지 중 하나가 바뀐 카드(${n}개) · 뱃지: 일 50일선 / 주 30주선 / 월 10개월선 위▲·아래▼`
+    + ` · 데이터 ${g.asof || "–"} 기준`;
+  const sub = c => c.sector ? `${c.count ?? ""}종목` : (c.ticker || "");
+  const html = pinned.map(c => cardHTML(c, g.pinned_footer.length ? g.pinned_footer : g.footer, sub(c))).join("")
+    + rest.map(c => cardHTML(c, g.footer, sub(c))).join("");
+  $("#main").innerHTML = `<div class="note">${note}</div><div class="grid" id="grid">${html}</div>`;
+  mountGrid($("#grid"), g.cards);
+}
+
+const SECTOR_SORT = [["rel_3m","3개월 상대"],["ret_1m","1개월"],["chg_1d","당일"],["rs","RS"],["mcap","시가총액"],["dd_52w","52주 고점 대비"]];
+let secSort = "rel_3m", secQuery = "";
+function loadScript(src){
+  return new Promise((ok, no) => { const s = document.createElement("script");
+    s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+}
+async function renderSector(sec){
+  const g = D.groups.find(x => x.id === "KR_SECTOR");
+  const sc = g && g.cards.find(c => c.sector === sec);
+  if (!(window.DASH_SECTOR && window.DASH_SECTOR[sec])){
+    $("#main").innerHTML = `<div class="empty">불러오는 중…</div>`;
+    try { await loadScript(`data/kr_${encodeURIComponent(sec)}.js`); }
+    catch { $("#main").innerHTML = `<div class="empty">섹터 데이터를 찾을 수 없습니다.</div>`; return; }
+  }
+  const S = window.DASH_SECTOR[sec];
+  const draw = () => {
+    const q = secQuery.trim().toLowerCase();
+    const list = sortCards(S.cards.filter(c => !q || c.name.toLowerCase().includes(q) || c.id.includes(q)), secSort);
+    const nChg = S.cards.filter(c => c.changed).length;
+    $("#grid").innerHTML = list.map(c => cardHTML(c, ["ret_1m","rel_3m","rs"], c.id)).join("") ||
+      `<div class="empty">검색 결과 없음</div>`;
+    $("#cnt").textContent = `${list.length}/${S.cards.length}종목 · 바뀐 카드 ${nChg}개`;
+    mountGrid($("#grid"), S.cards);
+  };
+  $("#main").innerHTML = `
+    <div class="tools"><button class="back" id="back">← 한국 업종</button>
+      <h2>${esc(sc ? sc.name : sec)}</h2>
+      ${sc ? `<span class="chg ${cls(sc.chg_1d)}" style="margin-left:0">${pct(sc.chg_1d)}</span>
+      <span class="note" style="margin:0">${footer(sc, ["ret_1m","rel_3m","dd_52w"])}</span>` : ""}</div>
+    <div class="note">${S.cards.length}종목 · 시총가중 (시총 300억↑) · 정렬 기준을 바꾸거나 이름·코드로 찾을 수 있음 · 카드를 누르면 네이버 증권</div>
+    <div class="tools">
+      <select id="sort">${SECTOR_SORT.map(([k, l]) => `<option value="${k}" ${k===secSort?"selected":""}>${l} 순</option>`).join("")}</select>
+      <input id="q" placeholder="종목명·코드" value="${esc(secQuery)}" size="12">
+      <span class="note" id="cnt" style="margin:0"></span></div>
+    <div class="grid" id="grid"></div>
+    <div class="foot">포함 네이버 업종 — ${S.upjong.map(([u, n]) => `${esc(u)} ${n}`).join(" · ")}</div>`;
+  $("#back").onclick = () => { location.hash = "#kr"; };
+  $("#sort").onchange = e => { secSort = e.target.value; draw(); };
+  $("#q").oninput = e => { secQuery = e.target.value; draw(); };
+  draw();
+}
+
+function route(){
+  const h = (location.hash || "#kr").slice(1), [tab, sec] = h.split("/");
+  const t = TABS.find(x => x[0] === tab) ? tab : "kr";
+  $("#tabs").innerHTML = TABS.map(([k, , l]) => `<button class="tab ${k===t?"on":""}" data-k="${k}">${l}</button>`).join("");
+  if (t === "kr" && sec) renderSector(decodeURIComponent(sec)); else renderGroup(t);
+  window.scrollTo(0, 0);
+}
+$("#tabs").onclick = e => { const b = e.target.closest(".tab"); if (b) location.hash = "#" + b.dataset.k; };
+$("#tf").innerHTML = TF.map(([k, l]) => `<button data-k="${k}" class="${k===gTF?"on":""}">${l}봉</button>`).join("");
+$("#tf").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  gTF = b.dataset.k; cardTF.clear();
+  $("#tf").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll(".card").forEach(drawCard);
+};
+window.addEventListener("hashchange", route);
+if (D) route(); else $("#main").innerHTML = `<div class="empty">data/overview.js 가 없습니다. <code>python -m src.dashboard.export</code> 를 먼저 실행하세요.</div>`;
+</script>
+</body>
+</html>
