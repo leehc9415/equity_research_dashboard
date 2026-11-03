@@ -824,7 +824,7 @@ const CS_COLS = {
   trend: [["upl","52주 저점 대비",v=>"+"+v.toFixed(0)+"%",1],["gap52","52주 고점 대비",v=>v.toFixed(1)+"%",-1]],
   vcp:   [["depths","수축 깊이",v=>v.map(x=>x+"%").join(" → "),0],["pivot","피봇",v=>Math.round(v).toLocaleString(),0],["pgap","피봇 대비",v=>v.toFixed(1)+"%",-1]],
   cup:   [["depth","컵 조정폭",v=>v.toFixed(0)+"%",0],["rec","회복률",v=>v.toFixed(0)+"%",-1],["hdepth","핸들 깊이",v=>v.toFixed(1)+"%",1],["weeks","컵 기간",v=>v.toFixed(0)+"주",0],["pivot","피봇",v=>Math.round(v).toLocaleString(),0],["rpk","오른쪽 고점",v=>"피봇+"+v.toFixed(0)+"%",0],["hdays","핸들 기간",v=>v+"일",0],["pgap","피봇 대비",v=>v.toFixed(1)+"%",-1]],
-  ipo:   [["days","상장 후",v=>v+"일",1],["open0","상장 첫날 시가",v=>Math.round(v).toLocaleString(),0],["vsopen","시가 대비",v=>(v>0?"+":"")+v.toFixed(1)+"%",0]],
+  ipo:   [["days","상장 후",v=>v+"일",1],["open0","상장 첫날 시가",v=>Math.round(v).toLocaleString(),0],["low","상장 후 저점",v=>v.toFixed(0)+"%",0],["under","시가 아래 기간",v=>v+"일",0],["fday","첫 도달",v=>v===0?"오늘":v+"일 전",1],["vsopen","시가 대비",v=>(v>0?"+":"")+v.toFixed(1)+"%",0]],
   weekv: [["vx","5일 거래량 배수",v=>v.toFixed(1)+"배",-1],["r5","5일 수익률",v=>"+"+v.toFixed(1)+"%",-1]],
 };
 const CS_DEFSORT = {gap: ["vx",-1], lead: ["rs",-1], trend: ["upl",1], vcp: ["pgap",-1], cup: ["pgap",-1], ipo: ["days",1], weekv: ["vx",-1]};

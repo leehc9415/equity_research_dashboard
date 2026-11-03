@@ -20,7 +20,8 @@
                               핸들 = 피봇 이후, 깊이 ≤ 10%, 이후 고가 ≤ 피봇×1.05
                               컵 = 피봇 이전 스윙 고점(7~65주 전, 직전 20일 최고)을 왼쪽 고점으로, 바닥 조정 12~35%
                               회복률(현재가/왼쪽 고점) 95~115% · 핸들 저점이 컵 위쪽 절반 · 현재가가 피봇 −3% ~ +5%
-  ipo    IPO 셋업             상장 후 250거래일 이내 & 종가가 상장 첫날 시가의 ±10% 이내 (상장 직후 시가로 되돌아옴)
+  ipo    IPO 셋업             상장 후 250거래일 이내 & 종가가 첫날 시가 −10% 아래로 내려간 뒤 10거래일 이상 바닥을 다지고
+                              아래에서 올라와 처음으로 첫날 시가의 95%에 도달한 날부터 5거래일 이내 & 현재 종가가 첫날 시가 95~110%
   weekv  주봉 거래량 급증 상승 최근 5거래일 거래량 ≥ 직전 50일의 5일 평균 × 2 & 최근 5거래일 수익률 ≥ +5%
 
 MTT(미너비니 트렌드 템플릿) = 종가>150·200일선, 150일선>200일선, 200일선 1개월 상승, 50일선>150·200일선,
@@ -41,7 +42,7 @@ SETUPS = [
     ("trend", "추세 시작", "이동평균이 정배열로 막 바뀐 상승 2단계 초입, 52주 저점 대비 아직 덜 오른 종목"),
     ("vcp", "VCP", "고점 이후 조정 폭이 점점 줄며 거래량이 마르는 변동성 수축, 피봇 돌파 직전"),
     ("cup", "컵위드핸들", "U자로 왼쪽 고점을 회복한 뒤 핸들에서 낮아진 고점(포켓 피봇) 돌파를 노리는 자리"),
-    ("ipo", "IPO 셋업", "상장 1년 이내, 상장 첫날 시가 부근으로 되돌아온 종목"),
+    ("ipo", "IPO 셋업", "상장 1년 이내, 첫날 시가 아래에서 바닥을 다진 뒤 처음으로 시가까지 올라온 종목"),
     ("weekv", "주봉 거래량 급증 상승", "최근 1주(5거래일) 거래량이 평소 2배 이상 터지며 5% 이상 상승"),
 ]
 
@@ -188,6 +189,28 @@ def _cup(hi, lo, c, t, pocket=1.03):
     return None
 
 
+def _ipo(o0, c, lo, t):
+    """IPO 셋업 — 상장 첫날 시가 아래로 내려가 바닥을 다진 뒤, 아래에서 올라와 시가에 '처음' 다가온 종목.
+
+    · 종가가 첫날 시가의 90% 아래로 내려간 적이 있어야 함(첫날 이후)
+    · 그 뒤 처음으로 종가가 첫날 시가의 95% 이상에 도달한 날(첫 도달일)부터 5거래일 이내
+    · 시가 아래에 머문 기간(처음 −10% 이탈 ~ 첫 도달) 10거래일 이상
+    · 현재 종가가 첫날 시가의 95~110%
+    """
+    below = np.flatnonzero(c[1:t + 1] < o0 * 0.90)
+    if not len(below):
+        return None
+    k = int(below[0]) + 1
+    up = np.flatnonzero(c[k:t + 1] >= o0 * 0.95)
+    if not len(up):
+        return None
+    f = k + int(up[0])
+    if t - f > 4 or f - k < 10 or not (0.95 <= c[t] / o0 <= 1.10):
+        return None
+    return {"days": t + 1, "vsopen": (c[t] / o0 - 1) * 100, "open0": o0,
+            "low": (lo[1:t + 1].min() / o0 - 1) * 100, "under": f - k, "fday": t - f}
+
+
 def _r(v, nd=1):
     return None if v is None or not np.isfinite(v) else round(float(v), nd)
 
@@ -250,8 +273,7 @@ def build(con) -> dict:
             res["vcp"] = vcp or False
             cup = _cup(h, l, c, t) if t >= 200 and r_rs >= 70 and c[t] > ma50[t] and c[t] > ma200[t] else None
             res["cup"] = cup or False
-            res["ipo"] = (listed_new and t <= 250 and abs(c[t] / o[0] - 1) <= 0.10) and \
-                {"days": t + 1, "vsopen": (c[t] / o[0] - 1) * 100, "open0": o[0]}
+            res["ipo"] = (_ipo(o[0], c, l, t) if listed_new and t <= 250 else None) or False
             if t >= 55:
                 v5, base5 = v[t - 4:t + 1].sum(), v[t - 54:t - 4].sum() / 10
                 r5 = c[t] / c[t - 5] - 1
