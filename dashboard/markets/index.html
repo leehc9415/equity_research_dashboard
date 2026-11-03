@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Chart Book</title>
+<title>차트북</title>
 <style>
 :root{
   --bg:#eef0f5; --card:#fff; --ink:#1b2236; --sub:#6b7280; --line:#e5e7eb;
@@ -639,7 +639,7 @@ function route(){
   const h = (location.hash || "#kr").slice(1), [tab, sec] = h.split("/");
   const mode = tab === "rs" ? "rs" : "chart";
   $("#tabs").hidden = $("#tf").hidden = mode !== "chart";
-  $("#ptitle").textContent = mode === "rs" ? "RS 랭킹" : "Chart Book";
+  $("#ptitle").textContent = mode === "rs" ? "상대강도" : "차트북";
   $("#asof").textContent = D && D.generated ? `업데이트 ${D.generated}` : "";
   if (mode === "rs"){ renderRS(sec ? decodeURIComponent(sec) : null); window.scrollTo(0, 0); return; }
   const t = TABS.find(x => x[0] === tab) ? tab : "kr";
