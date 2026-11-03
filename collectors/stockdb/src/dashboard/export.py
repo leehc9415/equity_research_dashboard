@@ -222,6 +222,8 @@ def export(con=None, verbose: bool = True) -> dict:
     size["rs.js"] = _write_js(SITE / "data" / "rs.js", "DASH_RS", None, build_rs_tab(con))
     from .rs_export import build_px
     size["rs_px.js"] = _write_js(SITE / "data" / "rs_px.js", "DASH_RS_PX", None, build_px(con))   # 사용자 정의 섹터용
+    from .nh_export import build as build_nh
+    size["nh.js"] = _write_js(SITE / "data" / "nh.js", "DASH_NH", None, build_nh(con))   # 신고가 탭
 
     if own:
         con.close()

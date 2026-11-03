@@ -128,6 +128,25 @@ a.sn:hover{text-decoration:underline}
 .btn.pri{background:var(--ink);color:var(--card);border-color:var(--ink)}
 .btn.del{color:var(--up)}
 .cmsg{font-size:12px;color:var(--sub)}
+.nhtbl td.sp{padding:2px 6px}
+svg.sp{display:block;width:120px;height:30px}
+.pos{display:inline-block;width:70px;height:6px;border-radius:3px;background:var(--chip);position:relative;vertical-align:middle}
+.pos i{position:absolute;top:-2px;width:3px;height:10px;border-radius:2px;background:var(--px)}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:5px;margin-left:4px;background:var(--up-bg);color:var(--up)}
+.tag.t2{background:var(--chip);color:var(--sub)}
+tr.grp td{background:var(--chip);font-weight:700;border-bottom:0;padding-top:8px}
+.st{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:5px;color:#fff}
+.st-돌파{background:#e0383e}.st-임박{background:#f0613a}.st-근접{background:#f0913a}.st-관찰{background:#9aa3b2}.st-터치{background:#2f6fdf}
+.chips2{display:flex;gap:6px;flex-wrap:wrap}
+.chips2 button{border:1px solid var(--line);background:var(--card);color:var(--sub);font:inherit;font-size:12px;font-weight:600;padding:4px 10px;border-radius:14px;cursor:pointer}
+.chips2 button.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.flowbars{display:flex;align-items:flex-end;gap:2px;height:90px;padding:6px 4px 0}
+.flowbars div{flex:1;background:var(--line);border-radius:2px 2px 0 0;min-height:1px;position:relative}
+.flowbars div.win{background:var(--up)}
+.flowx{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);padding:2px 4px 0}
+.dv{position:relative;height:10px;width:140px;background:transparent;display:inline-block;vertical-align:middle}
+.dv:before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line)}
+.dv i{position:absolute;top:1px;height:8px;border-radius:2px}
 </style>
 </head>
 <body>
@@ -635,13 +654,170 @@ function drawStocks(){
   more.onclick = () => { RSST.limit += 100; drawStocks(); };
 }
 
+// ================================================================ 신고가 (52주 · 20일)
+const NH_TABS = [["nh","오늘 신고가"],["nh/cand","신고가 후보"],["nh/flow","섹터 흐름"]];
+const NHST = {per: "52", day: null, cap: 1000, val: 20, market: "", touch: false, stage: "전체", csort: "dist", win: 20};
+let NH = null, NHR = null;
+
+async function renderNH(sub){
+  if (!window.DASH_NH){
+    $("#main").innerHTML = `<div class="empty">불러오는 중…</div>`;
+    try { await loadScript("data/nh.js"); } catch { $("#main").innerHTML = `<div class="empty">data/nh.js 가 없습니다.</div>`; return; }
+  }
+  NH = window.DASH_NH;
+  if (!NHR){
+    const c = NH.cols;
+    NHR = NH.rows.map(r => { const o = Object.fromEntries(c.map((k, i) => [k, r[i]])); const st = NH.stocks[o.code] || [];
+      o.name = st[0] || o.code; o.market = st[1]; o.sector = st[2]; o.sub = st[3];
+      o.v20 = o.vratio ? o.value / o.vratio : null; return o; });
+  }
+  if (NHST.day == null) NHST.day = NH.days.length - 1;
+  const capOpts = [[0,"전체"],[300,"300억+"],[500,"500억+"],[1000,"1,000억+"],[2000,"2,000억+"],[5000,"5,000억+"],[10000,"1조+"]];
+  const valOpts = [[0,"전체"],[5,"5억+"],[10,"10억+"],[20,"20억+"],[50,"50억+"],[100,"100억+"]];
+  $("#main").innerHTML = `
+    <div class="tools">
+      <span class="seg" id="nhper">${[["52","52주"],["20","20일"]].map(([k, l]) => `<button data-p="${k}" class="${k===NHST.per?"on":""}">${l} 신고가</button>`).join("")}</span>
+      <select id="nhcap" title="시가총액 하한">${capOpts.map(([v, l]) => `<option value="${v}" ${v===NHST.cap?"selected":""}>시총 ${l}</option>`).join("")}</select>
+      <select id="nhval" title="20일 평균 거래대금 하한">${valOpts.map(([v, l]) => `<option value="${v}" ${v===NHST.val?"selected":""}>거래대금 ${l}</option>`).join("")}</select>
+      <select id="nhmk"><option value="">전체 시장</option><option ${NHST.market==="KOSPI"?"selected":""}>KOSPI</option><option ${NHST.market==="KOSDAQ"?"selected":""}>KOSDAQ</option></select>
+    </div>
+    <div id="nhbody"></div>`;
+  const redraw = () => (sub === "cand" ? drawCand : sub === "flow" ? drawFlow : drawToday)();
+  $("#nhper").onclick = e => { const b = e.target.closest("button"); if (b){ NHST.per = b.dataset.p; renderNH(sub); } };
+  $("#nhcap").onchange = e => { NHST.cap = +e.target.value; redraw(); };
+  $("#nhval").onchange = e => { NHST.val = +e.target.value; redraw(); };
+  $("#nhmk").onchange = e => { NHST.market = e.target.value; redraw(); };
+  redraw();
+}
+
+const nhBits = () => NHST.per === "52" ? [1, 2] : [4, 8];
+const nhPass = r => (r.mcap ?? 0) >= NHST.cap && (r.v20 ?? 0) >= NHST.val && (!NHST.market || r.market === NHST.market);
+const fmtV = r => r.value == null ? "–" : `${r.value >= 1000 ? (r.value / 1000).toFixed(1) + "천" : Math.round(r.value)}억${r.vratio ? ` <span class="code">${r.vratio.toFixed(1)}배</span>` : ""}`;
+const nhName = r => `<a class="sn" href="https://m.stock.naver.com/domestic/stock/${r.code}/total" target="_blank" rel="noopener">${esc(r.name)}</a><span class="code">${r.code}</span>`;
+function nhTags(r){
+  return (r.flags & 16 ? `<span class="tag" title="2021년 이후(DB 전체 기간) 최고 종가">21년 이후 최고가</span>` : "") + (NHST.per === "52" && r.flags & 32 ? `<span class="tag t2">신규상장</span>` : "");
+}
+function spark(code){
+  const sp = NH.spark[code]; if (!sp) return "";
+  const c = sp.c, hl = NHST.per === "52" ? sp.h52 : sp.h20, W = 120, H = 30;
+  const vals = c.filter(v => v != null).concat(hl != null ? [hl] : []);
+  const lo = Math.min(...vals), hi = Math.max(...vals), y = v => H - 2 - (H - 4) * (v - lo) / ((hi - lo) || 1), x = i => W * i / (c.length - 1);
+  let d = "", pen = false; c.forEach((v, i) => { if (v == null){ pen = false; return; } d += (pen ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1); pen = true; });
+  return `<svg class="sp" viewBox="0 0 ${W} ${H}">${hl != null ? `<line x1="0" x2="${W}" y1="${y(hl)}" y2="${y(hl)}" stroke="var(--up)" stroke-dasharray="3 2" stroke-width="1"/>` : ""}
+    <path d="${d}" fill="none" stroke="var(--px)" stroke-width="1.2"/></svg>`;
+}
+function posBar(p){ return p == null ? "–" : `<span class="pos" title="52주 범위 안 위치 ${Math.round(p * 100)}%"><i style="left:calc(${Math.min(1, Math.max(0, p)) * 100}% - 1px)"></i></span>`; }
+
+function drawToday(){
+  const [bN, bT] = nhBits(), day = NHST.day, isLast = day === NH.days.length - 1;
+  const rows = NHR.filter(r => r.day === day && nhPass(r) && (r.flags & bN || (NHST.touch && r.flags & bT)));
+  const nN = rows.filter(r => r.flags & bN).length, nT = NHR.filter(r => r.day === day && nhPass(r) && r.flags & bT).length;
+  const groups = {};
+  rows.forEach(r => (groups[r.sector || "미분류"] = groups[r.sector || "미분류"] || []).push(r));
+  const gl = Object.entries(groups).map(([k, l]) => [k, l.sort((a, b) => (b.chg ?? 0) - (a.chg ?? 0)), l.reduce((a, r) => a + (r.chg ?? 0), 0) / l.length])
+    .sort((a, b) => b[1].length - a[1].length || b[2] - a[2]);
+  const per = NHST.per === "52" ? "52주" : "20일";
+  const body = gl.map(([k, l, avg]) => `<tr class="grp"><td class="l" colspan="2">${esc(k)} <span class="code">${l.length}종목</span></td>
+      <td colspan="${isLast ? 7 : 6}" class="l"><span class="${cls(avg / 100)}">평균 ${pct(avg / 100)}</span></td></tr>`
+    + l.map(r => `<tr><td class="l">${nhName(r)}${r.flags & bN ? "" : `<span class="tag t2">터치</span>`}${nhTags(r)}</td>
+      <td class="l">${esc(r.sub || "")}</td><td>${r.close == null ? "–" : Math.round(r.close).toLocaleString()}</td>
+      <td class="${cls((r.chg ?? 0) / 100)}">${r.chg == null ? "–" : pct(r.chg / 100, 2)}</td><td>${fmtV(r)}</td>
+      <td>${r.rs ?? "–"} <span class="code">${r.rs1m ?? "–"}</span></td><td>${posBar(r.pos52)}</td>
+      ${isLast ? `<td class="sp">${spark(r.code)}</td>` : ""}<td></td></tr>`).join("")).join("");
+  $("#nhbody").innerHTML = `
+    <div class="tools">
+      <select id="nhday">${NH.days.map((d, i) => [d, i]).reverse().map(([d, i]) => `<option value="${i}" ${i===day?"selected":""}>${d}</option>`).join("")}</select>
+      <span class="note" style="margin:0"><b>${per} 신고가 ${nN}종목</b> · 터치 후 밀림 ${nT}종목 — 신고가 = 종가 ≥ 직전 ${per} 고가, 터치 = 장중 고가만 넘음</span>
+      <label class="note" style="margin:0"><input type="checkbox" id="nhtouch" ${NHST.touch?"checked":""}> 터치 후 밀림도 보기</label>
+    </div>
+    <div class="tw"><table class="t nhtbl"><thead><tr><th class="l">종목</th><th class="l">중분류</th><th>종가</th><th>등락률</th><th>거래대금·20일 대비</th><th>RS · 1M</th><th>52주 위치</th>${isLast ? `<th>최근 60일 (점선 = 직전 ${per} 고가)</th>` : ""}<th></th></tr></thead>
+    <tbody>${body || `<tr><td colspan="9" class="l"><div class="empty">조건에 맞는 신고가 종목이 없습니다</div></td></tr>`}</tbody></table></div>`;
+  $("#nhday").onchange = e => { NHST.day = +e.target.value; drawToday(); };
+  $("#nhtouch").onchange = e => { NHST.touch = e.target.checked; drawToday(); };
+}
+
+function stageOf(r){
+  const [bN, bT] = nhBits(), d = NHST.per === "52" ? r.dist52 : r.dist20;
+  if (r.flags & bN) return "돌파"; if (r.flags & bT) return "터치";
+  if (d == null || d > NH.cand_max) return null;
+  return d <= 3 ? "임박" : d <= 7 ? "근접" : "관찰";
+}
+function drawCand(){
+  const last = NH.days.length - 1, per = NHST.per === "52" ? "52주" : "20일";
+  let list = NHR.filter(r => r.day === last && nhPass(r)).map(r => ({...r, stage: stageOf(r), dist: NHST.per === "52" ? r.dist52 : r.dist20}))
+    .filter(r => r.stage && !(NHST.per === "52" && r.flags & 32 && false));
+  const order = ["돌파","임박","근접","관찰","터치"], cnt = Object.fromEntries(order.map(k => [k, list.filter(r => r.stage === k).length]));
+  if (NHST.stage !== "전체") list = list.filter(r => r.stage === NHST.stage);
+  const key = {dist: r => r.dist, atr: r => -(r.atr ?? 0), chg: r => -(r.chg ?? 0), value: r => -(r.value ?? 0), rs: r => -(r.rs ?? 0), sector: r => 0};
+  list.sort((a, b) => NHST.csort === "sector" ? (a.sector || "힣").localeCompare(b.sector || "힣") || a.dist - b.dist : key[NHST.csort](a) - key[NHST.csort](b));
+  const label = {돌파: "돌파", 임박: "임박", 근접: "근접", 관찰: "관찰", 터치: "터치 후 밀림"};
+  $("#nhbody").innerHTML = `
+    <div class="note">${NH.asof} 장마감 · 직전 ${per} 고가까지 남은 거리로 단계 구분 — 임박 ≤3% · 근접 3~7% · 관찰 7~12% · 돌파 = 종가 ≥ 고가 · 터치 후 밀림 = 장중 고가만 넘음 · ATR% = 14일 평균 변동폭/종가</div>
+    <div class="tools">
+      <span class="chips2" id="nhst">${["전체", ...order].map(k => `<button data-s="${k}" class="${k===NHST.stage?"on":""}">${k === "전체" ? "전체" : label[k]} ${k === "전체" ? Object.values(cnt).reduce((a, b) => a + b, 0) : cnt[k]}</button>`).join("")}</span>
+      <select id="nhsort">${[["dist","고가까지 가까운 순"],["atr","ATR% 큰 순"],["chg","등락률 순"],["value","거래대금 순"],["rs","RS 순"],["sector","섹터 순"]].map(([k, l]) => `<option value="${k}" ${k===NHST.csort?"selected":""}>${l}</option>`).join("")}</select>
+    </div>
+    <div class="tw"><table class="t nhtbl"><thead><tr><th class="l">종목</th><th class="l">섹터</th><th class="l">상태</th><th>고가까지</th><th>최근 60일 (점선 = 직전 ${per} 고가)</th><th>ATR%</th><th>종가</th><th>등락률</th><th>거래대금·20일 대비</th><th>RS · 1M</th></tr></thead>
+    <tbody>${list.map(r => `<tr><td class="l">${nhName(r)}${nhTags(r)}</td>
+      <td class="l">${esc(r.sector || "미분류")}<span class="code">${esc(r.sub || "")}</span></td>
+      <td class="l"><span class="st st-${r.stage}">${label[r.stage]}</span></td>
+      <td>${r.dist == null ? "–" : r.dist <= 0 ? "돌파" : r.dist.toFixed(1) + "%"}</td><td class="sp">${spark(r.code)}</td>
+      <td>${r.atr == null ? "–" : r.atr.toFixed(1) + "%"}</td><td>${r.close == null ? "–" : Math.round(r.close).toLocaleString()}</td>
+      <td class="${cls((r.chg ?? 0) / 100)}">${r.chg == null ? "–" : pct(r.chg / 100, 2)}</td><td>${fmtV(r)}</td>
+      <td>${r.rs ?? "–"} <span class="code">${r.rs1m ?? "–"}</span></td></tr>`).join("") || `<tr><td colspan="10" class="l"><div class="empty">조건에 맞는 후보가 없습니다</div></td></tr>`}</tbody></table></div>`;
+  $("#nhst").onclick = e => { const b = e.target.closest("button"); if (b){ NHST.stage = b.dataset.s; drawCand(); } };
+  $("#nhsort").onchange = e => { NHST.csort = e.target.value; drawCand(); };
+}
+
+function drawFlow(){
+  const [bN] = nhBits(), n = NH.days.length, W = NHST.win, per = NHST.per === "52" ? "52주" : "20일";
+  const hits = NHR.filter(r => r.flags & bN && nhPass(r));
+  const byDay = Array.from({length: n}, () => []);
+  hits.forEach(r => byDay[r.day].push(r));
+  const counts = byDay.map(l => l.length), mx = Math.max(1, ...counts);
+  const win = byDay.slice(n - W), half = Math.floor(W / 2), A = win.slice(0, W - half), B = win.slice(W - half);
+  const share = days => { const acc = {}, used = days.filter(l => l.length);
+    used.forEach(l => { const c = {}; l.forEach(r => c[r.sector || "미분류"] = (c[r.sector || "미분류"] || 0) + 1);
+      Object.entries(c).forEach(([k, v]) => acc[k] = (acc[k] || 0) + v / l.length); });
+    Object.keys(acc).forEach(k => acc[k] = 100 * acc[k] / (used.length || 1)); return acc; };
+  const sa = share(A), sb = share(B), secs = [...new Set([...Object.keys(sa), ...Object.keys(sb)])];
+  const flat = win.flat(), dist = {}, subs = {}, lastRow = {};
+  flat.forEach(r => { const k = r.sector || "미분류"; (dist[k] = dist[k] || new Set()).add(r.code);
+    const lr = (lastRow[k] = lastRow[k] || {}); if (!lr[r.code] || lr[r.code].day < r.day) lr[r.code] = r; (subs[k] = subs[k] || {}); subs[k][r.sub || "기타"] = (subs[k][r.sub || "기타"] || new Set()).add(r.code); });
+  const rows = secs.map(k => ({k, a: sa[k] || 0, b: sb[k] || 0, d: (sb[k] || 0) - (sa[k] || 0), n: dist[k] ? dist[k].size : 0,
+    subs: Object.entries(subs[k] || {}).map(([s, set]) => [s, set.size]).sort((x, y) => y[1] - x[1]).slice(0, 3),
+    top: Object.values(lastRow[k] || {}).sort((x, y) => (y.mcap ?? 0) - (x.mcap ?? 0)).slice(0, 5)})).sort((x, y) => y.d - x.d);
+  const md = Math.max(5, ...rows.map(r => Math.abs(r.d)));
+  const dv = d => `<span class="dv"><i style="${d >= 0 ? `left:50%;width:${50 * d / md}%;background:var(--up)` : `right:50%;width:${50 * -d / md}%;background:var(--dn)`}"></i></span>`;
+  const top = (l, s) => l.slice(0, 3).map(r => `<b>${esc(r.k)}</b> ${s}${Math.abs(r.d).toFixed(1)}%p`).join(" · ") || "없음";
+  $("#nhbody").innerHTML = `
+    <div class="note">${per} 신고가 종목이 어느 섹터(스탁이지 대분류)에서 나오는지 — 기간을 반으로 나눠 날마다의 섹터 비중을 앞·뒤로 평균해 비교 (신고가가 없던 날은 제외) · 수급(자금 유입)이 아니라 신고가 종목 수 기준</div>
+    <div class="tools"><span class="seg" id="nhwin">${[5, 10, 20].map(w => `<button data-w="${w}" class="${w===W?"on":""}">${w}일</button>`).join("")}</span>
+      <span class="note" style="margin:0">${NH.days[n - W]} ~ ${NH.asof} · 신고가 ${flat.length}건 (${new Set(flat.map(r => r.code)).size}종목)</span></div>
+    <div class="panel"><div class="note" style="margin:0 4px">날짜별 ${per} 신고가 종목 수 (최근 ${n}거래일, 빨간 막대 = 선택 기간)</div>
+      <div class="flowbars">${counts.map((c, i) => `<div class="${i >= n - W ? "win" : ""}" style="height:${100 * c / mx}%" title="${NH.days[i]} · ${c}종목"></div>`).join("")}</div>
+      <div class="flowx"><span>${NH.days[0]}</span><span>최대 ${mx}종목</span><span>${NH.asof}</span></div></div>
+    <div class="note" style="margin-top:12px">비중 늘어남: ${top(rows.filter(r => r.d > 0), "▲")} &nbsp;|&nbsp; 줄어듦: ${top(rows.filter(r => r.d < 0).reverse(), "▼")}</div>
+    <div class="tw"><table class="t"><thead><tr><th class="l">섹터</th><th>앞 ${W - half}일 평균</th><th>뒤 ${half}일 평균</th><th>변화</th><th class="l"></th><th>종목 수</th><th class="l">주요 중분류</th><th class="l">주요 종목 (시총 상위, RS)</th></tr></thead>
+    <tbody>${rows.map(r => `<tr><td class="l"><b>${esc(r.k)}</b></td><td>${r.a.toFixed(1)}%</td><td>${r.b.toFixed(1)}%</td>
+      <td class="${cls(r.d / 100)}">${r.d > 0 ? "▲" : r.d < 0 ? "▼" : ""}${Math.abs(r.d).toFixed(1)}%p</td><td class="l">${dv(r.d)}</td><td>${r.n}</td>
+      <td class="l">${r.subs.map(([s, c]) => `${esc(s)} ${c}`).join(" · ")}</td>
+      <td class="l">${r.top.map(t => `${esc(t.name)}(${t.rs ?? "–"})`).join(", ")}</td></tr>`).join("") || `<tr><td colspan="8" class="l"><div class="empty">기간 안에 신고가 종목이 없습니다</div></td></tr>`}</tbody></table></div>`;
+  $("#nhwin").onclick = e => { const b = e.target.closest("button"); if (b){ NHST.win = +b.dataset.w; drawFlow(); } };
+}
+
 function route(){
   const h = (location.hash || "#kr").slice(1), [tab, sec] = h.split("/");
-  const mode = tab === "rs" ? "rs" : "chart";
-  $("#tabs").hidden = $("#tf").hidden = mode !== "chart";
-  $("#ptitle").textContent = mode === "rs" ? "상대강도" : "차트북";
+  const mode = tab === "rs" ? "rs" : tab === "nh" ? "nh" : "chart";
+  $("#tabs").hidden = mode === "rs"; $("#tf").hidden = mode !== "chart";
+  $("#ptitle").textContent = mode === "rs" ? "상대강도" : mode === "nh" ? "신고가" : "차트북";
   $("#asof").textContent = D && D.generated ? `업데이트 ${D.generated}` : "";
   if (mode === "rs"){ renderRS(sec ? decodeURIComponent(sec) : null); window.scrollTo(0, 0); return; }
+  if (mode === "nh"){
+    const k = sec ? "nh/" + sec : "nh";
+    $("#tabs").innerHTML = NH_TABS.map(([kk, l]) => `<button class="tab ${kk===k?"on":""}" data-k="${kk}">${l}</button>`).join("");
+    renderNH(sec || "today"); window.scrollTo(0, 0); return;
+  }
   const t = TABS.find(x => x[0] === tab) ? tab : "kr";
   $("#tabs").innerHTML = TABS.map(([k, , l]) => `<button class="tab ${k===t?"on":""}" data-k="${k}">${l}</button>`).join("");
   if (t === "kr" && sec) renderSector(decodeURIComponent(sec)); else renderGroup(t);
