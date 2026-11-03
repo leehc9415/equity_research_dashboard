@@ -2,8 +2,8 @@ name: Update market dashboard
 
 on:
   schedule:
-    # 08:17 KST daily: completed US session, macro and crypto.
-    - cron: '17 23 * * *'
+    # 09:17 KST daily: completed US session and UTC crypto daily close.
+    - cron: '17 0 * * *'
     # 17:17 KST weekdays: confirmed Korean regular-session close.
     - cron: '17 8 * * 1-5'
   workflow_dispatch:
