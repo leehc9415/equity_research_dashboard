@@ -157,7 +157,7 @@ function cardHTML(c, keys, sub){
   const b = c.badges || {};
   const badges = TF.map(([k, lab]) => {
     const v = b[k], st = v === 1 ? "u" : v === 0 ? "d" : "";
-    return `<span class="bd ${st} ${k === tf ? "on" : ""}" data-tf="${k}" title="${lab}봉 ${k==="d"?"50일":k==="w"?"30주":"10개월"}선 ${v===1?"위":v===0?"아래":"–"}">${lab}${v===1?"▲":v===0?"▼":"·"}</span>`;
+    return `<span class="bd ${st} ${k === tf ? "on" : ""}" data-tf="${k}" title="${lab}봉 ${k==="d"?(D.badge_ma||{d:50}).d+"일":k==="w"?"30주":"10개월"}선 ${v===1?"위":v===0?"아래":"–"}">${lab}${v===1?"▲":v===0?"▼":"·"}</span>`;
   }).join("");
   return `<div class="card ${c.changed ? "hl" : ""}" data-id="${esc(c.id)}">
     <div class="top"><span class="nm">${esc(c.name)}</span><span class="tk">${esc(sub)}</span>
@@ -207,7 +207,7 @@ function renderGroup(tab){
   const n = g.cards.filter(c => c.changed).length;
   const note = (g.sort === "rel_3m_desc" ? `정렬: 3개월 상대수익률(${esc(bench)} 대비) · ` : "자산군 순서 · ")
     + (gid === "MACRO" ? "환율은 달러 기준(오르면 원·엔 약세), 금리는 수익률(%) 자체의 등락 · " : "")
-    + `<b>주황 테두리</b> = 오늘 일·주·월 뱃지 중 하나가 바뀐 카드(${n}개) · 뱃지: 일 50일선 / 주 30주선 / 월 10개월선 위▲·아래▼`
+    + `<b>주황 테두리</b> = 오늘 일·주·월 뱃지 중 하나가 바뀐 카드(${n}개) · 뱃지: 일 50일선 / 주 30주선 / 월 10개월선 위▲·아래▼ · 주황선: 일봉 ${D.ma.d}일선`
     + ` · 데이터 ${g.asof || "–"} 기준`;
   const sub = c => c.sector ? `${c.count ?? ""}종목` : (c.ticker || "");
   const html = pinned.map(c => cardHTML(c, g.pinned_footer.length ? g.pinned_footer : g.footer, sub(c))).join("")

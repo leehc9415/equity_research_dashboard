@@ -57,8 +57,11 @@ def validate_directory(directory=DEFAULT, baseline=None):
     groups = overview['groups']
     if len(groups) != 3 or {g['id'] for g in groups} != GROUPS:
         raise ValueError('Expected exactly three market groups')
-    if overview.get('ma') != {'d': 50, 'w': 30, 'm': 10}:
+    # 차트 주황선: 일봉 120일선 (2026-11-03 이전 내보내기는 50일선)
+    if overview.get('ma') not in ({'d': 120, 'w': 30, 'm': 10}, {'d': 50, 'w': 30, 'm': 10}):
         raise ValueError('Unexpected moving-average definition')
+    if overview.get('badge_ma', {'d': 50, 'w': 30, 'm': 10}) != {'d': 50, 'w': 30, 'm': 10}:
+        raise ValueError('Unexpected trend-badge definition')
     old_groups = {}
     if baseline and (Path(baseline) / 'overview.js').exists():
         old_groups = {g['id']: g for g in read_assignment(Path(baseline) / 'overview.js', 'window.DASH_OVERVIEW=')['groups']}

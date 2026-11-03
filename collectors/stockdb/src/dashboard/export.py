@@ -11,6 +11,7 @@ GitHub Pages 같은 정적 호스팅에도 그대로 올라간다.
   dd_52w   52주 고점 대비       rs      종합 RS(한국 종목)
   badges   일·주·월 추세 뱃지 = 종가가 이동평균 위(1)/아래(0)
              일 = 50일선, 주 = 30주선, 월 = 10개월선  (와인스타인·오닐식 장기 추세 기준)
+  차트 주황선 = 일봉 120일선 / 주봉 30주선 / 월봉 10개월선 (LINE_MA)
   changed  뱃지 3개 중 하나라도 전 거래일과 방향이 바뀌면 True → 주황 테두리
   series   d(일봉 최근 2년) / w(주봉 전체) / m(월봉 전체) 수정종가.
            t = 날짜(2000-01-01 기준 일수, 첫 값 + 차이값), c = 종가, k = 앞쪽 이평 계산용 여유 구간 길이
@@ -35,7 +36,8 @@ ROOT = Path(__file__).resolve().parents[2]
 SITE = ROOT / "site"
 EPOCH = pd.Timestamp("2000-01-01")
 DAILY_YEARS = 2
-MA = {"d": 50, "w": 30, "m": 10}
+LINE_MA = {"d": 120, "w": 30, "m": 10}    # 차트 주황선 (일봉 120일선 / 30주선 / 10개월선)
+BADGE_MA = {"d": 50, "w": 30, "m": 10}    # 일·주·월 뱃지 기준
 
 
 # --------------------------------------------------------------------------- 유틸
@@ -79,7 +81,7 @@ def _series(s: pd.Series) -> tuple[dict, dict]:
     # 일봉: 최근 2년 + 50일선 계산용 여유
     start = last - pd.DateOffset(years=DAILY_YEARS)
     i0 = int(np.searchsorted(s.index, start))
-    k = min(i0, MA["d"] - 1)
+    k = min(i0, LINE_MA["d"] - 1)
     d = s.iloc[i0 - k:]
     out["d"] = {"t": _enc_dates(d.index), "c": [_sig(v) for v in d.values], "k": k}
 
@@ -90,10 +92,10 @@ def _series(s: pd.Series) -> tuple[dict, dict]:
     # 뱃지: 오늘 vs 전 거래일 (진행 중인 주·월봉은 그날 종가로 마감했다고 보고 계산)
     def state(upto: int) -> dict:
         ss = s.iloc[:upto + 1]
-        res = {"d": int(ss.iloc[-1] > ss.iloc[-MA["d"]:].mean()) if len(ss) >= MA["d"] else None}
+        res = {"d": int(ss.iloc[-1] > ss.iloc[-BADGE_MA["d"]:].mean()) if len(ss) >= BADGE_MA["d"] else None}
         for key, rule in (("w", "W-SUN"), ("m", "M")):
             x = _period_last(ss, rule)
-            res[key] = int(x.iloc[-1] > x.iloc[-MA[key]:].mean()) if len(x) >= MA[key] else None
+            res[key] = int(x.iloc[-1] > x.iloc[-BADGE_MA[key]:].mean()) if len(x) >= BADGE_MA[key] else None
         return res
 
     badges = state(len(s) - 1)
@@ -169,7 +171,7 @@ def export(con=None, verbose: bool = True) -> dict:
         return float(latest.loc[b, "ret_3m"]) if b and b in latest.index and pd.notna(latest.loc[b, "ret_3m"]) else None
 
     sec_count = members.groupby("sector_id").size().to_dict()
-    overview = {"generated": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"), "ma": MA, "groups": []}
+    overview = {"generated": pd.Timestamp.now(tz="Asia/Seoul").strftime("%Y-%m-%d %H:%M"), "ma": LINE_MA, "badge_ma": BADGE_MA, "groups": []}
     for gid in ["KR_SECTOR", "US_SECTOR_ETF", "MACRO"]:
         if gid not in meta.index:
             continue
