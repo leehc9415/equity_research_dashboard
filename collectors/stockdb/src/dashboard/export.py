@@ -5,6 +5,7 @@ GitHub Pages 같은 정적 호스팅에도 그대로 올라간다.
 
   site/data/overview.js       화면 그룹 3개(한국 업종 / 미국 지수·섹터 ETF / 상품·통화·금리)의 카드
   site/data/kr_<섹터id>.js     섹터 클릭 시 불러오는 구성 종목 카드
+  site/data/rs.js             RS 랭킹 탭: 섹터 RRG + 종목 RS 표 (rs_export.py)
 
 카드 한 장
   chg_1d   당일 등락            ret_1m  1개월 수익률        rel_3m  3개월 상대수익률(벤치마크 대비 %p)
@@ -215,6 +216,10 @@ def export(con=None, verbose: bool = True) -> dict:
         upj = g.groupby("upjong").size().sort_values(ascending=False)
         obj = {"sector": sec, "upjong": [[k, int(v)] for k, v in upj.items()], "cards": cards}
         size[f"kr_{sec}.js"] = _write_js(SITE / "data" / f"kr_{sec}.js", "DASH_SECTOR", sec, obj)
+
+    # RS 랭킹 탭 (섹터 RRG + 종목 RS 표)
+    from .rs_export import build as build_rs_tab
+    size["rs.js"] = _write_js(SITE / "data" / "rs.js", "DASH_RS", None, build_rs_tab(con))
 
     if own:
         con.close()

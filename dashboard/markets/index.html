@@ -61,11 +61,44 @@ svg.ch .lab{font-size:10.5px;font-weight:700;fill:var(--ink)}
 .ft{margin-left:auto;color:var(--sub);font-size:11px;white-space:nowrap}
 .foot{color:var(--sub);font-size:12px;margin-top:14px}
 .empty{color:var(--sub);padding:30px 0}
+.modes{display:flex;gap:2px;background:var(--chip);border-radius:9px;padding:2px}
+.mode{border:0;background:none;color:var(--sub);font:inherit;font-weight:700;padding:5px 12px;border-radius:7px;cursor:pointer}
+.mode.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.seg{display:inline-flex;gap:2px;background:var(--chip);border-radius:8px;padding:2px}
+.seg button{border:0;background:none;color:var(--sub);font:inherit;font-size:12px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.rrgwrap{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:12px;align-items:start}
+@media (max-width:900px){.rrgwrap{grid-template-columns:1fr}}
+.panel{background:var(--card);border-radius:12px;padding:12px;min-width:0}
+svg.rrg{display:block;width:100%;height:auto}
+svg.rrg text{font-size:11px;fill:var(--sub)}
+svg.rrg .ql{font-size:13px;font-weight:800;opacity:.55}
+svg.rrg .sl{font-size:11px;font-weight:700;fill:var(--ink);paint-order:stroke;stroke:var(--card);stroke-width:3px}
+svg.rrg g.s{cursor:pointer}
+svg.rrg g.s path,svg.rrg g.s circle.t{pointer-events:none}
+svg.rrg g.s.dim{opacity:.18}
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t th{font-size:12px;color:var(--sub);font-weight:600;text-align:right;padding:6px 6px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+table.t th.l,table.t td.l{text-align:left}
+table.t td{text-align:right;padding:6px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.t tr.sel td{background:var(--chip)}
+table.t tr.idx td{background:var(--chip);font-weight:600}
+table.t tbody tr:hover td{background:var(--chip)}
+.q{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:5px;color:#fff}
+.q-주도{background:#e0383e}.q-약화{background:#f0913a}.q-소외{background:#2f6fdf}.q-개선{background:#22a06b}
+.strong{font-weight:800;color:var(--up)}
+.tw{overflow-x:auto;background:var(--card);border-radius:12px;padding:4px 8px}
+.chipx{display:inline-flex;gap:6px;align-items:center;background:var(--ink);color:var(--card);font-size:12px;font-weight:700;padding:3px 10px;border-radius:14px;cursor:pointer}
+.more{display:block;margin:10px auto 0;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;padding:6px 16px;border-radius:8px;cursor:pointer}
+a.sn{color:inherit;text-decoration:none;font-weight:700}
+a.sn:hover{text-decoration:underline}
+.code{color:var(--sub);font-size:11px;margin-left:4px}
 </style>
 </head>
 <body>
 <header><div class="bar">
   <span class="brand">Market Charts</span>
+  <nav class="modes" id="modes"></nav>
   <nav class="tabs" id="tabs"></nav>
   <div class="tf" id="tf" title="모든 카드의 봉 단위"></div>
 </div></header>
@@ -258,13 +291,185 @@ async function renderSector(sec){
   draw();
 }
 
+// ================================================================ RS 랭킹 (섹터 RRG + 종목 RS 표)
+const MODES = [["chart","차트북"],["rs","RS 랭킹"]];
+const QORDER = {"주도":0,"개선":1,"약화":2,"소외":3};
+const QCOL = {"주도":"#e0383e","약화":"#f0913a","소외":"#2f6fdf","개선":"#22a06b"};
+const quad = (a, m) => a >= 100 ? (m >= 100 ? "주도" : "약화") : (m >= 100 ? "개선" : "소외");
+const RSST = {n: null, bench: "KS11", sector: null, market: "", cap: 1000, mtt: false, q: "", sort: "rs", dir: -1, limit: 100};
+const CAPS = [[0,"전체"],[500,"500억+"],[1000,"1,000억+"],[2000,"2,000억+"],[5000,"5,000억+"],[10000,"1조+"]];
+const COLS = [["sector","섹터","l"],["srank","섹터내#",""],["name","종목명","l"],["market","시장","l"],["close","종가",""],["chg_1d","등락률",""],
+  ["rs","RS",""],["rs_1m","1M",""],["rs_3m","3M",""],["rs_6m","6M",""],["rs_12m","12M",""],["mtt","MTT",""],["mcap","시가총액",""]];
+let RS = null, STOCKS = null, SECNAME = {};
+
+async function renderRS(sec){
+  if (!window.DASH_RS){
+    $("#main").innerHTML = `<div class="empty">불러오는 중…</div>`;
+    try { await loadScript("data/rs.js"); } catch { $("#main").innerHTML = `<div class="empty">data/rs.js 가 없습니다.</div>`; return; }
+  }
+  RS = window.DASH_RS; const R = RS.rrg;
+  if (RSST.n == null) RSST.n = String(R.default_n);
+  SECNAME = Object.fromEntries(R.sectors.map(s => [s.id, s.name]));
+  if (!STOCKS){
+    const c = RS.stocks.cols;
+    STOCKS = RS.stocks.rows.map(r => Object.fromEntries(c.map((k, i) => [k, r[i]])));
+    const by = {};
+    STOCKS.forEach(s => { if (s.sector) (by[s.sector] = by[s.sector] || []).push(s); });
+    Object.values(by).forEach(l => l.sort((a, b) => (b.rs ?? -1) - (a.rs ?? -1)).forEach((s, i) => s.srank = i + 1));
+  }
+  RSST.sector = sec && SECNAME[sec] ? sec : null;
+  const bn = R.benchmarks[RSST.bench];
+  $("#main").innerHTML = `
+    <div class="note">섹터 RRG — 섹터 지수 21개를 <b>${esc(bn)}</b> 대비로 비교 · 가로 RS-Ratio(상대강도 추세) / 세로 RS-Momentum(개선 속도), 100 = 기준지수와 같음 ·
+      주봉(이번 주는 ${R.asof}까지) · 꼬리 ${R.tail}주 · 점을 누르면 아래 종목 표가 그 섹터로 좁혀짐</div>
+    <div class="tools">
+      <span class="seg" id="rsn">${R.windows.map(n => `<button data-n="${n}" class="${String(n)===RSST.n?"on":""}">${n}주</button>`).join("")}</span>
+      <span class="seg" id="rsb">${Object.entries(R.benchmarks).map(([k, v]) => `<button data-b="${k}" class="${k===RSST.bench?"on":""}">${v} 대비</button>`).join("")}</span>
+      <span class="note" style="margin:0">${esc(bn)} 이번 주 ${pct(R.bench_chg_1w[RSST.bench]/100)}</span>
+    </div>
+    <div class="rrgwrap">
+      <div class="panel" id="rrg"></div>
+      <div class="panel" style="padding:4px 8px;overflow-x:auto" id="rank"></div>
+    </div>
+    <h2 style="margin:18px 0 4px">종목 RS</h2>
+    <div class="note">IBD식 RS(0~99, 전 종목 백분위) · 1M·3M·6M·12M = 기간 수익률 백분위 · MTT = 미너비니 트렌드 템플릿 8개 조건 충족 · 섹터내# = 섹터 안 RS 순위 · 데이터 ${RS.stocks.asof} 장마감</div>
+    <div class="tools" id="rsf"></div>
+    <div class="tw"><table class="t" id="stk"></table></div>
+    <button class="more" id="more" hidden>더 보기</button>`;
+  $("#rsn").onclick = e => { const b = e.target.closest("button"); if (b){ RSST.n = b.dataset.n; renderRS(RSST.sector); } };
+  $("#rsb").onclick = e => { const b = e.target.closest("button"); if (b){ RSST.bench = b.dataset.b; renderRS(RSST.sector); } };
+  drawRRG(); drawRank(); drawFilters(); drawStocks();
+}
+
+function setSector(id){
+  RSST.sector = RSST.sector === id ? null : id; RSST.limit = 100;
+  history.replaceState(null, "", "#rs" + (RSST.sector ? "/" + RSST.sector : ""));
+  drawRRG(); drawRank(); drawFilters(); drawStocks();
+}
+
+function rrgData(){
+  const R = RS.rrg, T = R.rrg[RSST.bench];
+  return R.sectors.map(s => {
+    const tail = (T[s.id] || {})[RSST.n] || [];
+    const last = tail[tail.length - 1] || [null, null];
+    return {...s, tail, ratio: last[0], mom: last[1], q: last[0] == null ? "-" : quad(last[0], last[1])};
+  }).filter(s => s.ratio != null);
+}
+
+function drawRRG(){
+  const data = rrgData(), W = 600, H = 560, L = 44, Rm = 16, T = 16, B = 36;
+  let span = 0.5;
+  data.forEach(s => s.tail.forEach(([a, m]) => { span = Math.max(span, Math.abs(a - 100), Math.abs(m - 100)); }));
+  span = Math.ceil((span * 1.08) * 2) / 2;
+  const x = v => L + (W - L - Rm) * (v - (100 - span)) / (2 * span);
+  const y = v => T + (H - T - B) * (1 - (v - (100 - span)) / (2 * span));
+  const cx = x(100), cy = y(100);
+  const step = span <= 2 ? 0.5 : span <= 5 ? 1 : 2;
+  let grid = "";
+  for (let v = 100 - span; v <= 100 + span + 1e-9; v += step){
+    const vv = Math.round(v * 10) / 10;
+    grid += `<line x1="${x(vv)}" x2="${x(vv)}" y1="${T}" y2="${H-B}" stroke="var(--line)" stroke-width="${vv===100?1.5:.6}"/>`
+      + `<text x="${x(vv)}" y="${H-B+14}" text-anchor="middle">${vv}</text>`
+      + `<line x1="${L}" x2="${W-Rm}" y1="${y(vv)}" y2="${y(vv)}" stroke="var(--line)" stroke-width="${vv===100?1.5:.6}"/>`
+      + `<text x="${L-6}" y="${y(vv)+4}" text-anchor="end">${vv}</text>`;
+  }
+  const tint = (q, x0, y0, x1, y1) => `<rect x="${x0}" y="${y0}" width="${x1-x0}" height="${y1-y0}" fill="${QCOL[q]}" opacity=".07"/>`;
+  const quads = tint("개선", L, T, cx, cy) + tint("주도", cx, T, W-Rm, cy) + tint("소외", L, cy, cx, H-B) + tint("약화", cx, cy, W-Rm, H-B)
+    + `<text class="ql" x="${L+8}" y="${T+18}" fill="${QCOL["개선"]}">개선</text>`
+    + `<text class="ql" x="${W-Rm-8}" y="${T+18}" text-anchor="end" fill="${QCOL["주도"]}">주도</text>`
+    + `<text class="ql" x="${L+8}" y="${H-B-8}" fill="${QCOL["소외"]}">소외</text>`
+    + `<text class="ql" x="${W-Rm-8}" y="${H-B-8}" text-anchor="end" fill="${QCOL["약화"]}">약화</text>`;
+  const sel = RSST.sector;
+  const pts = data.map(s => {
+    const c = QCOL[s.q], P = s.tail.map(([a, m]) => [x(a), y(m)]);
+    const path = P.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join("");
+    const dots = P.slice(0, -1).map((p, i) => `<circle class="t" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2" fill="${c}" opacity="${(0.25 + 0.6 * i / P.length).toFixed(2)}"/>`).join("");
+    const [hx, hy] = P[P.length - 1];
+    const tip = `${s.name} · ${s.q}\nRS-Ratio ${s.ratio.toFixed(2)} · RS-Momentum ${s.mom.toFixed(2)}\n이번 주 ${s.chg_1w == null ? "–" : (s.chg_1w > 0 ? "+" : "") + s.chg_1w.toFixed(1) + "%"} · ${s.count}종목`;
+    return `<g class="s ${sel && sel !== s.id ? "dim" : ""}" data-id="${s.id}"><title>${esc(tip)}</title>
+      <path d="${path}" fill="none" stroke="${c}" stroke-width="1.4" opacity=".55"/>${dots}
+      <circle cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="${sel === s.id ? 7 : 5.5}" fill="${c}" stroke="var(--card)" stroke-width="1.5"/>
+      <text class="sl" x="${(hx + 8).toFixed(1)}" y="${(hy + 4).toFixed(1)}">${esc(s.name.split("·")[0])}</text></g>`;
+  }).join("");
+  $("#rrg").innerHTML = `<svg class="rrg" viewBox="0 0 ${W} ${H}">${quads}${grid}
+    <text x="${(L + W - Rm) / 2}" y="${H-4}" text-anchor="middle">RS-Ratio →</text>
+    <text x="12" y="${(T + H - B) / 2}" text-anchor="middle" transform="rotate(-90 12 ${(T + H - B) / 2})">RS-Momentum →</text>
+    ${pts}</svg>`;
+  $("#rrg").onclick = e => { const g = e.target.closest("g.s"); if (g) setSector(g.dataset.id); };
+}
+
+function drawRank(){
+  const data = rrgData().sort((a, b) => (QORDER[a.q] - QORDER[b.q]) || ((b.ratio + b.mom) - (a.ratio + a.mom)));
+  const cnt = {}; data.forEach(s => cnt[s.q] = (cnt[s.q] || 0) + 1);
+  $("#rank").innerHTML = `<div class="note" style="margin:6px 4px">${["주도","개선","약화","소외"].map(q => `<span class="q q-${q}">${q}</span> ${cnt[q] || 0}`).join(" &nbsp; ")}</div>
+    <table class="t"><thead><tr><th class="l">#</th><th class="l">섹터</th><th class="l">사분면</th><th>RS-Ratio</th><th>Momentum</th><th>이번 주</th><th>4주</th><th>종목</th></tr></thead><tbody>
+    ${data.map((s, i) => `<tr data-id="${s.id}" class="${RSST.sector === s.id ? "sel" : ""}" style="cursor:pointer">
+      <td class="l">${i + 1}</td><td class="l"><b>${esc(s.name)}</b></td><td class="l"><span class="q q-${s.q}">${s.q}</span></td>
+      <td>${s.ratio.toFixed(2)}</td><td>${s.mom.toFixed(2)}</td>
+      <td class="${cls((s.chg_1w ?? 0) / 100)}">${s.chg_1w == null ? "–" : pct(s.chg_1w / 100)}</td>
+      <td class="${cls((s.chg_4w ?? 0) / 100)}">${s.chg_4w == null ? "–" : pct(s.chg_4w / 100)}</td><td>${s.count}</td></tr>`).join("")}
+    </tbody></table>`;
+  $("#rank").onclick = e => { const r = e.target.closest("tr[data-id]"); if (r) setSector(r.dataset.id); };
+}
+
+function drawFilters(){
+  $("#rsf").innerHTML = `
+    ${RSST.sector ? `<span class="chipx" id="secx">${esc(SECNAME[RSST.sector])} ✕</span>` : `<span class="note" style="margin:0">전체 섹터</span>`}
+    <select id="fm"><option value="">전체 시장</option><option ${RSST.market==="KOSPI"?"selected":""}>KOSPI</option><option ${RSST.market==="KOSDAQ"?"selected":""}>KOSDAQ</option></select>
+    <select id="fc">${CAPS.map(([v, l]) => `<option value="${v}" ${v===RSST.cap?"selected":""}>${l}</option>`).join("")}</select>
+    <label class="note" style="margin:0"><input type="checkbox" id="fmtt" ${RSST.mtt?"checked":""}> MTT 충족만</label>
+    <input id="fq" placeholder="종목명·코드" size="12" value="${esc(RSST.q)}">
+    <span class="note" style="margin:0" id="fcnt"></span>`;
+  const sx = $("#secx"); if (sx) sx.onclick = () => setSector(RSST.sector);
+  $("#fm").onchange = e => { RSST.market = e.target.value; RSST.limit = 100; drawStocks(); };
+  $("#fc").onchange = e => { RSST.cap = +e.target.value; RSST.limit = 100; drawStocks(); };
+  $("#fmtt").onchange = e => { RSST.mtt = e.target.checked; RSST.limit = 100; drawStocks(); };
+  $("#fq").oninput = e => { RSST.q = e.target.value; RSST.limit = 100; drawStocks(); };
+}
+
+function drawStocks(){
+  const q = RSST.q.trim().toLowerCase();
+  let list = STOCKS.filter(s => (!RSST.sector || s.sector === RSST.sector) && (!RSST.market || s.market === RSST.market)
+    && (s.mcap ?? 0) >= RSST.cap && (!RSST.mtt || s.mtt) && (!q || s.name.toLowerCase().includes(q) || s.code.includes(q)));
+  const k = RSST.sort, d = RSST.dir;
+  const val = s => k === "sector" ? (SECNAME[s.sector] || "") : s[k];
+  list.sort((a, b) => { const va = val(a), vb = val(b);
+    if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1;
+    return typeof va === "string" ? d * va.localeCompare(vb) : d * (va - vb); });
+  $("#fcnt").textContent = `${list.length.toLocaleString()}개 종목`;
+  const rsCell = v => v == null ? "–" : (v >= 80 ? `<span class="strong">${v}</span>` : v);
+  const capFmt = v => v == null ? "–" : v >= 10000 ? (v / 10000).toFixed(1) + "조" : v.toLocaleString() + "억";
+  const idx = RS.stocks.indices.map(i => `<tr class="idx"><td class="l">지수</td><td>-</td><td class="l">${esc(i.name)}</td><td class="l">-</td>
+    <td>${i.close.toLocaleString()}</td><td class="${cls((i.chg_1d ?? 0) / 100)}">${i.chg_1d == null ? "–" : pct(i.chg_1d / 100, 2)}</td>
+    <td>${rsCell(i.rs)}</td><td>${i.rs_1m ?? "–"}</td><td>${i.rs_3m ?? "–"}</td><td>${i.rs_6m ?? "–"}</td><td>${i.rs_12m ?? "–"}</td><td>-</td><td>-</td></tr>`).join("");
+  const rows = list.slice(0, RSST.limit).map(s => `<tr>
+    <td class="l">${esc(SECNAME[s.sector] || "-")}</td><td>${s.srank ?? "-"}</td>
+    <td class="l"><a class="sn" href="https://m.stock.naver.com/domestic/stock/${s.code}/total" target="_blank" rel="noopener">${esc(s.name)}</a><span class="code">${s.code}</span></td>
+    <td class="l">${s.market === "KOSPI" ? "코스피" : s.market === "KOSDAQ" ? "코스닥" : esc(s.market || "")}</td>
+    <td>${s.close == null ? "–" : s.close.toLocaleString()}</td><td class="${cls((s.chg_1d ?? 0) / 100)}">${s.chg_1d == null ? "–" : pct(s.chg_1d / 100, 2)}</td>
+    <td>${rsCell(s.rs)}</td><td>${s.rs_1m ?? "–"}</td><td>${s.rs_3m ?? "–"}</td><td>${s.rs_6m ?? "–"}</td><td>${s.rs_12m ?? "–"}</td>
+    <td>${s.mtt ? "✓" : ""}</td><td>${capFmt(s.mcap)}</td></tr>`).join("");
+  $("#stk").innerHTML = `<thead><tr>${COLS.map(([c, l, a]) => `<th class="${a}" data-k="${c}">${l}${RSST.sort === c ? (RSST.dir < 0 ? " ↓" : " ↑") : ""}</th>`).join("")}</tr></thead>
+    <tbody>${RSST.sector ? "" : idx}${rows}</tbody>`;
+  $("#stk").querySelector("thead").onclick = e => { const th = e.target.closest("th"); if (!th) return;
+    const c = th.dataset.k; if (RSST.sort === c) RSST.dir = -RSST.dir; else { RSST.sort = c; RSST.dir = ["name","sector","market","srank"].includes(c) ? 1 : -1; } drawStocks(); };
+  const more = $("#more"); more.hidden = list.length <= RSST.limit;
+  more.textContent = `더 보기 (${Math.min(100, list.length - RSST.limit)}개)`;
+  more.onclick = () => { RSST.limit += 100; drawStocks(); };
+}
+
 function route(){
   const h = (location.hash || "#kr").slice(1), [tab, sec] = h.split("/");
+  const mode = tab === "rs" ? "rs" : "chart";
+  $("#modes").innerHTML = MODES.map(([k, l]) => `<button class="mode ${k===mode?"on":""}" data-k="${k}">${l}</button>`).join("");
+  $("#tabs").hidden = $("#tf").hidden = mode !== "chart";
+  if (mode === "rs"){ renderRS(sec ? decodeURIComponent(sec) : null); window.scrollTo(0, 0); return; }
   const t = TABS.find(x => x[0] === tab) ? tab : "kr";
   $("#tabs").innerHTML = TABS.map(([k, , l]) => `<button class="tab ${k===t?"on":""}" data-k="${k}">${l}</button>`).join("");
   if (t === "kr" && sec) renderSector(decodeURIComponent(sec)); else renderGroup(t);
   window.scrollTo(0, 0);
 }
+$("#modes").onclick = e => { const b = e.target.closest(".mode"); if (b) location.hash = b.dataset.k === "rs" ? "#rs" : "#kr"; };
 $("#tabs").onclick = e => { const b = e.target.closest(".tab"); if (b) location.hash = "#" + b.dataset.k; };
 $("#tf").innerHTML = TF.map(([k, l]) => `<button data-k="${k}" class="${k===gTF?"on":""}">${l}봉</button>`).join("");
 $("#tf").onclick = e => {
