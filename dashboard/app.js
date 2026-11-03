@@ -1,4 +1,4 @@
-import { mountMarkets } from './markets-app.js?v=20261103';
+import { mountMarkets } from './markets-app.js?v=20261103-png';
 import { mountCalendar } from './calendar-app.js?v=20261102-reported';
 const app = document.querySelector('#app');
 const fmt = new Intl.NumberFormat('ko-KR', {maximumFractionDigits: 1});

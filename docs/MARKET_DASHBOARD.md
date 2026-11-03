@@ -18,3 +18,9 @@ git push origin main
 ```
 
 `dashboard/**` 변경 시 기존 Deploy investment dashboard 작업이 수출·캘린더 검증 후 전체 대시보드를 배포합니다. 다른 PC에서는 stockDB/site 경로를 해당 PC의 경로로 바꿉니다.
+
+## PNG 복사
+
+증시데이터 상단의 **PNG 복사** 버튼은 현재 보이는 영역을 PNG 이미지로 클립보드에 복사합니다. 원하는 앱에 붙여넣을 수 있습니다. 브라우저가 이미지 클립보드 쓰기를 지원하지 않거나 복사를 차단하면 **PNG 저장** 버튼으로 같은 이미지를 내려받습니다. 이미지는 브라우저 안에서 생성되며 외부 서비스로 전송하지 않습니다.
+
+`market-capture.js`가 화면이 열릴 때 도구를 추가하므로 stockDB 화면을 다시 동기화해도 복사 버튼이 유지됩니다. 포함된 html2canvas 1.4.1의 MIT 라이선스는 `dashboard/vendor/html2canvas-LICENSE.txt`에 있습니다.
