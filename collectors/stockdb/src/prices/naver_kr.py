@@ -82,7 +82,9 @@ def run_daily(con, codes: list[str]) -> pd.DataFrame:
         print(f"  오늘({td.date()})은 16:30 이전 → 종가 미확정, 건너뜀")
         return pd.DataFrame()
     q = fetch_quotes(codes)
-    q = q[q["market_status"] == "CLOSE"].drop(columns="market_status")
+    # 16:00~18:00 시간외 단일가 동안 market_status 가 OPEN 으로 남지만 nv 는 정규장 종가다
+    # (FDR NAVER 일봉 종가와 일치 확인, 2026-11-03). 16:30 가드를 통과했으면 상태와 무관하게 저장.
+    q = q.drop(columns="market_status")
     q["date"] = td.date()
 
     # 주의: polling API 의 sv(전일 기준)는 NXT 포함 통합 종가라 KRX 종가와 다르다.
