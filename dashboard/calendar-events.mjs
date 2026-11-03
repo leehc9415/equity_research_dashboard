@@ -7,6 +7,12 @@ function publishedKey(event){
 }
 
 export function preferredCalendarEvents(events){
+  events=events.filter(event=>{
+    if(event.type!=='earnings')return true;
+    const period=event.financials?.period||event.period||'';
+    const monthly=period.match(/^20\d{2}\.(\d{2})~(\d{2})$/);
+    return !monthly||monthly[1]!==monthly[2];
+  });
   const consolidated=new Set(events.filter(e=>e.basis==='연결').map(publishedKey).filter(Boolean));
   return events.filter(event=>{
     const key=publishedKey(event);
@@ -15,7 +21,7 @@ export function preferredCalendarEvents(events){
 }
 
 export function calendarDayGroups(events,type){
-  const statuses=type==='ir'?['scheduled']:['scheduled','published'];
+  const statuses=type==='ir'?['scheduled']:['published','scheduled'];
   return statuses.map(status=>({status,events:events.filter(e=>e.type===type&&e.status===status)})).filter(group=>group.events.length);
 }
 

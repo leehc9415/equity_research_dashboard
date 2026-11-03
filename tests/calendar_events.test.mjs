@@ -35,8 +35,8 @@ test('view selection never removes source data or changes financial figures',()=
 test('mixed days keep scheduled and published records in separate groups',()=>{
   const scheduled=release({status:'scheduled'}),published=release({});
   const groups=calendarDayGroups([published,scheduled],'earnings');
-  assert.deepEqual(groups.map(g=>[g.status,g.events.length]),[['scheduled',1],['published',1]]);
-  assert.equal(groups[1].events[0],published);
+  assert.deepEqual(groups.map(g=>[g.status,g.events.length]),[['published',1],['scheduled',1]]);
+  assert.equal(groups[0].events[0],published);
 });
 test('published-only and IR days do not inherit an earnings scheduled state',()=>{
   assert.deepEqual(calendarDayGroups([release({})],'earnings').map(g=>g.status),['published']);
@@ -86,4 +86,13 @@ test('zero and missing estimates do not generate invalid percentages',()=>{
   assert.equal(consensusComparison(20,0).percent,null);
   assert.equal(consensusComparison(20,0).text,'예상 0→흑자');
   assert.equal(consensusComparison(20,null),null);assert.equal(consensusComparison(null,100),null);
+});
+
+test('monthly earnings are excluded from display while quarter and IR remain',()=>{
+ const month=release({financials:{period:'2026.09~09'}}),quarter=release({receipt:'quarter'}),ir=release({type:'ir',status:'scheduled',period:'2026.09~09',financials:undefined});
+ assert.deepEqual(preferredCalendarEvents([month,quarter,ir]),[quarter,ir]);
+});
+test('cumulative periods and unclassified notices remain visible',()=>{
+ const cumulative=release({financials:{period:'2026.01~09'}}),unknown=release({financials:{}});
+ assert.equal(preferredCalendarEvents([cumulative,unknown]).length,2);
 });
