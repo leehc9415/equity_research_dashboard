@@ -10,7 +10,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from cloud_state import pack, restore, TABLES
-from cloud_update import apply_global, inventory, validate_source
+from cloud_update import apply_global, inventory, validate_source, delayed_fred_release
 from src.prices.db import connect, upsert_prices
 
 
@@ -92,3 +92,13 @@ def test_shrinking_history_is_rejected(tmp_path):
         c.execute("DELETE FROM prices_daily WHERE date='2026-10-29'")
         with pytest.raises(ValueError, match='shrank'):
             validate_source(c, before)
+
+
+def test_only_recent_treasury_fred_release_lag_can_retain_newer_history():
+    frame = pd.DataFrame({'date': [date(2026, 10, 30)], 'source': ['fred']})
+    baseline = {'UST2Y': (100, date(2026, 11, 2)), 'SPY': (100, date(2026, 11, 2))}
+    assert delayed_fred_release('UST2Y', frame, baseline, date(2026, 11, 2))
+    assert not delayed_fred_release('SPY', frame, baseline, date(2026, 11, 2))
+    assert not delayed_fred_release('UST2Y', frame, baseline, date(2026, 11, 10))
+    frame['source'] = 'yf'
+    assert not delayed_fred_release('UST2Y', frame, baseline, date(2026, 11, 2))

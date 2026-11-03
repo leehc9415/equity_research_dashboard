@@ -104,12 +104,27 @@ def apply_global(con, frames, baseline):
         upsert_prices(con, frame)
 
 
+def delayed_fred_release(sid, frame, baseline, cutoff):
+    """FRED Treasury releases can trail the market by a business day.
+
+    Retain a newer stored rate for at most seven calendar days; never rewrite
+    it with older data, and never apply this exception to stocks or ETFs.
+    """
+    if sid not in {'UST2Y', 'UST5Y', 'UST10Y', 'UST30Y'} or sid not in baseline or frame.empty:
+        return False
+    if not frame['source'].eq('fred').all():
+        return False
+    latest = max(frame['date'])
+    retained = baseline[sid][1]
+    return latest < retained <= cutoff and (cutoff - retained).days <= 7 and (cutoff - latest).days <= 7
+
+
 def collect_global(con, baseline):
     symbols = con.execute("SELECT id,ticker,fallback_source,fallback_ticker FROM symbols WHERE market IN ('US','GLOBAL') AND source='yf' AND active").df()
     start = (pd.Timestamp.now(tz='Asia/Seoul').tz_localize(None) - pd.Timedelta(days=14)).strftime('%Y-%m-%d')
     data, failed = global_yf.fetch_yf(symbols[['id', 'ticker']], start)
     frames = {sid: frame.copy() for sid, frame in data.groupby('symbol_id')} if not data.empty else {}
-    errors = []
+    errors, deferred = [], set()
     for sid in failed:
         row = symbols[symbols['id'] == sid].iloc[0]
         frame = pd.DataFrame()
@@ -132,14 +147,17 @@ def collect_global(con, baseline):
             pass
         if frame.empty:
             errors.append(sid)
+        elif delayed_fred_release(sid, frame, baseline, global_yf._cutoff_date().date()):
+            deferred.add(sid)
+            print(f'{sid}: FRED through {max(frame["date"])}; retained newer stored {baseline[sid][1]}')
         else:
             frames[sid] = frame
-    if errors or set(frames) != set(symbols['id']):
+    if errors or set(frames) | deferred != set(symbols['id']):
         raise RuntimeError('Global collection incomplete; keeping published data: ' + ','.join(errors))
     apply_global(con, frames, baseline)
     combined = pd.concat(frames.values(), ignore_index=True)
-    log_run(con, 'global', 'ok', combined)
-    print(f'Global quotes verified: {len(frames)} symbols / {len(combined)} rows')
+    log_run(con, 'global', 'ok_delayed_fred' if deferred else 'ok', combined, note=','.join(sorted(deferred)))
+    print(f'Global quotes verified: {len(frames)} updated / {len(deferred)} awaiting FRED release / {len(combined)} rows')
 
 
 def rebuild(con):
