@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Market Charts</title>
+<title>Chart Book</title>
 <style>
 :root{
   --bg:#eef0f5; --card:#fff; --ink:#1b2236; --sub:#6b7280; --line:#e5e7eb;
@@ -26,9 +26,9 @@
 body{margin:0;background:var(--bg);color:var(--ink);
   font:14px/1.4 -apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
 header{position:sticky;top:0;z-index:5;background:var(--bg)}
-.bar{max-width:1500px;margin:0 auto;padding:0 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--line)}
-.bar2{max-width:1500px;margin:0 auto;padding:8px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.bar2[hidden]{display:none}
+.bar{max-width:1500px;margin:0 auto;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.ptitle{font-weight:800;font-size:15px;letter-spacing:-.02em}
+.tabs[hidden],.tf[hidden]{display:none}
 .tabs{display:flex;gap:4px;flex-wrap:wrap}
 .tabs{background:var(--chip);border-radius:9px;padding:2px}
 .tab{border:0;background:none;color:var(--sub);font:inherit;font-size:13px;font-weight:600;padding:5px 12px;border-radius:7px;cursor:pointer}
@@ -69,7 +69,7 @@ svg.ch .lab{font-size:10.5px;font-weight:700;fill:var(--ink)}
 .mode.on{color:#1f675c;border-bottom-color:#39b594}
 :root[data-theme="dark"] .mode.on{color:#4fdbb0}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .mode.on,:root:not([data-theme="light"]) .mode:hover{color:#4fdbb0}}
-.asof{margin-left:auto;color:var(--sub);font-size:12px}
+.asof{color:var(--sub);font-size:11px;margin-right:6px}
 .seg{display:inline-flex;gap:2px;background:var(--chip);border-radius:8px;padding:2px}
 .seg button{border:0;background:none;color:var(--sub);font:inherit;font-size:12px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer}
 .seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
@@ -132,8 +132,7 @@ a.sn:hover{text-decoration:underline}
 </head>
 <body>
 <header>
-  <div class="bar"><nav class="modes" id="modes" aria-label="증시데이터 화면"></nav><span class="asof" id="asof"></span></div>
-  <div class="bar2" id="bar2"><nav class="tabs" id="tabs" aria-label="차트북 그룹"></nav><div class="tf" id="tf" title="모든 카드의 봉 단위"></div></div>
+  <div class="bar"><span class="ptitle" id="ptitle"></span><span class="asof" id="asof"></span><nav class="tabs" id="tabs" aria-label="Chart Book 그룹"></nav><div class="tf" id="tf" title="모든 카드의 봉 단위"></div></div>
 </header>
 <main id="main"><div class="empty">데이터를 불러오는 중…</div></main>
 
@@ -325,7 +324,6 @@ async function renderSector(sec){
 }
 
 // ================================================================ RS 랭킹 (섹터 RRG + 종목 RS 표)
-const MODES = [["chart","차트북"],["rs","RS 랭킹"]];
 const QORDER = {"주도":0,"개선":1,"약화":2,"소외":3};
 const QCOL = {"주도":"#e0383e","약화":"#f0913a","소외":"#2f6fdf","개선":"#22a06b"};
 const quad = (a, m) => a >= 100 ? (m >= 100 ? "주도" : "약화") : (m >= 100 ? "개선" : "소외");
@@ -640,8 +638,8 @@ function drawStocks(){
 function route(){
   const h = (location.hash || "#kr").slice(1), [tab, sec] = h.split("/");
   const mode = tab === "rs" ? "rs" : "chart";
-  $("#modes").innerHTML = MODES.map(([k, l]) => `<button class="mode ${k===mode?"on":""}" data-k="${k}">${l}</button>`).join("");
-  $("#bar2").hidden = mode !== "chart";
+  $("#tabs").hidden = $("#tf").hidden = mode !== "chart";
+  $("#ptitle").textContent = mode === "rs" ? "RS 랭킹" : "Chart Book";
   $("#asof").textContent = D && D.generated ? `업데이트 ${D.generated}` : "";
   if (mode === "rs"){ renderRS(sec ? decodeURIComponent(sec) : null); window.scrollTo(0, 0); return; }
   const t = TABS.find(x => x[0] === tab) ? tab : "kr";
@@ -649,7 +647,6 @@ function route(){
   if (t === "kr" && sec) renderSector(decodeURIComponent(sec)); else renderGroup(t);
   window.scrollTo(0, 0);
 }
-$("#modes").onclick = e => { const b = e.target.closest(".mode"); if (b) location.hash = b.dataset.k === "rs" ? "#rs" : "#kr"; };
 $("#tabs").onclick = e => { const b = e.target.closest(".tab"); if (b) location.hash = "#" + b.dataset.k; };
 $("#tf").innerHTML = TF.map(([k, l]) => `<button data-k="${k}" class="${k===gTF?"on":""}">${l}봉</button>`).join("");
 $("#tf").onclick = e => {

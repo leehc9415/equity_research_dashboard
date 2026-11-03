@@ -9,6 +9,13 @@
 .global-nav button{background:transparent;border:0;border-bottom:3px solid transparent;color:#a6b7c9;padding:3px 18px 0;font-weight:700;font-size:13px;white-space:nowrap}
 .global-nav button:hover{color:#fff}
 .global-nav button.active{color:#fff;border-bottom-color:#4fdbb0}
+.nav-item{position:relative;display:flex;align-items:stretch}
+.nav-menu{display:none;position:absolute;top:100%;left:0;min-width:240px;background:#fff;border:1px solid #e1e8ef;border-radius:10px;box-shadow:0 12px 30px #10284433;padding:6px;z-index:50}
+.nav-item:hover .nav-menu,.nav-item:focus-within .nav-menu{display:block}
+.global-nav .nav-menu button{display:block;width:100%;text-align:left;border:0;border-radius:7px;color:#1d3550;padding:9px 12px;font-size:13px;font-weight:700}
+.global-nav .nav-menu button small{display:block;font-size:10px;font-weight:500;color:#8a9aab;margin-top:2px}
+.global-nav .nav-menu button:hover{background:#f1f7f6;color:#1f675c}
+.global-nav .nav-menu button.active{background:#eaf6f2;color:#1f675c;border-bottom:0}
 .global-note{margin-left:auto;white-space:nowrap;color:#7692a9;font-size:9px;letter-spacing:.12em;font-weight:800}
 .live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#4fdbb0;margin-left:7px;box-shadow:0 0 0 4px #1e4751}
 .workspace{min-width:0}
@@ -72,6 +79,6 @@ main{padding-top:24px}
 @media(max-width:1150px){.site-header-inner{gap:18px;padding:0 22px}.site-header .brand{min-width:160px}.global-nav button{padding-left:11px;padding-right:11px}.global-note{display:none}.export-shell{padding:27px 22px 0}.export-toolbar{align-items:flex-start;flex-direction:column;gap:7px}.period-picker{justify-content:flex-start;padding:0 0 10px}.export-toolbar .main-nav button{padding-top:10px;padding-bottom:10px}.grid-2,.grid-2.equal,.country-grid,.product-grid{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:700px){.site-header-inner{display:block;padding:12px 14px 0}.site-header .brand{display:flex;min-width:0}.site-header .brand b{font-size:12px}.site-header .brand small{font-size:7px}.global-nav{overflow:auto;margin-top:13px;gap:0}.global-nav button{font-size:11px;padding:9px 12px 11px}.export-shell{padding:24px 14px 0}.export-intro h1{font-size:25px}.export-intro p{font-size:10px}.data-stamp{min-width:0;padding:8px;text-align:center}.data-stamp strong{font-size:10px}.data-stamp>span:not(.stamp-label){font-size:8px}.data-stamp small{font-size:8px}.export-toolbar .main-nav{width:100%;overflow:auto}.export-toolbar .main-nav button{font-size:11px;padding:9px 12px;white-space:nowrap}.period-picker{gap:5px}.preset-buttons button{padding:6px 7px;font-size:10px}.custom-range input{width:112px}.export-context{padding-top:10px}}
 
-/* Market Charts fills the space below the shared navigation. */
+/* Market pages (Chart Book, RS 랭킹) fill the space below the shared navigation. */
 #app.markets-view{max-width:none;padding:0;margin:0}
 .market-frame{display:block;width:100%;height:calc(100vh - var(--market-header-height,76px));height:calc(100dvh - var(--market-header-height,76px));border:0;background:#eef0f5}

@@ -113,7 +113,7 @@ export function installMarketCapture(frame) {
       lastBlob = blob;
       downloadUrl = win.URL.createObjectURL(blob);
       save.href = downloadUrl;
-      save.download = `market-charts-${win.location.hash.slice(1).replace(/[^a-z0-9_-]/gi, '-') || 'kr'}.png`;
+      save.download = `chart-book-${win.location.hash.slice(1).replace(/[^a-z0-9_-]/gi, '-') || 'kr'}.png`;
       save.hidden = false;
       announce('PNG 생성 완료 · 클립보드로 복사 중…');
       return blob;

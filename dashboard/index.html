@@ -6,7 +6,7 @@
   <title>Investment Dashboard</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="overrides.css">
-  <link rel="stylesheet" href="site-shell.css?v=20261103-markets">
+  <link rel="stylesheet" href="site-shell.css?v=20261103-subnav">
   <link rel="stylesheet" href="calendar.css?v=20261102-reported">
 </head>
 <body>
@@ -17,7 +17,13 @@
         <nav class="global-nav" aria-label="투자 대시보드 메뉴">
           <button data-section="home">홈</button>
           <button data-section="exports" class="active">수출데이터</button>
-          <button data-section="markets">증시데이터</button>
+          <div class="nav-item">
+            <button data-section="markets" aria-haspopup="true">증시데이터</button>
+            <div class="nav-menu" role="menu" aria-label="증시데이터 하위 메뉴">
+              <button data-section="markets" data-sub="kr" role="menuitem">Chart Book<small>한국 업종 · 미국 지수·섹터 · 상품·통화·금리</small></button>
+              <button data-section="markets" data-sub="rs" role="menuitem">RS 랭킹<small>섹터 RRG · 종목 RS</small></button>
+            </div>
+          </div>
           <button data-section="briefing">시황</button>
           <button data-section="companies">기업데이터</button>
           <button data-section="calendar">캘린더</button>
@@ -52,6 +58,6 @@
       <main id="app"><div class="loading">실제 수출 데이터를 불러오는 중입니다…</div></main>
     </div>
   </div>
-  <script type="module" src="app.js?v=20261103-quarter"></script>
+  <script type="module" src="app.js?v=20261103-subnav"></script>
 </body>
 </html>
