@@ -32,3 +32,11 @@ export function financialHistory(event){
   const history=event.financials?.history||[];
   return hasBasisDifference(event)?history.filter(row=>row.source==='DART'):history;
 }
+
+export function consensusComparison(actual,expected){
+  if(!Number.isFinite(actual)||!Number.isFinite(expected))return null;
+  if(expected===0)return {text:actual>0?'예상 0→흑자':actual<0?'예상 0→적자':'예상 부합',positive:actual>=0,percent:null,description:'예상치 0으로 비율 계산 불가'};
+  const percent=(actual-expected)/Math.abs(expected)*100;
+  const description=expected<0?(actual>=0?'예상 적자→흑자':actual>expected?'예상보다 적자 축소':actual<expected?'예상보다 적자 확대':'예상 부합'):'';
+  return {text:`${percent>=0?'+':''}${percent.toFixed(1)}%`,positive:percent>=0,percent,description};
+}

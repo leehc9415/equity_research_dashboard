@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {preferredCalendarEvents,calendarDayGroups,useReportedBasis,hasBasisDifference,financialHistory} from '../dashboard/calendar-events.mjs';
+import {preferredCalendarEvents,calendarDayGroups,useReportedBasis,hasBasisDifference,financialHistory,consensusComparison} from '../dashboard/calendar-events.mjs';
 
 const release=overrides=>({corp:'00100000',date:'2026-10-28',type:'earnings',status:'published',basis:'개별 등',receipt:'separate',financials:{period:'2026.3Q'},...overrides});
 
@@ -65,4 +65,25 @@ test('a discrepancy in any metric uses reported history without inventing consen
   const event=release({financials:{consensus:{comparable:{revenue:true,operatingProfit:true,netIncome:false}},history:[{source:'DART',operatingProfit:120},{source:'Quantiwise',operatingProfit:100}]}});
   assert.equal(hasBasisDifference(event),true);assert.equal(financialHistory(event).length,1);
   delete event.financials.consensus;assert.equal(hasBasisDifference(event),false);assert.equal(event.financials.consensus,undefined);
+});
+test('negative estimates show positive percentages for narrowing losses',()=>{
+  assert.equal(consensusComparison(-80,-100).text,'+20.0%');
+  assert.equal(consensusComparison(-80,-100).positive,true);
+});
+test('negative estimates show negative percentages for widening losses',()=>{
+  assert.equal(consensusComparison(-120,-100).text,'-20.0%');
+  assert.equal(consensusComparison(-120,-100).positive,false);
+});
+test('loss-to-profit turns retain context while showing a percentage',()=>{
+  const comparison=consensusComparison(20,-100);
+  assert.equal(comparison.text,'+120.0%');assert.equal(comparison.description,'예상 적자→흑자');
+});
+test('positive estimates keep their usual percentage calculation',()=>{
+  assert.equal(consensusComparison(120,100).text,'+20.0%');
+  assert.equal(consensusComparison(-80,100).text,'-180.0%');
+});
+test('zero and missing estimates do not generate invalid percentages',()=>{
+  assert.equal(consensusComparison(20,0).percent,null);
+  assert.equal(consensusComparison(20,0).text,'예상 0→흑자');
+  assert.equal(consensusComparison(20,null),null);assert.equal(consensusComparison(null,100),null);
 });

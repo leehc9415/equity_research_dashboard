@@ -1,4 +1,4 @@
-import {preferredCalendarEvents,calendarDayGroups,useReportedBasis,hasBasisDifference,financialHistory} from './calendar-events.mjs?v=20261102-reported';
+import {preferredCalendarEvents,calendarDayGroups,useReportedBasis,hasBasisDifference,financialHistory,consensusComparison} from './calendar-events.mjs?v=20261103-percent';
 let cachedData;
 let dataPromise;
 let remembered;
@@ -113,11 +113,8 @@ function initializeCalendar(dataset){
     const hasComparisonValues=expected!==null&&expected!==undefined&&actual!==null&&actual!==undefined;
     let surprise='';
     if(hasComparisonValues&&reportedBasis){
-      let text='',positive=false;
-      if(expected>0){const pct=(actual-expected)/expected*100;text=`${pct>=0?'+':''}${pct.toFixed(1)}%`;positive=pct>=0;}
-      else if(expected<0){text=actual>=0?'예상 적자→흑자':actual>expected?'예상보다 적자 축소':actual<expected?'예상보다 적자 확대':'예상 부합';positive=actual>=expected;}
-      else{text=actual>0?'예상 0→흑자':actual<0?'예상 0→적자':'예상 부합';positive=actual>=0;}
-      surprise=`<span class="dc-surprise ${positive?'positive':''}" data-tooltip="공시 실적 기준${basisDifference?' · 과거 실적 기준 차이 유의':''} · 예상 영업이익 ${amount(expected)} · ${esc(consensus.baseDateSetting||'')}">예상比 영익 ${esc(text)}</span>`;
+      const comparison=consensusComparison(actual,expected);
+      if(comparison)surprise=`<span class="dc-surprise ${comparison.positive?'positive':''}" data-tooltip="공시 실적 기준${basisDifference?' · 과거 실적 기준 차이 유의':''} · 예상 영업이익 ${amount(expected)}${expected<0?' · 예상치 절댓값을 분모로 계산':''}${comparison.description?' · '+esc(comparison.description):''} · ${esc(consensus.baseDateSetting||'')}">예상比 영익 ${esc(comparison.text)}</span>`;
     }
     const comparisonExplanation=basisDifference?`<div class="dc-comparison-explanation"><strong>공시 수치 우선</strong><div>실제 실적과 과거 비교는 공시 수치를 사용합니다.${hasComparisonValues?' 예상 대비는 공시 영업이익과 저장 컨센서스를 직접 비교한 값입니다.':''} 회계·집계 기준 차이에 유의해 주세요.</div></div>`:'';
     const estimates=consensus?`<div class="dc-consensus"><div class="dc-consensus-label">${esc(f.period)} 컨센서스</div><div class="dc-metrics">${keys.map(([key,label])=>`<span class="dc-metric"><span class="dc-metric-label">${label}</span><span class="dc-metric-value">${amount(consensus.metrics[key])}</span></span>`).join('')}</div><div class="dc-result-foot" data-tooltip="원본 설정 ${esc(consensus.baseDateSetting||'')} · 저장값을 그대로 사용">Quantiwise · 엑셀 갱신 ${esc(refreshStamp)}</div></div>`:'';
