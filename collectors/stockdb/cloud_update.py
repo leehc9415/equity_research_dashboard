@@ -180,7 +180,7 @@ def rebuild(con):
     print('Indicator rebuild complete', flush=True)
 
 
-def publish_export(con, destination=WEB_DATA):
+def publish_export(con, destination=WEB_DATA, kr=True):
     from src.dashboard import export as exporter
     import sys
     sys.path.insert(0, str(REPO_ROOT / 'scripts'))
@@ -188,8 +188,13 @@ def publish_export(con, destination=WEB_DATA):
     with tempfile.TemporaryDirectory(dir=ROOT / 'data') as temp:
         previous_site = exporter.SITE
         exporter.SITE = Path(temp)
+        if not kr:
+            # 해외 갱신: 국내 파일은 직전 게시본을 그대로 두고 overview.js만 새로 만든다.
+            (Path(temp) / 'data').mkdir(parents=True, exist_ok=True)
+            for file in Path(destination).glob('*.js'):
+                shutil.copyfile(file, Path(temp) / 'data' / file.name)
         try:
-            exporter.export(con)
+            exporter.export(con, kr=kr)
         finally:
             exporter.SITE = previous_site
         staging = Path(temp) / 'data'
@@ -225,7 +230,7 @@ def main():
                 collect_global(con, before)
         validate_source(con, before)
         rebuild(con)
-        publish_export(con, args.output)
+        publish_export(con, args.output, kr=args.region != 'global')
         con.execute('CHECKPOINT')
     finally:
         con.close()

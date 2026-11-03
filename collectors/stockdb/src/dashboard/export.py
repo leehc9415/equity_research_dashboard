@@ -150,7 +150,8 @@ def _write_js(path: Path, var: str, key: str | None, obj) -> int:
     return len(body.encode())
 
 
-def export(con=None, verbose: bool = True) -> dict:
+def export(con=None, verbose: bool = True, kr: bool = True) -> dict:
+    """kr=False(해외 갱신): overview.js만 다시 만들고 국내 전용 파일(kr_*, rs, rs_px, nh, setup)은 건드리지 않는다."""
     import duckdb
     t = time.time()
     own = con is None
@@ -164,7 +165,7 @@ def export(con=None, verbose: bool = True) -> dict:
                          ORDER BY g.group_id, g.sort_order""").df()
     members = con.execute("""SELECT code, name, market, sector_id, upjong FROM sector_map WHERE included""").df()
 
-    ids = sorted(set(grp["symbol_id"]) | set(members["code"]))
+    ids = sorted(set(grp["symbol_id"]) | (set(members["code"]) if kr else set()))   # 해외 갱신은 개별 종목 시계열 불필요
     series = _load(con, ids)
     latest = _latest(con, ids)
 
@@ -199,33 +200,34 @@ def export(con=None, verbose: bool = True) -> dict:
             "asof": max(dates) if dates else None, "cards": cards})
     size = {"overview.js": _write_js(SITE / "data" / "overview.js", "DASH_OVERVIEW", None, overview)}
 
-    # 섹터 구성 종목
-    b3 = bench_3m("KS11")
-    for sec, g in members.groupby("sector_id"):
-        cards = []
-        for _, r in g.iterrows():
-            code = r["code"]
-            lt = latest.loc[code] if code in latest.index else None
-            c = _card(code, series.get(code), lt, b3, name=r["name"], market=r["market"], upjong=r["upjong"],
-                      link=f"https://m.stock.naver.com/domestic/stock/{code}/total")
-            if lt is not None:
-                c.update(mcap=_sig(lt["mcap"] / 1e8, 4) if pd.notna(lt["mcap"]) else None,
-                         value=_sig(lt["value"] / 1e8, 4) if pd.notna(lt["value"]) else None,
-                         rs=None if pd.isna(lt["rs"]) else int(lt["rs"]))
-            cards.append(c)
-        upj = g.groupby("upjong").size().sort_values(ascending=False)
-        obj = {"sector": sec, "upjong": [[k, int(v)] for k, v in upj.items()], "cards": cards}
-        size[f"kr_{sec}.js"] = _write_js(SITE / "data" / f"kr_{sec}.js", "DASH_SECTOR", sec, obj)
+    if kr:
+        # 섹터 구성 종목
+        b3 = bench_3m("KS11")
+        for sec, g in members.groupby("sector_id"):
+            cards = []
+            for _, r in g.iterrows():
+                code = r["code"]
+                lt = latest.loc[code] if code in latest.index else None
+                c = _card(code, series.get(code), lt, b3, name=r["name"], market=r["market"], upjong=r["upjong"],
+                          link=f"https://m.stock.naver.com/domestic/stock/{code}/total")
+                if lt is not None:
+                    c.update(mcap=_sig(lt["mcap"] / 1e8, 4) if pd.notna(lt["mcap"]) else None,
+                             value=_sig(lt["value"] / 1e8, 4) if pd.notna(lt["value"]) else None,
+                             rs=None if pd.isna(lt["rs"]) else int(lt["rs"]))
+                cards.append(c)
+            upj = g.groupby("upjong").size().sort_values(ascending=False)
+            obj = {"sector": sec, "upjong": [[k, int(v)] for k, v in upj.items()], "cards": cards}
+            size[f"kr_{sec}.js"] = _write_js(SITE / "data" / f"kr_{sec}.js", "DASH_SECTOR", sec, obj)
 
-    # RS 랭킹 탭 (섹터 RRG + 종목 RS 표)
-    from .rs_export import build as build_rs_tab
-    size["rs.js"] = _write_js(SITE / "data" / "rs.js", "DASH_RS", None, build_rs_tab(con))
-    from .rs_export import build_px
-    size["rs_px.js"] = _write_js(SITE / "data" / "rs_px.js", "DASH_RS_PX", None, build_px(con))   # 사용자 정의 섹터용
-    from .nh_export import build as build_nh
-    size["nh.js"] = _write_js(SITE / "data" / "nh.js", "DASH_NH", None, build_nh(con))   # 신고가 탭
-    from .setup_export import build as build_setup
-    size["setup.js"] = _write_js(SITE / "data" / "setup.js", "DASH_SETUP", None, build_setup(con))   # 차트 셋업 탭
+        # RS 랭킹 탭 (섹터 RRG + 종목 RS 표)
+        from .rs_export import build as build_rs_tab
+        size["rs.js"] = _write_js(SITE / "data" / "rs.js", "DASH_RS", None, build_rs_tab(con))
+        from .rs_export import build_px
+        size["rs_px.js"] = _write_js(SITE / "data" / "rs_px.js", "DASH_RS_PX", None, build_px(con))   # 사용자 정의 섹터용
+        from .nh_export import build as build_nh
+        size["nh.js"] = _write_js(SITE / "data" / "nh.js", "DASH_NH", None, build_nh(con))   # 신고가 탭
+        from .setup_export import build as build_setup
+        size["setup.js"] = _write_js(SITE / "data" / "setup.js", "DASH_SETUP", None, build_setup(con))   # 차트 셋업 탭
 
     if own:
         con.close()

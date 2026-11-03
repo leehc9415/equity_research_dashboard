@@ -1,11 +1,20 @@
 name: Update market dashboard
+run-name: "Update market dashboard · ${{ inputs.region || (endsWith(github.event.schedule, '1-5') && 'kr' || 'global') }}"
 
 on:
   schedule:
-    # 09:17 KST daily: completed US session and UTC crypto daily close.
+    # GitHub drops or delays scheduled runs under load, so each update has backup slots.
+    # A slot exits in seconds when that update already succeeded today (see the guard step).
+    # Global (daily, '* * *'): 09:17 / 10:07 / 11:37 KST — completed US session and UTC crypto daily close.
     - cron: '17 0 * * *'
-    # 17:17 KST weekdays: confirmed Korean regular-session close.
+    - cron: '7 1 * * *'
+    - cron: '37 2 * * *'
+    # Korean (weekdays, ending in '1-5'): 17:17 / 18:07 / 19:07 / 20:37 / 22:07 KST — confirmed regular-session close.
     - cron: '17 8 * * 1-5'
+    - cron: '7 9 * * 1-5'
+    - cron: '7 10 * * 1-5'
+    - cron: '37 11 * * 1-5'
+    - cron: '7 13 * * 1-5'
   workflow_dispatch:
     inputs:
       region:
@@ -16,6 +25,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: update-market-dashboard
@@ -30,42 +40,58 @@ jobs:
     env:
       TZ: Asia/Seoul
       PYTHONUNBUFFERED: '1'
+      REGION: ${{ inputs.region || (endsWith(github.event.schedule, '1-5') && 'kr' || 'global') }}
     defaults:
       run:
         working-directory: collectors/stockdb
     steps:
+      - name: Skip a backup slot when today's update already succeeded
+        id: guard
+        if: github.event_name == 'schedule'
+        working-directory: .
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          today=$(TZ=Asia/Seoul date +%F)
+          if [ "$REGION" = kr ]; then at='16:40'; else at='08:30'; fi
+          since=$(date -u -d "TZ=\"Asia/Seoul\" $today $at" +%Y-%m-%dT%H:%M:%SZ)
+          count=$(gh api "repos/${{ github.repository }}/actions/workflows/update-market-dashboard.yml/runs?status=success&created=>=$since&per_page=50" \
+            --jq "[.workflow_runs[] | select(.id != ${{ github.run_id }}) | .display_title | select(test(\"· ($REGION|all)$\"))] | length")
+          echo "Successful $REGION updates since $since: $count"
+          if [ "$count" -gt 0 ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/checkout@v4
+        if: steps.guard.outputs.skip != 'true'
         with:
           ref: main
       - uses: actions/setup-python@v5
+        if: steps.guard.outputs.skip != 'true'
         with:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: collectors/stockdb/requirements.txt
       - name: Install market collector
+        if: steps.guard.outputs.skip != 'true'
         run: pip install -r requirements.txt pytest
       - name: Test source-state preservation and collector rules
+        if: steps.guard.outputs.skip != 'true'
         run: python -m pytest -q tests
       - name: Restore latest verified source history
+        if: steps.guard.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: python cloud_state.py pull
       - name: Collect, rebuild indicators, and validate all exported cards
-        env:
-          REQUESTED_REGION: ${{ inputs.region }}
-          RUN_SCHEDULE: ${{ github.event.schedule }}
+        if: steps.guard.outputs.skip != 'true'
         shell: bash
-        run: |
-          region="$REQUESTED_REGION"
-          if [ -z "$region" ]; then
-            if [ "$RUN_SCHEDULE" = '17 8 * * 1-5' ]; then region=kr; else region=global; fi
-          fi
-          python cloud_update.py --region "$region"
+        run: python cloud_update.py --region "$REGION"
       - name: Save verified source state for the next run
+        if: steps.guard.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: python cloud_state.py push --archive data/market-state-next.zip
       - name: Commit changed market exports only
+        if: steps.guard.outputs.skip != 'true'
         id: commit
         working-directory: .
         shell: bash
@@ -88,6 +114,7 @@ jobs:
           echo "No changed market data."
           echo "changed=false" >> "$GITHUB_OUTPUT"
       - name: Summarize published market dates
+        if: steps.guard.outputs.skip != 'true'
         working-directory: .
         run: |
           python - <<'PY'
@@ -109,3 +136,5 @@ jobs:
       pages: write
       id-token: write
     uses: ./.github/workflows/deploy-dashboard.yml
+    with:
+      skip_validate: true   # the update job already validated the market exports it changed

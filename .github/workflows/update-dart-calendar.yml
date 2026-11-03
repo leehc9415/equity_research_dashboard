@@ -2,8 +2,8 @@ name: Update DART calendar
 
 on:
   schedule:
-    # Every 30 minutes, weekdays 09:07-21:37 KST. GitHub may delay scheduled runs.
-    - cron: '7,37 0-12 * * 1-5'
+    # Hourly, weekdays 09:07-21:07 KST. GitHub may delay or drop scheduled runs.
+    - cron: '7 0-12 * * 1-5'
   workflow_dispatch:
 
 permissions:

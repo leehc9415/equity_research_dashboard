@@ -6,6 +6,11 @@ on:
     paths: ['dashboard/**']
   workflow_dispatch:
   workflow_call:
+    inputs:
+      skip_validate:
+        description: Skip tests when the caller already validated the only files it changed
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -14,6 +19,7 @@ permissions:
 
 jobs:
   validate:
+    if: ${{ !inputs.skip_validate }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,6 +42,7 @@ jobs:
           python scripts/validate_market_data.py
   deploy:
     needs: validate
+    if: ${{ !cancelled() && (needs.validate.result == 'success' || needs.validate.result == 'skipped') }}
     runs-on: ubuntu-latest
     concurrency:
       group: investment-dashboard-pages
