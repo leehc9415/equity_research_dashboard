@@ -1,0 +1,5 @@
+/data/
+/site/
+/docs/DATA_DICTIONARY.md
+__pycache__/
+.pytest_cache/

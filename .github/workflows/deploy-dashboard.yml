@@ -33,6 +33,7 @@ jobs:
         run: |
           python scripts/validate_web_data.py
           python scripts/validate_calendar_data.py
+          python scripts/validate_market_data.py
   deploy:
     needs: validate
     runs-on: ubuntu-latest

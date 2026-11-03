@@ -2,13 +2,15 @@
 
 Investment Dashboard의 **증시데이터** 메뉴(`#markets`)는 `dashboard/markets/index.html#kr`을 표시합니다. 한국 업종·구성 종목, 미국 지수·섹터, 상품·통화·금리, 일·주·월봉, 검색·정렬은 stockDB 원본 화면을 그대로 사용합니다.
 
-웹에서 PC의 `file:///C:/...` 주소를 직접 읽지 않고, stockDB가 내보낸 HTML과 필요한 데이터 파일을 함께 배포합니다. DB, 설정, 수집 코드 및 API 키는 복사하지 않습니다.
+웹에서 PC의 `file:///C:/...` 주소를 직접 읽지 않고, 내보낸 HTML과 필요한 데이터 파일을 함께 배포합니다. 수집 코드는 `collectors/stockdb/`에서 실행하고, 누적 원천 시세는 별도 GitHub 릴리스에 보관합니다. 웹 배포에는 `dashboard/` 아래 파일만 포함합니다.
 
 ## 데이터 갱신
 
-현재 배포는 복사한 시점의 스냅샷입니다. stockDB의 매일 수집 작업과 GitHub Pages 배포는 자동 연결되어 있지 않습니다. 각 탭의 데이터 기준일은 화면에 표시됩니다.
+GitHub Actions의 **Update market dashboard**가 매일 08:17 한국시간에 미국·매크로를, 평일 17:17에 한국 종가를 갱신합니다. 누적 이력 복원 → 수집 → 지표 재계산 → 검증 → 웹 파일 커밋 → 배포 순서로 실행합니다. 실패하면 기존 화면을 유지합니다. 각 탭의 데이터 기준일은 화면에 표시됩니다. 예약 실행은 GitHub 사정에 따라 지연될 수 있습니다.
 
-stockDB에서 데이터를 다시 내보낸 뒤, 이 저장소 루트에서 실행합니다.
+상태 파일 보관, 수동 실행, 고정 업종 구성 등 운영 범위는 [자동 갱신 안내](../collectors/stockdb/README.md)를 참고하세요.
+
+PC에서 만든 화면을 일시적으로 수동 반영하려면 stockDB에서 데이터를 다시 내보낸 뒤, 이 저장소 루트에서 실행합니다. 이 명령은 클라우드 누적 DB를 변경하지 않으므로, 다음 자동 갱신은 클라우드에 보관된 이력을 기준으로 다시 생성됩니다.
 
 ```powershell
 python scripts/sync_market_dashboard.py "C:\Users\leehc\Documents\stockDB\site"

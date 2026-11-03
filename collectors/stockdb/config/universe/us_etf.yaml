@@ -1,0 +1,68 @@
+# =====================================================================
+# 미국 지수·섹터 ETF 유니버스 (리송버그 '미국 지수·섹터 ETF' 원형)
+# ---------------------------------------------------------------------
+# 원형에서 확인된 사실 (PDF 스크린샷, 2026-10-30 기준)
+#   - 데이터: 야후 파이낸스 일봉
+#   - 배치: 지수 4개 고정 후, SPY 대비 3개월 상대수익률 내림차순
+#   - 강조 테두리: 오늘 일·주·월 뱃지 방향이 하나라도 바뀐 카드
+#   - 카드 클릭 → Yahoo Finance 구성종목(holdings) 페이지
+#   - 지수 카드 하단: 1개월 · 52주 고점 대비 / 섹터 카드 하단: 1개월 · 3개월 상대(%p)
+#
+# category: index(지수) / sector(GICS 섹터) / industry(세부 산업) / theme(테마) / country(국가)
+# =====================================================================
+
+group:
+  id: US_SECTOR_ETF
+  title: 미국 지수·섹터 ETF
+  market: US
+  benchmark: SPY
+  sort: rel_3m_desc
+  card_footer: [ret_1m, rel_3m]
+  pinned_footer: [ret_1m, dd_52w]
+  link_template: "https://finance.yahoo.com/quote/{ticker}/holdings"
+
+defaults: {source: yf, asset_class: etf, currency: USD}
+
+pinned:
+  - {id: SPY,  name: S&P 500,          category: index}
+  - {id: QQQ,  name: 나스닥100,        category: index}
+  - {id: IWM,  name: 러셀2000,         category: index}
+  - {id: RSP,  name: S&P 500 동일가중, category: index}
+
+symbols:
+  # --- GICS 11개 섹터 (SPDR) ---
+  - {id: XLK,  name: 기술,             category: sector}
+  - {id: XLC,  name: 커뮤니케이션,     category: sector}
+  - {id: XLY,  name: 경기소비재,       category: sector}
+  - {id: XLP,  name: 필수소비재,       category: sector}
+  - {id: XLV,  name: 헬스케어,         category: sector}
+  - {id: XLF,  name: 금융,             category: sector}
+  - {id: XLI,  name: 산업재,           category: sector}
+  - {id: XLE,  name: 에너지,           category: sector}
+  - {id: XLB,  name: 소재,             category: sector}
+  - {id: XLU,  name: 유틸리티,         category: sector}
+  - {id: XLRE, name: 리츠,             category: sector}
+  # --- 세부 산업 ---
+  - {id: SMH,  name: 반도체,           category: industry}
+  - {id: IGV,  name: 소프트웨어,       category: industry}
+  - {id: XBI,  name: 바이오,           category: industry}
+  - {id: XOP,  name: 석유·가스 개발,   category: industry}
+  - {id: GDX,  name: 금광,             category: industry}
+  - {id: XRT,  name: 소매,             category: industry}
+  - {id: ITB,  name: 주택건설,         category: industry}
+  - {id: KRE,  name: 지역은행,         category: industry}
+  - {id: IYT,  name: 운송,             category: industry}
+  - {id: ITA,  name: 방산,             category: industry}
+  # --- 테마 ---
+  - {id: BUG,  name: 사이버보안,       category: theme}
+  - {id: ARKK, name: 혁신성장(ARKK),   category: theme}
+  - {id: ICLN, name: 클린에너지,       category: theme}
+  - {id: URA,  name: 우라늄,           category: theme}
+  # --- 국가 ---
+  - {id: EWY,  name: 한국,             category: country}
+  - {id: EWT,  name: 대만,             category: country}
+  - {id: EWJ,  name: 일본,             category: country}
+  - {id: INDA, name: 인도,             category: country}
+  - {id: VGK,  name: 유럽,             category: country}
+  - {id: EEM,  name: 신흥국,           category: country}
+  - {id: KWEB, name: 중국 인터넷,      category: country}

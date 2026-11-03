@@ -1,0 +1,146 @@
+# =====================================================================
+# 한국 업종 유니버스 (리송버그 '한국 섹터 차트' 원형)
+# ---------------------------------------------------------------------
+# 구조
+#   네이버 업종(약 79개)  --(이 파일의 매핑)-->  자체 섹터 21개  --(시총가중)-->  섹터 지수
+#
+# 원형에서 확인된 사실 (PDF 스크린샷)
+#   - 섹터 카드: 섹터명 + 구성 종목 수 + 당일 등락 + 2년 스파크라인 + 일/주/월 뱃지
+#   - 드릴다운 헤더: "게임 27종목 · 시총가중 (시총 300억↑)"
+#   - 드릴다운 하단: "포함 네이버 업종 — 게임엔터테인먼트 27"
+#   - 카드 하단: "1개월 수익률 · 3개월 상대수익률(코스피 대비, %p)"
+#   - 배치: 코스피·코스닥 고정 후, 3개월 상대수익률 내림차순
+#
+# ref_count = 스크린샷에 표시된 종목 수(2026-10-30 기준, 300dpi로 다시 판독. 반도체는 156/158 판독 불확실).
+#             매핑 검증용 참고치일 뿐 정답이 아님. build 스크립트가 실제 개수와 비교해 출력.
+#
+# 업종명 매칭은 공백·쉼표·가운뎃점을 제거한 뒤 비교하므로
+# "섬유,의류,신발,호화품" / "섬유 의류 신발 호화품" 모두 같은 업종으로 인식됨.
+# =====================================================================
+
+group:
+  id: KR_SECTOR
+  title: 한국 업종
+  market: KR
+  benchmark: KS11              # 상대수익률 기준 (코스피)
+  sort: rel_3m_desc            # pinned 제외 나머지는 3개월 상대수익률 내림차순
+  card_footer: [ret_1m, rel_3m]
+  pinned_footer: [ret_1m, dd_52w]
+
+# 섹터 지수 산출 규칙
+index_rules:
+  weighting: mcap              # 시총가중
+  weight_basis: prev_close     # 전일 시총 비중으로 당일 수익률 가중 (매일 리밸런싱)
+  min_mcap_krw_100m: 300       # 시총 300억 이상만 편입 (단위: 억원)
+  base_value: 100
+  exclude:
+    preferred_shares: false    # 원형은 우선주 포함 (섹터별 종목 수가 우선주 포함 시 일치)
+    spac: true                 # 스팩 제외 (종목명에 '스팩')
+    markets: [KONEX]           # 코넥스 제외
+
+# 고정 카드 (지수)
+pinned:
+  - {id: KS11, name: 코스피, source: fdr, ticker: KS11, yf: "^KS11"}
+  - {id: KQ11, name: 코스닥, source: fdr, ticker: KQ11, yf: "^KQ11"}
+
+# 자체 섹터 21개 ← 네이버 업종 매핑
+# order = 원형 화면의 기본 순서(정렬 데이터가 없을 때만 사용)
+sectors:
+  - id: it_hw
+    name: IT하드웨어-전자부품
+    ref_count: 245
+    naver_upjong: [디스플레이장비및부품, 디스플레이패널, 전자장비와기기, 전자제품, 핸드셋,
+                   컴퓨터와주변기기, 통신장비, 사무용전자제품]
+  - id: construction
+    name: 건설-건자재
+    ref_count: 100
+    naver_upjong: [건설, 건축자재, 건축제품]
+  - id: transport
+    name: 운송
+    ref_count: 32
+    naver_upjong: [항공사, 항공화물운송과물류, 도로와철도운송, 운송인프라]
+  - id: chem_mat
+    name: 화학-소재
+    ref_count: 136
+    naver_upjong: [화학, 종이와목재, 포장재]
+  - id: media_ent
+    name: 미디어-엔터
+    ref_count: 56
+    naver_upjong: [방송과엔터테인먼트, 광고, 출판]
+  - id: leisure_edu
+    name: 레저-교육-서비스
+    ref_count: 34
+    naver_upjong: ["호텔,레스토랑,레저", 교육서비스, 다각화된소비자서비스]
+  - id: battery_elec
+    name: 2차전지-전기장비
+    ref_count: 86
+    naver_upjong: [전기제품, 전기장비]
+  - id: food_retail
+    name: 음식료-유통
+    ref_count: 115
+    naver_upjong: [식품, 음료, 담배, 식품과기본식료품소매, 백화점과일반상점, 판매업체,
+                   인터넷과카탈로그소매, 전문소매]
+  - id: bio_health
+    name: 바이오-헬스케어
+    ref_count: 340
+    naver_upjong: [제약, 생물공학, 건강관리장비와용품, 건강관리업체및서비스, 건강관리기술,
+                   생명과학도구및서비스]
+  - id: energy_util
+    name: 에너지-유틸리티
+    ref_count: 36
+    naver_upjong: [석유와가스, 가스유틸리티, 전기유틸리티, 복합유틸리티]
+  - id: internet_sw
+    name: 인터넷-소프트웨어
+    ref_count: 137
+    naver_upjong: [소프트웨어, IT서비스, 양방향미디어와서비스]
+  - id: telecom
+    name: 통신
+    ref_count: 5
+    naver_upjong: [다각화된통신서비스, 무선통신서비스]
+  - id: steel_metal
+    name: 철강-비철금속
+    ref_count: 77
+    naver_upjong: [철강, 비철금속]
+  - id: financials
+    name: 금융
+    ref_count: 109
+    naver_upjong: [은행, 증권, 생명보험, 손해보험, 카드, 창업투자, 기타금융, 부동산]
+  - id: cosmetics_apparel
+    name: 화장품-의류-생활용품
+    ref_count: 143
+    naver_upjong: [화장품, "섬유,의류,신발,호화품", 가정용품, 가구, 가정용기기와용품, 문구류, 레저용장비와제품]
+  - id: game
+    name: 게임
+    ref_count: 27
+    naver_upjong: [게임엔터테인먼트]
+  - id: semis
+    name: 반도체
+    ref_count: 156
+    naver_upjong: [반도체와반도체장비]
+  - id: defense_aero
+    name: 방산-우주
+    ref_count: 31
+    naver_upjong: [우주항공과국방]
+  - id: auto
+    name: 자동차
+    ref_count: 127
+    naver_upjong: [자동차, 자동차부품]
+  - id: ship_shipping
+    name: 조선-해운
+    ref_count: 36
+    naver_upjong: [조선, 해운사]
+  - id: machinery
+    name: 기계-산업재
+    ref_count: 172
+    naver_upjong: [기계, 에너지장비및서비스, 상업서비스와공급품, 무역회사와판매업체, 복합기업]   # 에너지장비(풍력·연료전지 등)는 원형 종목 수 기준으로 여기에
+
+# 어느 섹터에도 넣지 않을 네이버 업종 (build 리포트에서 '미매핑' 경고를 띄우지 않음)
+ignore_upjong: [기타]
+
+# 종목 단위 예외 (네이버 업종과 다르게 분류하고 싶을 때)
+#   sector: null 이면 유니버스에서 제외
+overrides: []
+#  예시:
+#  - {code: "247540", sector: battery_elec, reason: "양극재 - 네이버 업종과 무관하게 2차전지로"}
+#  - {code: "003670", sector: battery_elec, reason: "포스코퓨처엠"}
+#  - {code: "000000", sector: null,         reason: "지주사라 제외"}

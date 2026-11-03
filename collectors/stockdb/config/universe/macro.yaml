@@ -1,0 +1,57 @@
+# =====================================================================
+# 상품·통화·금리 유니버스 (리송버그 '상품·통화·금리' 원형)
+# ---------------------------------------------------------------------
+# 원형에서 확인된 사실 (PDF 스크린샷, 2026-10-30 기준)
+#   - 티커가 모두 Yahoo 표기 (=F 선물, =X 환율, ^ 지수, -USD 크립토) → yfinance
+#   - 상대수익률 없음. 카드 하단: 1개월 · 52주 고점 대비
+#   - 환율은 '달러 기준' 표기: KRW=X 상승 = 원화 약세
+#   - 금리 카드는 가격이 아니라 수익률(%) 자체의 등락
+#
+# inferred: true = 스크린샷에서 한 줄(5개)이 잘려 있어 내가 추정해 채운 항목.
+#                  원형과 다를 수 있으니 필요 없으면 지우세요.
+# fallback  = 1차 소스 실패 시 사용할 소스 (FDR 또는 FRED)
+# =====================================================================
+
+group:
+  id: MACRO
+  title: 상품·통화·금리
+  market: GLOBAL
+  benchmark: null              # 상대수익률 계산 안 함
+  sort: fixed                  # 아래 순서 그대로 (자산군별 묶음)
+  card_footer: [ret_1m, dd_52w]
+
+defaults: {source: yf}
+
+symbols:
+  # --- 에너지 ---
+  - {id: WTI,      name: WTI 원유,      ticker: "CL=F",      asset_class: future, subclass: energy,   currency: USD, fallback: {fdr: "CL=F"}}
+  - {id: BRENT,    name: 브렌트유,      ticker: "BZ=F",      asset_class: future, subclass: energy,   currency: USD, fallback: {fdr: "BZ=F"}}
+  - {id: NATGAS,   name: 천연가스,      ticker: "NG=F",      asset_class: future, subclass: energy,   currency: USD, fallback: {fdr: "NG=F"}}
+  # --- 귀금속 ---
+  - {id: GOLD,     name: 금,            ticker: "GC=F",      asset_class: future, subclass: precious, currency: USD, fallback: {fdr: "GC=F"}}
+  - {id: SILVER,   name: 은,            ticker: "SI=F",      asset_class: future, subclass: precious, currency: USD, fallback: {fdr: "SI=F"}}
+  # --- 산업금속·농산물 ---
+  - {id: COPPER,   name: 구리,          ticker: "HG=F",      asset_class: future, subclass: base,     currency: USD, fallback: {fdr: "HG=F"}}
+  - {id: ALUMINUM, name: 알루미늄,      ticker: "ALI=F",     asset_class: future, subclass: base,     currency: USD}
+  - {id: CORN,     name: 옥수수,        ticker: "ZC=F",      asset_class: future, subclass: agri,     currency: USD}
+  # --- 통화 (모두 '달러 1단위당' 기준) ---
+  - {id: DXY,      name: 달러 인덱스,   ticker: "DX-Y.NYB",  asset_class: index,  subclass: fx,       fallback: {fdr: "^NYICDX"}}
+  - {id: USDKRW,   name: 원/달러,       ticker: "KRW=X",     asset_class: fx,     subclass: fx,       note: "상승 = 원화 약세", fallback: {fdr: "USD/KRW"}}
+  - {id: USDJPY,   name: 엔/달러,       ticker: "JPY=X",     asset_class: fx,     subclass: fx,       note: "상승 = 엔화 약세", fallback: {fdr: "USD/JPY"}}
+  - {id: EURUSD,   name: 유로/달러,     ticker: "EURUSD=X",  asset_class: fx,     subclass: fx,       note: "상승 = 유로 강세"}
+  - {id: USDCNY,   name: 위안/달러,     ticker: "CNY=X",     asset_class: fx,     subclass: fx,       note: "상승 = 위안화 약세", fallback: {fdr: "USD/CNY"}}
+  # --- 금리 (값 = 수익률 %) ---
+  - {id: UST10Y,   name: 미 10년물 금리, ticker: "^TNX",     asset_class: rate,   subclass: rate,     unit: yield_pct, fallback: {fred: DGS10}}
+  - {id: UST2Y,    name: 미 2년물 금리,  ticker: "2YY=F",    asset_class: rate,   subclass: rate,     unit: yield_pct, note: "CBOT 마이크로 2년물 금리선물 (거래량 적음)", fallback: {fred: DGS2}}
+  # --- 스크린샷에서 잘린 한 줄 (추정) ---
+  - {id: UST5Y,    name: 미 5년물 금리,  ticker: "^FVX",     asset_class: rate,   subclass: rate,     unit: yield_pct, inferred: true, fallback: {fred: DGS5}}
+  - {id: UST30Y,   name: 미 30년물 금리, ticker: "^TYX",     asset_class: rate,   subclass: rate,     unit: yield_pct, inferred: true, fallback: {fred: DGS30}}
+  - {id: VIX,      name: VIX,           ticker: "^VIX",      asset_class: index,  subclass: vol,      inferred: true, note: "인사이트에 'VIX 22.75' 언급"}
+  - {id: TLT,      name: 미 장기국채,    ticker: TLT,        asset_class: etf,    subclass: bond,     currency: USD, inferred: true}
+  - {id: HYG,      name: 하이일드 채권,  ticker: HYG,        asset_class: etf,    subclass: bond,     currency: USD, inferred: true}
+  # --- 크립토 ---
+  - {id: BTC,      name: 비트코인,      ticker: BTC-USD,     asset_class: crypto, subclass: crypto,   currency: USD, fallback: {fdr: "BTC/USD"}}
+  - {id: ETH,      name: 이더리움,      ticker: ETH-USD,     asset_class: crypto, subclass: crypto,   currency: USD, fallback: {fdr: "ETH/USD"}}
+  # --- 기타 ---
+  - {id: DBC,      name: 상품지수,      ticker: DBC,         asset_class: etf,    subclass: commodity, currency: USD, note: "에너지·귀금속·산업금속·농산물"}
+  - {id: EMB,      name: 신흥국 채권,   ticker: EMB,         asset_class: etf,    subclass: bond,     currency: USD}
