@@ -220,6 +220,8 @@ def export(con=None, verbose: bool = True) -> dict:
     # RS 랭킹 탭 (섹터 RRG + 종목 RS 표)
     from .rs_export import build as build_rs_tab
     size["rs.js"] = _write_js(SITE / "data" / "rs.js", "DASH_RS", None, build_rs_tab(con))
+    from .rs_export import build_px
+    size["rs_px.js"] = _write_js(SITE / "data" / "rs_px.js", "DASH_RS_PX", None, build_px(con))   # 사용자 정의 섹터용
 
     if own:
         con.close()

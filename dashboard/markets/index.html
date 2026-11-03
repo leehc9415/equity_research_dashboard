@@ -25,11 +25,13 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);
   font:14px/1.4 -apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
-header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
-.bar{max-width:1500px;margin:0 auto;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.brand{font-weight:800;letter-spacing:-.02em;margin-right:8px}
+header{position:sticky;top:0;z-index:5;background:var(--bg)}
+.bar{max-width:1500px;margin:0 auto;padding:0 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.bar2{max-width:1500px;margin:0 auto;padding:8px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.bar2[hidden]{display:none}
 .tabs{display:flex;gap:4px;flex-wrap:wrap}
-.tab{border:0;background:none;color:var(--sub);font:inherit;font-weight:600;padding:6px 10px;border-radius:8px;cursor:pointer}
+.tabs{background:var(--chip);border-radius:9px;padding:2px}
+.tab{border:0;background:none;color:var(--sub);font:inherit;font-size:13px;font-weight:600;padding:5px 12px;border-radius:7px;cursor:pointer}
 .tab.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .tf{margin-left:auto;display:flex;gap:4px}
 .tf button{border:1px solid var(--line);background:var(--card);color:var(--sub);font:inherit;font-size:12px;padding:4px 10px;border-radius:6px;cursor:pointer}
@@ -61,9 +63,13 @@ svg.ch .lab{font-size:10.5px;font-weight:700;fill:var(--ink)}
 .ft{margin-left:auto;color:var(--sub);font-size:11px;white-space:nowrap}
 .foot{color:var(--sub);font-size:12px;margin-top:14px}
 .empty{color:var(--sub);padding:30px 0}
-.modes{display:flex;gap:2px;background:var(--chip);border-radius:9px;padding:2px}
-.mode{border:0;background:none;color:var(--sub);font:inherit;font-weight:700;padding:5px 12px;border-radius:7px;cursor:pointer}
-.mode.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.modes{display:flex;gap:0;overflow-x:auto}
+.mode{border:0;border-bottom:3px solid transparent;background:none;color:#8494a6;font:inherit;font-size:13px;font-weight:700;padding:12px 17px 11px;cursor:pointer;white-space:nowrap}
+.mode:hover{color:#1f675c}
+.mode.on{color:#1f675c;border-bottom-color:#39b594}
+:root[data-theme="dark"] .mode.on{color:#4fdbb0}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .mode.on,:root:not([data-theme="light"]) .mode:hover{color:#4fdbb0}}
+.asof{margin-left:auto;color:var(--sub);font-size:12px}
 .seg{display:inline-flex;gap:2px;background:var(--chip);border-radius:8px;padding:2px}
 .seg button{border:0;background:none;color:var(--sub);font:inherit;font-size:12px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer}
 .seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
@@ -77,6 +83,8 @@ svg.rrg .sl{font-size:11px;font-weight:700;fill:var(--ink);paint-order:stroke;st
 svg.rrg g.s{cursor:pointer}
 svg.rrg g.s path,svg.rrg g.s circle.t{pointer-events:none}
 svg.rrg g.s.dim{opacity:.18}
+svg.rrg g.s .tl{display:none}
+svg.rrg g.s:hover .tl,svg.rrg g.s.sel .tl,svg.rrg.all g.s .tl{display:inline}
 table.t{width:100%;border-collapse:collapse;font-size:13px}
 table.t th{font-size:12px;color:var(--sub);font-weight:600;text-align:right;padding:6px 6px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
 table.t th.l,table.t td.l{text-align:left}
@@ -93,15 +101,40 @@ table.t tbody tr:hover td{background:var(--chip)}
 a.sn{color:inherit;text-decoration:none;font-weight:700}
 a.sn:hover{text-decoration:underline}
 .code{color:var(--sub);font-size:11px;margin-left:4px}
+.mh{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin:2px 2px 8px}
+.lnk{margin-left:auto;border:0;background:none;color:var(--sub);font:inherit;font-size:12px;cursor:pointer;text-decoration:underline}
+.madd select{width:100%;font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+.mlist{max-height:470px;overflow-y:auto}
+.mrow{display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}
+.mrow.mhd{cursor:default;color:var(--sub);font-size:12px;margin-top:8px}
+.mrow:not(.mhd):hover,.mrow.sel{background:var(--chip)}
+.qd{width:10px;height:10px;border-radius:50%;flex:none}
+.mn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.mc{width:58px;text-align:right;white-space:nowrap}
+.mx{border:0;background:none;color:var(--sub);cursor:pointer;font-size:12px;padding:2px 4px}
+.mx:hover{color:var(--up)}
+.quads{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;align-items:flex-start}
+.qcol{background:var(--card);border-radius:12px;padding:8px 12px;min-width:150px;flex-basis:0}
+.qh{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.qitems{display:flex;flex-wrap:wrap;gap:6px}
+.qi{display:inline-flex;gap:6px;align-items:baseline;background:var(--chip);border-radius:8px;padding:4px 9px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid transparent}
+.qi span{font-size:11px;font-weight:600}
+.qi.sel{border-color:var(--ink)}
+.cform{border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:8px;display:grid;gap:6px}
+.cform input,.cform textarea{font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);width:100%}
+.cform textarea{min-height:70px;resize:vertical}
+.cbtns{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:12px;font-weight:600;padding:5px 12px;border-radius:7px;cursor:pointer}
+.btn.pri{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.btn.del{color:var(--up)}
+.cmsg{font-size:12px;color:var(--sub)}
 </style>
 </head>
 <body>
-<header><div class="bar">
-  <span class="brand">Market Charts</span>
-  <nav class="modes" id="modes"></nav>
-  <nav class="tabs" id="tabs"></nav>
-  <div class="tf" id="tf" title="모든 카드의 봉 단위"></div>
-</div></header>
+<header>
+  <div class="bar"><nav class="modes" id="modes" aria-label="증시데이터 화면"></nav><span class="asof" id="asof"></span></div>
+  <div class="bar2" id="bar2"><nav class="tabs" id="tabs" aria-label="차트북 그룹"></nav><div class="tf" id="tf" title="모든 카드의 봉 단위"></div></div>
+</header>
 <main id="main"><div class="empty">데이터를 불러오는 중…</div></main>
 
 <script src="data/overview.js"></script>
@@ -296,11 +329,80 @@ const MODES = [["chart","차트북"],["rs","RS 랭킹"]];
 const QORDER = {"주도":0,"개선":1,"약화":2,"소외":3};
 const QCOL = {"주도":"#e0383e","약화":"#f0913a","소외":"#2f6fdf","개선":"#22a06b"};
 const quad = (a, m) => a >= 100 ? (m >= 100 ? "주도" : "약화") : (m >= 100 ? "개선" : "소외");
-const RSST = {n: null, bench: "KS11", sector: null, market: "", cap: 1000, mtt: false, q: "", sort: "rs", dir: -1, limit: 100};
+const RSST = {n: null, bench: "KS11", allTails: false, sector: null, market: "", cap: 1000, mtt: false, q: "", sort: "rs", dir: -1, limit: 100};
 const CAPS = [[0,"전체"],[500,"500억+"],[1000,"1,000억+"],[2000,"2,000억+"],[5000,"5,000억+"],[10000,"1조+"]];
-const COLS = [["sector","섹터","l"],["srank","섹터내#",""],["name","종목명","l"],["market","시장","l"],["close","종가",""],["chg_1d","등락률",""],
+const COLS = [["sector","섹터","l"],["name","종목명","l"],["market","시장","l"],["close","종가",""],["chg_1d","등락률",""],
   ["rs","RS",""],["rs_1m","1M",""],["rs_3m","3M",""],["rs_6m","6M",""],["rs_12m","12M",""],["mtt","MTT",""],["mcap","시가총액",""]];
-let RS = null, STOCKS = null, SECNAME = {};
+const ACT_KEY = "rrg_sectors_v1", CUS_KEY = "rrg_custom_v1";
+let RS = null, STOCKS = null, SEC = {}, ACTIVE = null, CUSTOM = null, PX = null, EDIT = null;
+
+// ---------------------------------------------------------------- 사용자 정의 섹터 (브라우저에서 계산)
+function loadCustom(){ try { const c = JSON.parse(localStorage.getItem(CUS_KEY) || "[]"); return Array.isArray(c) ? c : []; } catch { return []; } }
+function saveCustom(){ try { localStorage.setItem(CUS_KEY, JSON.stringify(CUSTOM)); } catch {} }
+async function ensurePX(){
+  if (PX) return PX;
+  if (!window.DASH_RS_PX) await loadScript("data/rs_px.js");
+  const D0 = window.DASH_RS_PX, T = D0.dates.length;
+  const pos = Object.fromEntries(D0.codes.map((c, i) => [c, i]));
+  const level = r => {            // 일간 수익률(bp) → 마지막 날 = 1 인 상대 가격, 상장 전은 null
+    const fi = r.findIndex(v => v != null), lev = new Array(T).fill(null);
+    if (fi < 0) return lev;
+    lev[T - 1] = 1;
+    for (let t = T - 1; t >= Math.max(1, fi); t--) lev[t - 1] = lev[t] / (1 + (r[t] ?? 0) / 1e4);
+    return lev;
+  };
+  const cum = r => { const o = [1]; for (let t = 1; t < T; t++) o.push(o[t - 1] * (1 + (r[t] ?? 0) / 1e4)); return o; };
+  PX = {T, dates: D0.dates, pos, level, levCache: {}, bench: Object.fromEntries(Object.entries(D0.bench).map(([k, r]) => [k, cum(r)]))};
+  return PX;
+}
+function basketIndex(codes){
+  const D0 = window.DASH_RS_PX, T = PX.T, mem = codes.map(c => PX.pos[c]).filter(i => i != null);
+  mem.forEach(i => { if (!PX.levCache[i]) PX.levCache[i] = PX.level(D0.r[i]); });
+  const idx = [1];
+  for (let t = 1; t < T; t++){
+    let num = 0, den = 0;
+    for (const i of mem){ const r = D0.r[i][t], l = PX.levCache[i][t - 1];
+      if (r == null || l == null) continue; const w = D0.mcap[i] * l; num += w * r / 1e4; den += w; }
+    idx.push(idx[t - 1] * (1 + (den ? num / den : 0)));
+  }
+  return idx;
+}
+function rrgPointsJS(sec, bench, weeks){
+  const p0 = RS.rrg.periods[weeks], v = sec.map((x, i) => x / bench[i]), n = v.length;
+  const l = Math.min(p0.days, n - 1), f = Math.max(15, Math.round(l / 2)), p = Math.max(5, Math.round(l / p0.points));
+  const end = n - 1, start = end - l, idx = [...new Set(Array.from({length: p0.points}, (_, k) => Math.round(start + (end - start) * k / (p0.points - 1))))];
+  return idx.map(i => { const w = v.slice(Math.max(0, i - f), i + 1), avg = w.reduce((a, b) => a + b, 0) / w.length;
+    return [Math.round(10000 * v[i] / avg) / 100, Math.round(10000 * v[i] / v[Math.max(0, i - p)]) / 100]; });
+}
+function registerCustom(c){
+  const id = "CU:" + c.name, codes = c.codes.filter(x => PX.pos[x] != null);
+  const ix = basketIndex(codes), T = ix.length, chg = k => T > k ? Math.round(10000 * (ix[T - 1] / ix[T - 1 - k] - 1)) / 100 : null;
+  SEC[id] = {id, name: c.name, level: "C", parent: null, count: codes.length, codes, chg_1w: chg(5), chg_4w: chg(20)};
+  Object.keys(RS.rrg.benchmarks).forEach(b => {
+    RS.rrg.rrg[b][id] = Object.fromEntries(RS.rrg.windows.map(w => [String(w), codes.length ? rrgPointsJS(ix, PX.bench[b], String(w)) : []]));
+  });
+  return id;
+}
+function resolveStocks(text){
+  const byName = {}, byLower = {};
+  STOCKS.forEach(s => { byName[s.name] = s.code; byLower[s.name.toLowerCase().replace(/\s+/g, "")] = s.code; });
+  const ok = [], miss = [];
+  text.split(/[,\n;\t]+/).map(t => t.trim()).filter(Boolean).forEach(t => {
+    const c = /^A?\d{6}$/.test(t) ? t.replace(/^A/, "") : (byName[t] || byLower[t.toLowerCase().replace(/\s+/g, "")]);
+    if (c && PX.pos[c] != null){ if (!ok.includes(c)) ok.push(c); } else miss.push(t);
+  });
+  return {ok, miss};
+}
+
+function loadActive(){
+  const def = RS.rrg.sectors.filter(s => s.level === "L").map(s => s.id);
+  let a = null;
+  try { a = JSON.parse(localStorage.getItem(ACT_KEY) || "null"); } catch {}
+  ACTIVE = Array.isArray(a) ? a.filter(id => SEC[id]) : def;
+  if (!ACTIVE.length) ACTIVE = def;
+}
+function saveActive(){ try { localStorage.setItem(ACT_KEY, JSON.stringify(ACTIVE)); } catch {} }
+const secLabel = s => s.level === "M" ? `${s.parent} › ${s.name}` : s.level === "C" ? `★ ${s.name}` : s.name;
 
 async function renderRS(sec){
   if (!window.DASH_RS){
@@ -309,47 +411,54 @@ async function renderRS(sec){
   }
   RS = window.DASH_RS; const R = RS.rrg;
   if (RSST.n == null) RSST.n = String(R.default_n);
-  SECNAME = Object.fromEntries(R.sectors.map(s => [s.id, s.name]));
+  if (!Object.keys(SEC).length) SEC = Object.fromEntries(R.sectors.map(s => [s.id, s]));
   if (!STOCKS){
     const c = RS.stocks.cols;
     STOCKS = RS.stocks.rows.map(r => Object.fromEntries(c.map((k, i) => [k, r[i]])));
-    const by = {};
-    STOCKS.forEach(s => { if (s.sector) (by[s.sector] = by[s.sector] || []).push(s); });
-    Object.values(by).forEach(l => l.sort((a, b) => (b.rs ?? -1) - (a.rs ?? -1)).forEach((s, i) => s.srank = i + 1));
   }
-  RSST.sector = sec && SECNAME[sec] ? sec : null;
+  if (CUSTOM == null){
+    CUSTOM = loadCustom();
+    if (CUSTOM.length){ try { await ensurePX(); CUSTOM.forEach(registerCustom); } catch { CUSTOM = []; } }
+  }
+  if (!ACTIVE) loadActive();
+  RSST.sector = sec && SEC[sec] ? sec : null;
   const bn = R.benchmarks[RSST.bench];
   $("#main").innerHTML = `
-    <div class="note">섹터 RRG — 섹터 지수 21개를 <b>${esc(bn)}</b> 대비로 비교 · 가로 RS-Ratio(상대강도 추세) / 세로 RS-Momentum(개선 속도), 100 = 기준지수와 같음 ·
-      주봉(이번 주는 ${R.asof}까지) · 꼬리 ${R.tail}주 · 점을 누르면 아래 종목 표가 그 섹터로 좁혀짐</div>
+    <div class="note">섹터 RRG — ${esc(R.classification)} · 시총가중 섹터 지수를 <b>${esc(bn)}</b> 대비로 비교 ·
+      가로 RS-Ratio(상대강도가 평소보다 높은가) / 세로 RS-Momentum(최근 개선 중인가), 100 = 기준지수와 같음 ·
+      일봉 ${R.asof}까지 · 최근 ${RSST.n}주를 ${R.periods[RSST.n].points}개 시점으로 표시</div>
     <div class="tools">
       <span class="seg" id="rsn">${R.windows.map(n => `<button data-n="${n}" class="${String(n)===RSST.n?"on":""}">${n}주</button>`).join("")}</span>
       <span class="seg" id="rsb">${Object.entries(R.benchmarks).map(([k, v]) => `<button data-b="${k}" class="${k===RSST.bench?"on":""}">${v} 대비</button>`).join("")}</span>
-      <span class="note" style="margin:0">${esc(bn)} 이번 주 ${pct(R.bench_chg_1w[RSST.bench]/100)}</span>
+      <label class="note" style="margin:0"><input type="checkbox" id="rsall" ${RSST.allTails?"checked":""}> 꼬리 모두 보기</label>
+      <span class="note" style="margin:0">${esc(bn)} 1주 ${R.bench_chg_1w[RSST.bench] == null ? "–" : pct(R.bench_chg_1w[RSST.bench]/100)}</span>
     </div>
     <div class="rrgwrap">
       <div class="panel" id="rrg"></div>
-      <div class="panel" style="padding:4px 8px;overflow-x:auto" id="rank"></div>
+      <div class="panel" id="mng"></div>
     </div>
+    <div class="quads" id="quads"></div>
     <h2 style="margin:18px 0 4px">종목 RS</h2>
-    <div class="note">IBD식 RS(0~99, 전 종목 백분위) · 1M·3M·6M·12M = 기간 수익률 백분위 · MTT = 미너비니 트렌드 템플릿 8개 조건 충족 · 섹터내# = 섹터 안 RS 순위 · 데이터 ${RS.stocks.asof} 장마감</div>
+    <div class="note">섹터 = 스탁이지 대분류(중분류) · IBD식 RS(0~99, 전 종목 백분위) · 1M·3M·6M·12M = 기간 수익률 백분위 · MTT = 미너비니 트렌드 템플릿 8개 조건 충족 · 데이터 ${RS.stocks.asof} 장마감</div>
     <div class="tools" id="rsf"></div>
     <div class="tw"><table class="t" id="stk"></table></div>
     <button class="more" id="more" hidden>더 보기</button>`;
   $("#rsn").onclick = e => { const b = e.target.closest("button"); if (b){ RSST.n = b.dataset.n; renderRS(RSST.sector); } };
+  $("#rsall").onchange = e => { RSST.allTails = e.target.checked; drawRRG(); };
   $("#rsb").onclick = e => { const b = e.target.closest("button"); if (b){ RSST.bench = b.dataset.b; renderRS(RSST.sector); } };
-  drawRRG(); drawRank(); drawFilters(); drawStocks();
+  drawAll();
 }
+function drawAll(){ drawRRG(); drawManage(); drawQuads(); drawFilters(); drawStocks(); }
 
 function setSector(id){
   RSST.sector = RSST.sector === id ? null : id; RSST.limit = 100;
-  history.replaceState(null, "", "#rs" + (RSST.sector ? "/" + RSST.sector : ""));
-  drawRRG(); drawRank(); drawFilters(); drawStocks();
+  history.replaceState(null, "", "#rs" + (RSST.sector ? "/" + encodeURIComponent(RSST.sector) : ""));
+  drawAll();
 }
 
 function rrgData(){
-  const R = RS.rrg, T = R.rrg[RSST.bench];
-  return R.sectors.map(s => {
+  const T = RS.rrg.rrg[RSST.bench];
+  return ACTIVE.map(id => SEC[id]).filter(Boolean).map(s => {
     const tail = (T[s.id] || {})[RSST.n] || [];
     const last = tail[tail.length - 1] || [null, null];
     return {...s, tail, ratio: last[0], mom: last[1], q: last[0] == null ? "-" : quad(last[0], last[1])};
@@ -358,13 +467,15 @@ function rrgData(){
 
 function drawRRG(){
   const data = rrgData(), W = 600, H = 560, L = 44, Rm = 16, T = 16, B = 36;
+  // 축 범위: 현재 점 + 보이는 꼬리(선택한 섹터, 또는 '꼬리 모두 보기')만 기준으로
   let span = 0.5;
-  data.forEach(s => s.tail.forEach(([a, m]) => { span = Math.max(span, Math.abs(a - 100), Math.abs(m - 100)); }));
-  span = Math.ceil((span * 1.08) * 2) / 2;
+  data.forEach(s => (RSST.allTails || s.id === RSST.sector ? s.tail : [[s.ratio, s.mom]])
+    .forEach(([a, m]) => { span = Math.max(span, Math.abs(a - 100), Math.abs(m - 100)); }));
+  const step = [0.5, 1, 2, 5, 10, 20, 50].find(v => (span * 1.1) / v <= 4) || 100;
+  span = Math.ceil((span * 1.1) / step) * step;
   const x = v => L + (W - L - Rm) * (v - (100 - span)) / (2 * span);
   const y = v => T + (H - T - B) * (1 - (v - (100 - span)) / (2 * span));
   const cx = x(100), cy = y(100);
-  const step = span <= 2 ? 0.5 : span <= 5 ? 1 : 2;
   let grid = "";
   for (let v = 100 - span; v <= 100 + span + 1e-9; v += step){
     const vv = Math.round(v * 10) / 10;
@@ -383,38 +494,105 @@ function drawRRG(){
   const pts = data.map(s => {
     const c = QCOL[s.q], P = s.tail.map(([a, m]) => [x(a), y(m)]);
     const path = P.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join("");
-    const dots = P.slice(0, -1).map((p, i) => `<circle class="t" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2" fill="${c}" opacity="${(0.25 + 0.6 * i / P.length).toFixed(2)}"/>`).join("");
+    const dots = P.slice(0, -1).map((p, i) => `<circle class="t" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${(2.4 + 1.6 * i / P.length).toFixed(1)}" fill="${c}" opacity="${(0.35 + 0.5 * i / P.length).toFixed(2)}"/>`).join("");
     const [hx, hy] = P[P.length - 1];
-    const tip = `${s.name} · ${s.q}\nRS-Ratio ${s.ratio.toFixed(2)} · RS-Momentum ${s.mom.toFixed(2)}\n이번 주 ${s.chg_1w == null ? "–" : (s.chg_1w > 0 ? "+" : "") + s.chg_1w.toFixed(1) + "%"} · ${s.count}종목`;
-    return `<g class="s ${sel && sel !== s.id ? "dim" : ""}" data-id="${s.id}"><title>${esc(tip)}</title>
-      <path d="${path}" fill="none" stroke="${c}" stroke-width="1.4" opacity=".55"/>${dots}
+    const tip = `${s.name} · ${s.q}\nRS-Ratio ${s.ratio.toFixed(2)} · RS-Momentum ${s.mom.toFixed(2)}\n1주 ${s.chg_1w == null ? "–" : (s.chg_1w > 0 ? "+" : "") + s.chg_1w.toFixed(1) + "%"} · ${s.count}종목`;
+    return `<g class="s ${sel && sel !== s.id ? "dim" : ""} ${sel === s.id ? "sel" : ""}" data-id="${s.id}"><title>${esc(tip)}</title>
+      <g class="tl"><path d="${path}" fill="none" stroke="${c}" stroke-width="1.6" opacity=".6"/>${dots}</g>
       <circle cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="${sel === s.id ? 7 : 5.5}" fill="${c}" stroke="var(--card)" stroke-width="1.5"/>
-      <text class="sl" x="${(hx + 8).toFixed(1)}" y="${(hy + 4).toFixed(1)}">${esc(s.name.split("·")[0])}</text></g>`;
+      <text class="sl" x="${(hx + 8).toFixed(1)}" y="${(hy + 4).toFixed(1)}">${esc(s.name)}</text></g>`;
   }).join("");
-  $("#rrg").innerHTML = `<svg class="rrg" viewBox="0 0 ${W} ${H}">${quads}${grid}
+  $("#rrg").innerHTML = `<svg class="rrg ${RSST.allTails ? "all" : ""}" viewBox="0 0 ${W} ${H}">${quads}${grid}
     <text x="${(L + W - Rm) / 2}" y="${H-4}" text-anchor="middle">RS-Ratio →</text>
     <text x="12" y="${(T + H - B) / 2}" text-anchor="middle" transform="rotate(-90 12 ${(T + H - B) / 2})">RS-Momentum →</text>
     ${pts}</svg>`;
   $("#rrg").onclick = e => { const g = e.target.closest("g.s"); if (g) setSector(g.dataset.id); };
 }
 
-function drawRank(){
-  const data = rrgData().sort((a, b) => (QORDER[a.q] - QORDER[b.q]) || ((b.ratio + b.mom) - (a.ratio + a.mom)));
-  const cnt = {}; data.forEach(s => cnt[s.q] = (cnt[s.q] || 0) + 1);
-  $("#rank").innerHTML = `<div class="note" style="margin:6px 4px">${["주도","개선","약화","소외"].map(q => `<span class="q q-${q}">${q}</span> ${cnt[q] || 0}`).join(" &nbsp; ")}</div>
-    <table class="t"><thead><tr><th class="l">#</th><th class="l">섹터</th><th class="l">사분면</th><th>RS-Ratio</th><th>Momentum</th><th>이번 주</th><th>4주</th><th>종목</th></tr></thead><tbody>
-    ${data.map((s, i) => `<tr data-id="${s.id}" class="${RSST.sector === s.id ? "sel" : ""}" style="cursor:pointer">
-      <td class="l">${i + 1}</td><td class="l"><b>${esc(s.name)}</b></td><td class="l"><span class="q q-${s.q}">${s.q}</span></td>
-      <td>${s.ratio.toFixed(2)}</td><td>${s.mom.toFixed(2)}</td>
-      <td class="${cls((s.chg_1w ?? 0) / 100)}">${s.chg_1w == null ? "–" : pct(s.chg_1w / 100)}</td>
-      <td class="${cls((s.chg_4w ?? 0) / 100)}">${s.chg_4w == null ? "–" : pct(s.chg_4w / 100)}</td><td>${s.count}</td></tr>`).join("")}
-    </tbody></table>`;
-  $("#rank").onclick = e => { const r = e.target.closest("tr[data-id]"); if (r) setSector(r.dataset.id); };
+function drawManage(){
+  const data = Object.fromEntries(rrgData().map(s => [s.id, s]));
+  const fmt = v => v == null ? "–" : pct(v / 100);
+  const rows = ACTIVE.map(id => SEC[id]).filter(Boolean).map(s => { const d = data[s.id] || {};
+    return `<div class="mrow ${RSST.sector === s.id ? "sel" : ""}" data-id="${esc(s.id)}">
+      <span class="qd" style="background:${QCOL[d.q] || "var(--flat)"}"></span>
+      <span class="mn">${esc(secLabel(s))}</span>
+      <span class="mc ${cls((s.chg_1w ?? 0) / 100)}">${fmt(s.chg_1w)}</span>
+      <span class="mc ${cls((s.chg_4w ?? 0) / 100)}">${fmt(s.chg_4w)}</span>
+      ${s.level === "C" ? `<button class="mx" data-ed="${esc(s.id)}" title="내 섹터 편집">✎</button>` : ""}<button class="mx" data-rm="${esc(s.id)}" title="RRG에서 빼기">✕</button></div>`; }).join("");
+  const off = RS.rrg.sectors.filter(s => !ACTIVE.includes(s.id));
+  const offL = off.filter(s => s.level === "L"), parents = [...new Set(off.filter(s => s.level === "M").map(s => s.parent))];
+  const offC = off.filter(s => s.level === "C");
+  const opts = (offC.length ? `<optgroup label="내 섹터">${offC.map(s => `<option value="${esc(s.id)}">★ ${esc(s.name)} (${s.count})</option>`).join("")}</optgroup>` : "")
+    + (offL.length ? `<optgroup label="대분류">${offL.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("")}</optgroup>` : "")
+    + parents.map(p => `<optgroup label="${esc(p)} 중분류">${off.filter(s => s.level === "M" && s.parent === p)
+        .map(s => `<option value="${esc(s.id)}">${esc(s.name)} (${s.count})</option>`).join("")}</optgroup>`).join("");
+  $("#mng").innerHTML = `
+    <div class="mh"><b>RRG 섹터 관리</b><span class="note" style="margin:0">${ACTIVE.length}개 표시 · 이 브라우저에 저장</span>
+      <button class="lnk" id="mreset">기본값(대분류 15)</button></div>
+    <div class="madd"><select id="madd"><option value="">+ 섹터 추가 (대분류·중분류·내 섹터)</option>${opts}</select></div>
+    <div class="cbtns" style="margin-top:6px"><button class="btn" id="cnew">★ 새 섹터 만들기</button><span class="cmsg">이름과 종목을 넣으면 시총가중 지수로 계산해 RRG에 띄워요</span></div>
+    <div id="cform"></div>
+    <div class="mrow mhd"><span class="qd" style="opacity:0"></span><span class="mn">섹터</span><span class="mc">1주</span><span class="mc">4주</span><span class="mx" style="visibility:hidden">✕</span></div>
+    <div class="mlist">${rows || `<div class="empty">표시할 섹터가 없습니다</div>`}</div>`;
+  $("#cnew").onclick = () => openForm(null);
+  if (EDIT !== null) openForm(EDIT);
+  $("#madd").onchange = e => { const id = e.target.value; if (id && !ACTIVE.includes(id)){ ACTIVE.push(id); saveActive(); drawAll(); } };
+  $("#mreset").onclick = () => { ACTIVE = RS.rrg.sectors.filter(s => s.level === "L").map(s => s.id); saveActive(); if (RSST.sector && !ACTIVE.includes(RSST.sector)) RSST.sector = null; drawAll(); };
+  $("#mng").querySelector(".mlist").onclick = e => {
+    const ed = e.target.closest("[data-ed]");
+    if (ed){ openForm(SEC[ed.dataset.ed].name); return; }
+    const rm = e.target.closest("[data-rm]");
+    if (rm){ ACTIVE = ACTIVE.filter(x => x !== rm.dataset.rm); saveActive(); if (RSST.sector === rm.dataset.rm) RSST.sector = null; drawAll(); return; }
+    const r = e.target.closest(".mrow[data-id]"); if (r) setSector(r.dataset.id);
+  };
+}
+
+function openForm(name){
+  EDIT = name;
+  const c = name ? CUSTOM.find(x => x.name === name) : null;
+  const nm = c ? c.codes.map(code => (STOCKS.find(s => s.code === code) || {}).name || code).join(", ") : "";
+  $("#cform").innerHTML = `<div class="cform">
+    <input id="cname" placeholder="섹터 이름 (예: PCB·기판)" value="${esc(c ? c.name : "")}">
+    <textarea id="ccodes" placeholder="종목명 또는 종목코드를 쉼표·줄바꿈으로 구분 (예: 이수페타시스, 대덕전자, 007810)">${esc(nm)}</textarea>
+    <div class="cbtns"><button class="btn pri" id="csave">저장</button>${c ? `<button class="btn del" id="cdel">삭제</button>` : ""}<button class="btn" id="ccancel">닫기</button>
+      <span class="cmsg" id="cmsg"></span></div></div>`;
+  $("#ccancel").onclick = () => { EDIT = null; $("#cform").innerHTML = ""; };
+  if (c) $("#cdel").onclick = () => {
+    const id = "CU:" + c.name; CUSTOM = CUSTOM.filter(x => x !== c); saveCustom();
+    ACTIVE = ACTIVE.filter(x => x !== id); saveActive(); delete SEC[id]; if (RSST.sector === id) RSST.sector = null; EDIT = null; drawAll();
+  };
+  $("#csave").onclick = async () => {
+    const name = $("#cname").value.trim().replace(/[<>]/g, ""), msg = $("#cmsg");
+    if (!name){ msg.textContent = "이름을 입력하세요"; return; }
+    if (CUSTOM.some(x => x.name === name && x !== c)){ msg.textContent = "같은 이름의 섹터가 있어요"; return; }
+    msg.textContent = "계산 중…";
+    try { await ensurePX(); } catch { msg.textContent = "data/rs_px.js 를 불러오지 못했어요"; return; }
+    const {ok, miss} = resolveStocks($("#ccodes").value);
+    if (!ok.length){ msg.textContent = "찾은 종목이 없어요" + (miss.length ? ` (못 찾음: ${miss.join(", ")})` : ""); return; }
+    if (c){ const old = "CU:" + c.name; delete SEC[old]; ACTIVE = ACTIVE.map(x => x === old ? "CU:" + name : x); if (RSST.sector === old) RSST.sector = "CU:" + name; c.name = name; c.codes = ok; }
+    else CUSTOM.push({name, codes: ok});
+    saveCustom();
+    const id = registerCustom(c || CUSTOM[CUSTOM.length - 1]);
+    if (!ACTIVE.includes(id)) ACTIVE.push(id); saveActive();
+    EDIT = miss.length ? name : null;
+    drawAll();
+    if (miss.length) $("#cmsg").textContent = `${ok.length}종목 저장 · 못 찾음: ${miss.join(", ")}`;
+  };
+}
+
+function drawQuads(){
+  const data = rrgData();
+  const col = q => data.filter(s => s.q === q).sort((a, b) => (b.ratio + b.mom) - (a.ratio + a.mom));
+  $("#quads").innerHTML = ["주도","개선","약화","소외"].map(q => { const l = col(q);
+    return `<div class="qcol" style="flex-grow:${l.length + 1}"><div class="qh"><span class="q q-${q}">${q}</span><span class="note" style="margin:0">${l.length}</span></div>
+      <div class="qitems">${l.map(s => `<span class="qi ${RSST.sector === s.id ? "sel" : ""}" data-id="${esc(s.id)}">${esc(secLabel(s))}
+        <span class="${cls((s.chg_1w ?? 0) / 100)}">${s.chg_1w == null ? "" : pct(s.chg_1w / 100)}</span></span>`).join("") || `<span class="note" style="margin:0">없음</span>`}</div></div>`; }).join("");
+  $("#quads").onclick = e => { const i = e.target.closest(".qi"); if (i) setSector(i.dataset.id); };
 }
 
 function drawFilters(){
   $("#rsf").innerHTML = `
-    ${RSST.sector ? `<span class="chipx" id="secx">${esc(SECNAME[RSST.sector])} ✕</span>` : `<span class="note" style="margin:0">전체 섹터</span>`}
+    ${RSST.sector ? `<span class="chipx" id="secx">${esc(secLabel(SEC[RSST.sector]))} ✕</span>` : `<span class="note" style="margin:0">전체 섹터</span>`}
     <select id="fm"><option value="">전체 시장</option><option ${RSST.market==="KOSPI"?"selected":""}>KOSPI</option><option ${RSST.market==="KOSDAQ"?"selected":""}>KOSDAQ</option></select>
     <select id="fc">${CAPS.map(([v, l]) => `<option value="${v}" ${v===RSST.cap?"selected":""}>${l}</option>`).join("")}</select>
     <label class="note" style="margin:0"><input type="checkbox" id="fmtt" ${RSST.mtt?"checked":""}> MTT 충족만</label>
@@ -429,21 +607,22 @@ function drawFilters(){
 
 function drawStocks(){
   const q = RSST.q.trim().toLowerCase();
-  let list = STOCKS.filter(s => (!RSST.sector || s.sector === RSST.sector) && (!RSST.market || s.market === RSST.market)
+  const S = RSST.sector ? SEC[RSST.sector] : null;
+  let list = STOCKS.filter(s => (!S || (S.level === "L" ? s.sector === S.name : S.level === "C" ? S.codes.includes(s.code) : s.sub === S.name)) && (!RSST.market || s.market === RSST.market)
     && (s.mcap ?? 0) >= RSST.cap && (!RSST.mtt || s.mtt) && (!q || s.name.toLowerCase().includes(q) || s.code.includes(q)));
   const k = RSST.sort, d = RSST.dir;
-  const val = s => k === "sector" ? (SECNAME[s.sector] || "") : s[k];
+  const val = s => k === "sector" ? (s.sector || "") + (s.sub || "") : s[k];
   list.sort((a, b) => { const va = val(a), vb = val(b);
     if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1;
     return typeof va === "string" ? d * va.localeCompare(vb) : d * (va - vb); });
   $("#fcnt").textContent = `${list.length.toLocaleString()}개 종목`;
   const rsCell = v => v == null ? "–" : (v >= 80 ? `<span class="strong">${v}</span>` : v);
   const capFmt = v => v == null ? "–" : v >= 10000 ? (v / 10000).toFixed(1) + "조" : v.toLocaleString() + "억";
-  const idx = RS.stocks.indices.map(i => `<tr class="idx"><td class="l">지수</td><td>-</td><td class="l">${esc(i.name)}</td><td class="l">-</td>
+  const idx = RS.stocks.indices.map(i => `<tr class="idx"><td class="l">지수</td><td class="l">${esc(i.name)}</td><td class="l">-</td>
     <td>${i.close.toLocaleString()}</td><td class="${cls((i.chg_1d ?? 0) / 100)}">${i.chg_1d == null ? "–" : pct(i.chg_1d / 100, 2)}</td>
     <td>${rsCell(i.rs)}</td><td>${i.rs_1m ?? "–"}</td><td>${i.rs_3m ?? "–"}</td><td>${i.rs_6m ?? "–"}</td><td>${i.rs_12m ?? "–"}</td><td>-</td><td>-</td></tr>`).join("");
   const rows = list.slice(0, RSST.limit).map(s => `<tr>
-    <td class="l">${esc(SECNAME[s.sector] || "-")}</td><td>${s.srank ?? "-"}</td>
+    <td class="l">${esc(s.sector || "미분류")}${s.sub ? `<span class="code">${esc(s.sub)}</span>` : ""}</td>
     <td class="l"><a class="sn" href="https://m.stock.naver.com/domestic/stock/${s.code}/total" target="_blank" rel="noopener">${esc(s.name)}</a><span class="code">${s.code}</span></td>
     <td class="l">${s.market === "KOSPI" ? "코스피" : s.market === "KOSDAQ" ? "코스닥" : esc(s.market || "")}</td>
     <td>${s.close == null ? "–" : s.close.toLocaleString()}</td><td class="${cls((s.chg_1d ?? 0) / 100)}">${s.chg_1d == null ? "–" : pct(s.chg_1d / 100, 2)}</td>
@@ -452,7 +631,7 @@ function drawStocks(){
   $("#stk").innerHTML = `<thead><tr>${COLS.map(([c, l, a]) => `<th class="${a}" data-k="${c}">${l}${RSST.sort === c ? (RSST.dir < 0 ? " ↓" : " ↑") : ""}</th>`).join("")}</tr></thead>
     <tbody>${RSST.sector ? "" : idx}${rows}</tbody>`;
   $("#stk").querySelector("thead").onclick = e => { const th = e.target.closest("th"); if (!th) return;
-    const c = th.dataset.k; if (RSST.sort === c) RSST.dir = -RSST.dir; else { RSST.sort = c; RSST.dir = ["name","sector","market","srank"].includes(c) ? 1 : -1; } drawStocks(); };
+    const c = th.dataset.k; if (RSST.sort === c) RSST.dir = -RSST.dir; else { RSST.sort = c; RSST.dir = ["name","sector","market"].includes(c) ? 1 : -1; } drawStocks(); };
   const more = $("#more"); more.hidden = list.length <= RSST.limit;
   more.textContent = `더 보기 (${Math.min(100, list.length - RSST.limit)}개)`;
   more.onclick = () => { RSST.limit += 100; drawStocks(); };
@@ -462,7 +641,8 @@ function route(){
   const h = (location.hash || "#kr").slice(1), [tab, sec] = h.split("/");
   const mode = tab === "rs" ? "rs" : "chart";
   $("#modes").innerHTML = MODES.map(([k, l]) => `<button class="mode ${k===mode?"on":""}" data-k="${k}">${l}</button>`).join("");
-  $("#tabs").hidden = $("#tf").hidden = mode !== "chart";
+  $("#bar2").hidden = mode !== "chart";
+  $("#asof").textContent = D && D.generated ? `업데이트 ${D.generated}` : "";
   if (mode === "rs"){ renderRS(sec ? decodeURIComponent(sec) : null); window.scrollTo(0, 0); return; }
   const t = TABS.find(x => x[0] === tab) ? tab : "kr";
   $("#tabs").innerHTML = TABS.map(([k, , l]) => `<button class="tab ${k===t?"on":""}" data-k="${k}">${l}</button>`).join("");

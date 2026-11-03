@@ -38,13 +38,13 @@ def pack(db: Path, archive: Path):
             con.execute("SET threads=2; SET memory_limit='4GB'")
             for table in TABLES:
                 file = Path(tmp) / f'{table}.parquet'
-                condition = " WHERE source <> 'sector_idx'" if table == 'prices_daily' else ''
+                condition = " WHERE source NOT IN ('sector_idx', 'se_sector_idx')" if table == 'prices_daily' else ''
                 # Identifiers are the fixed allowlist above; paths are parameters.
                 con.execute(f"COPY (SELECT * FROM {table}{condition}) TO ? (FORMAT PARQUET, COMPRESSION ZSTD)", [str(file)])
                 rows = con.execute(f'SELECT count(*) FROM {table}{condition}').fetchone()[0]
                 manifest['tables'][table] = {'rows': rows, 'sha256': sha256(file)}
             manifest['prices'] = [str(x) for x in con.execute(
-                "SELECT min(date),max(date) FROM prices_daily WHERE source<>'sector_idx'").fetchone()]
+                "SELECT min(date),max(date) FROM prices_daily WHERE source NOT IN ('sector_idx','se_sector_idx')").fetchone()]
         partial = archive.with_suffix('.partial')
         with zipfile.ZipFile(partial, 'w', compression=zipfile.ZIP_STORED) as z:
             for table in TABLES:

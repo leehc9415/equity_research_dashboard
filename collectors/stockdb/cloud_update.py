@@ -26,7 +26,7 @@ WEB_DATA = REPO_ROOT / 'dashboard/markets/data'
 
 def inventory(con):
     return {sid: (count, last) for sid, count, last in con.execute(
-        "SELECT symbol_id,count(*),max(date) FROM prices_daily WHERE source<>'sector_idx' GROUP BY 1").fetchall()}
+        "SELECT symbol_id,count(*),max(date) FROM prices_daily WHERE source NOT IN ('sector_idx','se_sector_idx') GROUP BY 1").fetchall()}
 
 
 def validate_source(con, baseline):
