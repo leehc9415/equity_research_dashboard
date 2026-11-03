@@ -11,17 +11,34 @@ function loadRenderer(doc) {
   });
 }
 
-async function renderPng(doc) {
+export async function renderPng(doc) {
   const win = doc.defaultView;
-  // Freeze the crop before fonts or the renderer finish loading.
-  const x = win.scrollX, y = win.scrollY;
-  const width = doc.documentElement.clientWidth, height = win.innerHeight;
-  const headerHeight = doc.querySelector('header').getBoundingClientRect().height;
   const renderer = await loadRenderer(doc);
   await doc.fonts.ready;
+  // Let lazy chart drawing settle before measuring the last card's bottom.
+  await new Promise(resolve => win.requestAnimationFrame(() => win.requestAnimationFrame(resolve)));
+  const scrollX = win.scrollX, y = win.scrollY;
+  const viewportWidth = doc.documentElement.clientWidth;
+  const viewportHeight = win.innerHeight;
+  const main = doc.querySelector('main');
+  const mainRect = main.getBoundingClientRect();
+  const mainStyle = win.getComputedStyle(main);
+  // Keep a small breathing space around the actual content, rather than
+  // copying the centered page's outer gutters and unused viewport below it.
+  const inset = 8;
+  const left = Math.max(0, Math.floor(mainRect.left + parseFloat(mainStyle.paddingLeft) - inset));
+  const right = Math.min(viewportWidth, Math.ceil(mainRect.right - parseFloat(mainStyle.paddingRight) + inset));
+  const headerHeight = doc.querySelector('header').getBoundingClientRect().height;
+  const contentBottom = Math.max(headerHeight, ...Array.from(main.children)
+    .filter(element => element.getClientRects().length)
+    .map(element => element.getBoundingClientRect().bottom));
+  const x = scrollX + left;
+  const width = Math.max(1, right - left);
+  const height = Math.max(1, Math.min(viewportHeight, Math.ceil(contentBottom + inset)));
   const canvas = await renderer(doc.body, {
-    x, y, width, height, scrollX: x, scrollY: y,
-    windowWidth: win.innerWidth, windowHeight: height,
+    x, y, width, height, scrollX, scrollY: y,
+    // Cropping must not change the layout or the number of chart columns.
+    windowWidth: viewportWidth, windowHeight: viewportHeight,
     scale: Math.min(win.devicePixelRatio || 1, 2),
     backgroundColor: win.getComputedStyle(doc.body).backgroundColor,
     logging: false,

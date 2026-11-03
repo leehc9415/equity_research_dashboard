@@ -1,4 +1,4 @@
-import { installMarketCapture } from './market-capture.js?v=20261103';
+import { installMarketCapture } from './market-capture.js?v=20261103-trim';
 
 // Keep Market Charts isolated from the export and calendar styles and routes.
 export function mountMarkets(root) {
