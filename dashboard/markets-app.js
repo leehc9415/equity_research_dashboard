@@ -1,8 +1,8 @@
 import { installMarketCapture } from './market-capture.js?v=20261103-subnav';
 
 // 화면 파일을 바꿀 때마다 올려서 브라우저 캐시를 피한다 (iframe 페이지는 버전 없이 열면 최대 10분 예전 화면이 보임)
-const MARKETS_VERSION = '20261103-nh2';
-const TITLES = {kr: '차트북', rs: '상대강도', nh: '신고가'};
+const MARKETS_VERSION = '20261104-cs1';
+const TITLES = {kr: '차트북', rs: '상대강도', nh: '신고가', cs: '차트 셋업'};
 
 // Keep the market pages (차트북, 상대강도, 신고가) isolated from the export and calendar styles and routes.
 // sub: 'kr' = 차트북, 'rs' = 상대강도, 'nh' = 신고가 (증시데이터 하위 메뉴에서 선택)

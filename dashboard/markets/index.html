@@ -147,6 +147,16 @@ tr.grp td{background:var(--chip);font-weight:700;border-bottom:0;padding-top:8px
 .dv{position:relative;height:10px;width:140px;background:transparent;display:inline-block;vertical-align:middle}
 .dv:before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line)}
 .dv i{position:absolute;top:1px;height:8px;border-radius:2px}
+.cscards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin:4px 0 12px}
+.csc{background:var(--card);border:1.5px solid transparent;border-radius:12px;padding:10px 12px;cursor:pointer;min-width:0}
+.csc:hover{box-shadow:0 2px 10px rgba(0,0,0,.08)}
+.csc.on{border-color:var(--ink)}
+.csc .h{display:flex;align-items:baseline;gap:6px}
+.csc .h b{font-size:14px}
+.csc .h span{margin-left:auto;font-size:18px;font-weight:800}
+.csc p{margin:4px 0 0;font-size:11.5px;color:var(--sub);line-height:1.35}
+.new{display:inline-block;font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:5px;background:var(--up);color:#fff}
+.days{font-size:11px;color:var(--sub)}
 </style>
 </head>
 <body>
@@ -806,13 +816,92 @@ function drawFlow(){
   $("#nhwin").onclick = e => { const b = e.target.closest("button"); if (b){ NHST.win = +b.dataset.w; drawFlow(); } };
 }
 
+// ================================================================ 차트 셋업
+const CSST = {id: "lead", cap: 1000, val: 20, market: "", sort: null, dir: 1};
+const CS_COLS = {
+  gap:   [["gap","갭",v=>v.toFixed(1)+"%",-1],["vx","거래량 50일 대비",v=>v.toFixed(1)+"배",-1]],
+  lead:  [["gap52","52주 고점 대비",v=>v.toFixed(1)+"%",-1]],
+  trend: [["upl","52주 저점 대비",v=>"+"+v.toFixed(0)+"%",1],["gap52","52주 고점 대비",v=>v.toFixed(1)+"%",-1]],
+  vcp:   [["depths","수축 깊이",v=>v.map(x=>x+"%").join(" → "),0],["pivot","피봇",v=>Math.round(v).toLocaleString(),0],["pgap","피봇 대비",v=>v.toFixed(1)+"%",-1]],
+  cup:   [["depth","컵 조정폭",v=>v.toFixed(0)+"%",0],["rec","회복률",v=>v.toFixed(0)+"%",-1],["hdepth","핸들 깊이",v=>v.toFixed(1)+"%",1],["weeks","컵 기간",v=>v.toFixed(0)+"주",0],["pivot","피봇",v=>Math.round(v).toLocaleString(),0],["rpk","오른쪽 고점",v=>"피봇+"+v.toFixed(0)+"%",0],["hdays","핸들 기간",v=>v+"일",0],["pgap","피봇 대비",v=>v.toFixed(1)+"%",-1]],
+  ipo:   [["days","상장 후",v=>v+"일",1],["open0","상장 첫날 시가",v=>Math.round(v).toLocaleString(),0],["vsopen","시가 대비",v=>(v>0?"+":"")+v.toFixed(1)+"%",0]],
+  weekv: [["vx","5일 거래량 배수",v=>v.toFixed(1)+"배",-1],["r5","5일 수익률",v=>"+"+v.toFixed(1)+"%",-1]],
+};
+const CS_DEFSORT = {gap: ["vx",-1], lead: ["rs",-1], trend: ["upl",1], vcp: ["pgap",-1], cup: ["pgap",-1], ipo: ["days",1], weekv: ["vx",-1]};
+let CS = null;
+
+async function renderCS(id){
+  if (!window.DASH_SETUP){
+    $("#main").innerHTML = `<div class="empty">불러오는 중…</div>`;
+    try { await loadScript("data/setup.js"); } catch { $("#main").innerHTML = `<div class="empty">data/setup.js 가 없습니다.</div>`; return; }
+  }
+  CS = window.DASH_SETUP;
+  if (id && CS.hits[id]) CSST.id = id;
+  const capOpts = [[0,"전체"],[300,"300억+"],[500,"500억+"],[1000,"1,000억+"],[2000,"2,000억+"],[5000,"5,000억+"],[10000,"1조+"]];
+  const valOpts = [[0,"전체"],[5,"5억+"],[10,"10억+"],[20,"20억+"],[50,"50억+"],[100,"100억+"]];
+  $("#main").innerHTML = `
+    <div class="note">${CS.asof} 장마감 기준 · 수정주가 일봉으로 매일 판정 · 연속 = 최근 ${CS.days.length}거래일 중 그 셋업에 연속으로 걸린 일수(신규 = 오늘 처음)</div>
+    <div class="tools">
+      <select id="cscap">${capOpts.map(([v, l]) => `<option value="${v}" ${v===CSST.cap?"selected":""}>시총 ${l}</option>`).join("")}</select>
+      <select id="csval">${valOpts.map(([v, l]) => `<option value="${v}" ${v===CSST.val?"selected":""}>거래대금 ${l}</option>`).join("")}</select>
+      <select id="csmk"><option value="">전체 시장</option><option ${CSST.market==="KOSPI"?"selected":""}>KOSPI</option><option ${CSST.market==="KOSDAQ"?"selected":""}>KOSDAQ</option></select>
+    </div>
+    <div class="cscards" id="cscards"></div>
+    <div id="csbody"></div>`;
+  $("#cscap").onchange = e => { CSST.cap = +e.target.value; drawCS(); };
+  $("#csval").onchange = e => { CSST.val = +e.target.value; drawCS(); };
+  $("#csmk").onchange = e => { CSST.market = e.target.value; drawCS(); };
+  drawCS();
+}
+function csList(id){
+  return CS.hits[id].filter(h => (h.mcap ?? 0) >= CSST.cap && (h.v20 ?? 0) >= CSST.val && (!CSST.market || (CS.stocks[h.code] || [])[1] === CSST.market))
+    .map(h => { const st = CS.stocks[h.code] || []; return {...h, name: st[0] || h.code, sector: st[2], sub: st[3], ...h.m}; });
+}
+function csSpark(code, line){
+  const c = CS.spark[code]; if (!c) return "";
+  const W = 120, H = 30, vals = c.concat(line != null ? [line] : []);
+  const lo = Math.min(...vals), hi = Math.max(...vals), y = v => H - 2 - (H - 4) * (v - lo) / ((hi - lo) || 1), x = i => W * i / (c.length - 1);
+  return `<svg class="sp" viewBox="0 0 ${W} ${H}">${line != null ? `<line x1="0" x2="${W}" y1="${y(line)}" y2="${y(line)}" stroke="var(--up)" stroke-dasharray="3 2"/>` : ""}
+    <path d="${c.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join("")}" fill="none" stroke="var(--px)" stroke-width="1.2"/></svg>`;
+}
+function drawCS(){
+  const id = CSST.id;
+  $("#cscards").innerHTML = CS.setups.map(s => `<div class="csc ${s.id===id?"on":""}" data-id="${s.id}">
+      <div class="h"><b>${esc(s.name)}</b><span>${csList(s.id).length}</span></div><p>${esc(s.desc)}</p></div>`).join("");
+  $("#cscards").onclick = e => { const c = e.target.closest(".csc"); if (c){ CSST.id = c.dataset.id; CSST.sort = null; history.replaceState(null, "", "#cs/" + c.dataset.id); drawCS(); } };
+  const cols = CS_COLS[id], [ds, dd] = CS_DEFSORT[id];
+  const sk = CSST.sort || ds, dir = CSST.sort ? CSST.dir : dd;
+  const list = csList(id).sort((a, b) => { const va = a[sk], vb = b[sk];
+    if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1;
+    return typeof va === "string" ? dir * va.localeCompare(vb) : dir * (va - vb); });
+  const th = (k, l, cl = "") => `<th class="${cl}" data-k="${k}">${l}${sk === k ? (dir < 0 ? " ↓" : " ↑") : ""}</th>`;
+  const set = CS.setups.find(s => s.id === id);
+  const line = r => r.pivot ?? (id === "ipo" ? r.open0 : null);
+  $("#csbody").innerHTML = `<div class="tw"><table class="t nhtbl"><thead><tr>${th("name","종목","l")}${th("sector","섹터","l")}${th("streak","연속")}
+      ${cols.map(([k, l]) => th(k, l)).join("")}<th>최근 60일${["vcp","cup","ipo"].includes(id) ? (id === "ipo" ? " (점선 = 상장 첫날 시가)" : " (점선 = 피봇)") : ""}</th>
+      ${th("close","종가")}${th("chg","등락률")}${th("value","거래대금·20일 대비")}${th("rs","RS · 1M")}<th>MTT</th></tr></thead>
+    <tbody>${list.map(r => `<tr><td class="l"><a class="sn" href="https://m.stock.naver.com/domestic/stock/${r.code}/total" target="_blank" rel="noopener">${esc(r.name)}</a><span class="code">${r.code}</span></td>
+      <td class="l">${esc(r.sector || "미분류")}<span class="code">${esc(r.sub || "")}</span></td>
+      <td>${r.streak <= 1 ? `<span class="new">신규</span>` : `<span class="days">${r.streak}일째</span>`}</td>
+      ${cols.map(([k, , f]) => `<td>${r[k] == null ? "–" : f(r[k])}</td>`).join("")}
+      <td class="sp">${csSpark(r.code, line(r))}</td>
+      <td>${r.close == null ? "–" : Math.round(r.close).toLocaleString()}</td>
+      <td class="${cls((r.chg ?? 0) / 100)}">${r.chg == null ? "–" : pct(r.chg / 100, 2)}</td>
+      <td>${r.value == null ? "–" : Math.round(r.value).toLocaleString() + "억"}${r.vratio ? ` <span class="code">${r.vratio.toFixed(1)}배</span>` : ""}</td>
+      <td>${r.rs ?? "–"} <span class="code">${r.rs1m ?? "–"}</span></td><td>${r.mtt ? "✓" : ""}</td></tr>`).join("")
+      || `<tr><td colspan="${10 + cols.length}" class="l"><div class="empty">오늘 ${esc(set.name)} 조건에 맞는 종목이 없습니다 (필터를 낮춰 보세요)</div></td></tr>`}</tbody></table></div>`;
+  $("#csbody").querySelector("thead").onclick = e => { const t = e.target.closest("th[data-k]"); if (!t) return;
+    const k = t.dataset.k; if ((CSST.sort || ds) === k) { CSST.sort = k; CSST.dir = -dir; } else { CSST.sort = k; CSST.dir = ["name","sector"].includes(k) ? 1 : -1; } drawCS(); };
+}
+
 function route(){
   const h = (location.hash || "#kr").slice(1), [tab, sec] = h.split("/");
-  const mode = tab === "rs" ? "rs" : tab === "nh" ? "nh" : "chart";
-  $("#tabs").hidden = mode === "rs"; $("#tf").hidden = mode !== "chart";
-  $("#ptitle").textContent = mode === "rs" ? "상대강도" : mode === "nh" ? "신고가" : "차트북";
+  const mode = ["rs", "nh", "cs"].includes(tab) ? tab : "chart";
+  $("#tabs").hidden = mode === "rs" || mode === "cs"; $("#tf").hidden = mode !== "chart";
+  $("#ptitle").textContent = {rs: "상대강도", nh: "신고가", cs: "차트 셋업"}[mode] || "차트북";
   $("#asof").textContent = D && D.generated ? `업데이트 ${D.generated}` : "";
   if (mode === "rs"){ renderRS(sec ? decodeURIComponent(sec) : null); window.scrollTo(0, 0); return; }
+  if (mode === "cs"){ renderCS(sec || null); window.scrollTo(0, 0); return; }
   if (mode === "nh"){
     const k = sec ? "nh/" + sec : "nh";
     $("#tabs").innerHTML = NH_TABS.map(([kk, l]) => `<button class="tab ${kk===k?"on":""}" data-k="${kk}">${l}</button>`).join("");

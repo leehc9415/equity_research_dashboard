@@ -224,6 +224,8 @@ def export(con=None, verbose: bool = True) -> dict:
     size["rs_px.js"] = _write_js(SITE / "data" / "rs_px.js", "DASH_RS_PX", None, build_px(con))   # 사용자 정의 섹터용
     from .nh_export import build as build_nh
     size["nh.js"] = _write_js(SITE / "data" / "nh.js", "DASH_NH", None, build_nh(con))   # 신고가 탭
+    from .setup_export import build as build_setup
+    size["setup.js"] = _write_js(SITE / "data" / "setup.js", "DASH_SETUP", None, build_setup(con))   # 차트 셋업 탭
 
     if own:
         con.close()
