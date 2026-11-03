@@ -456,7 +456,7 @@ async function renderRS(sec){
     </div>
     <div class="quads" id="quads"></div>
     <h2 style="margin:18px 0 4px">종목 RS</h2>
-    <div class="note">섹터 = 스탁이지 대분류(중분류) · IBD식 RS(0~99, 전 종목 백분위) · 1M·3M·6M·12M = 기간 수익률 백분위 · MTT = 미너비니 트렌드 템플릿 8개 조건 충족 · 데이터 ${RS.stocks.asof} 장마감</div>
+    <div class="note">섹터 = 이중분류(대분류·중분류) · IBD식 RS(0~99, 전 종목 백분위) · 1M·3M·6M·12M = 기간 수익률 백분위 · MTT = 미너비니 트렌드 템플릿 8개 조건 충족 · 데이터 ${RS.stocks.asof} 장마감</div>
     <div class="tools" id="rsf"></div>
     <div class="tw"><table class="t" id="stk"></table></div>
     <button class="more" id="more" hidden>더 보기</button>`;
@@ -791,7 +791,7 @@ function drawFlow(){
   const dv = d => `<span class="dv"><i style="${d >= 0 ? `left:50%;width:${50 * d / md}%;background:var(--up)` : `right:50%;width:${50 * -d / md}%;background:var(--dn)`}"></i></span>`;
   const top = (l, s) => l.slice(0, 3).map(r => `<b>${esc(r.k)}</b> ${s}${Math.abs(r.d).toFixed(1)}%p`).join(" · ") || "없음";
   $("#nhbody").innerHTML = `
-    <div class="note">${per} 신고가 종목이 어느 섹터(스탁이지 대분류)에서 나오는지 — 기간을 반으로 나눠 날마다의 섹터 비중을 앞·뒤로 평균해 비교 (신고가가 없던 날은 제외) · 수급(자금 유입)이 아니라 신고가 종목 수 기준</div>
+    <div class="note">${per} 신고가 종목이 어느 섹터(이중분류 대분류)에서 나오는지 — 기간을 반으로 나눠 날마다의 섹터 비중을 앞·뒤로 평균해 비교 (신고가가 없던 날은 제외) · 수급(자금 유입)이 아니라 신고가 종목 수 기준</div>
     <div class="tools"><span class="seg" id="nhwin">${[5, 10, 20].map(w => `<button data-w="${w}" class="${w===W?"on":""}">${w}일</button>`).join("")}</span>
       <span class="note" style="margin:0">${NH.days[n - W]} ~ ${NH.asof} · 신고가 ${flat.length}건 (${new Set(flat.map(r => r.code)).size}종목)</span></div>
     <div class="panel"><div class="note" style="margin:0 4px">날짜별 ${per} 신고가 종목 수 (최근 ${n}거래일, 빨간 막대 = 선택 기간)</div>

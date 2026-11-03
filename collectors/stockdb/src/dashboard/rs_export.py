@@ -56,7 +56,7 @@ def _r2(x):
 
 
 def build_rrg(con) -> dict:
-    """스탁이지 분류 섹터 지수(대분류 15 'SEL:', 중분류 47 'SEM:')의 RRG."""
+    """이중분류 섹터 지수(대분류 15 'SEL:', 중분류 47 'SEM:')의 RRG."""
     px = con.execute("""
         SELECT symbol_id, date, close FROM prices_daily
         WHERE (source = 'se_sector_idx' OR symbol_id IN ('KS11', 'KQ11')) AND close > 0
@@ -101,7 +101,7 @@ def build_rrg(con) -> dict:
                 dates[b].setdefault(str(w), [str(d.date()) for d in pts.index])
     return {"asof": str(asof.date()), "windows": WINDOWS, "default_n": DEFAULT_N,
             "periods": {str(k): {"days": v[0], "points": v[1]} for k, v in PERIODS.items()},
-            "dates": dates, "benchmarks": BENCH, "classification": "스탁이지 대분류 15 · 중분류 47 (2026-10-02 구성)",
+            "dates": dates, "benchmarks": BENCH, "classification": "이중분류(대분류 15 · 중분류 47, 2026-10-02 구성)",
             "bench_chg_1w": {b: chg(daily[b], 5) for b in BENCH},
             "sectors": sectors, "rrg": out}
 
