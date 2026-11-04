@@ -1,4 +1,4 @@
-import { mountMarkets } from './markets-app.js?v=20261104-sec1';
+import { mountMarkets } from './markets-app.js?v=20261104-sc1';
 import { mountCalendar } from './calendar-app.js?v=20261103-quarter';
 const app = document.querySelector('#app');
 const fmt = new Intl.NumberFormat('ko-KR', {maximumFractionDigits: 1});
@@ -12,7 +12,7 @@ const label = item => `${item.n} · ${item.c}`;
 const tooltip = document.createElement('div'); tooltip.className = 'tooltip'; document.body.appendChild(tooltip);
 let D, catalog;
 const [initHash,initSub]=location.hash.slice(1).split('/');const initialSection=['home','exports','markets','briefing','companies','calendar'].includes(initHash)?initHash:'exports';
-const state = {section:initialSection, marketSub:['rs','nh','cs'].includes(initSub)?initSub:'kr', page:'overview', preset:'1Y', start:'', end:'', ranking:'growth', industry:'반도체', sort:'value', desc:true, catalogIndustry:'전체', query:'', selected:null, country:'ALL', productPeriod:'month'};
+const state = {section:initialSection, marketSub:['rs','nh','cs','sc'].includes(initSub)?initSub:'kr', page:'overview', preset:'1Y', start:'', end:'', ranking:'growth', industry:'반도체', sort:'value', desc:true, catalogIndustry:'전체', query:'', selected:null, country:'ALL', productPeriod:'month'};
 const chartSpecs = new Map(), chartViews = new Map();
 let mapStats = [];
 const chartResizeObserver = new ResizeObserver(entries => {
@@ -257,7 +257,7 @@ document.querySelectorAll('.main-nav button').forEach(b=>b.onclick=()=>nav(b.dat
 document.querySelectorAll('.global-nav button,.sub-nav button').forEach(b=>b.onclick=()=>{state.section=b.dataset.section;if(b.dataset.sub)state.marketSub=b.dataset.sub;else if(b.dataset.section==='markets')state.marketSub='kr';b.blur();render();window.scrollTo({top:0,behavior:'instant'});});
 document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>setPreset(b.dataset.preset));
 for(const id of ['start-month','end-month'])document.querySelector(`#${id}`).onchange=()=>{let a=document.querySelector('#start-month').value,b=document.querySelector('#end-month').value;if(a>b)[a,b]=[b,a];state.start=a;state.end=b;state.preset='CUSTOM';render();};
-window.addEventListener('hashchange',()=>{const [section,sub]=location.hash.slice(1).split('/');const ms=['rs','nh','cs'].includes(sub)?sub:'kr';if(['home','exports','markets','briefing','companies','calendar'].includes(section)&&(section!==state.section||(section==='markets'&&ms!==state.marketSub))){state.section=section;state.marketSub=ms;render();}});
+window.addEventListener('hashchange',()=>{const [section,sub]=location.hash.slice(1).split('/');const ms=['rs','nh','cs','sc'].includes(sub)?sub:'kr';if(['home','exports','markets','briefing','companies','calendar'].includes(section)&&(section!==state.section||(section==='markets'&&ms!==state.marketSub))){state.section=section;state.marketSub=ms;render();}});
 if(state.section!=='exports')render();
 try {
   const response = await fetch('data/dashboard-data.json');

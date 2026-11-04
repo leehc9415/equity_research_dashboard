@@ -11,3 +11,6 @@ data/raw/**
 data/local/**
 !data/raw/.gitkeep
 !data/local/.gitkeep
+
+# Stock chart data is published as a release asset (market-charts) and added at deploy time.
+dashboard/markets/charts/

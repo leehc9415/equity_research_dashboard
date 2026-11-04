@@ -85,6 +85,11 @@ jobs:
         if: steps.guard.outputs.skip != 'true'
         shell: bash
         run: python cloud_update.py --region "$REGION"
+      - name: Publish stock chart data (release asset, not committed)
+        if: steps.guard.outputs.skip != 'true' && env.REGION != 'global'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python chart_publish.py
       - name: Save verified source state for the next run
         if: steps.guard.outputs.skip != 'true'
         env:

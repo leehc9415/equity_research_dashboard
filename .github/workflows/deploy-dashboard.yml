@@ -54,6 +54,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+      - name: Add stock chart data from the market-charts release (not committed)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release download market-charts -p charts.zip -D "$RUNNER_TEMP" --repo "${{ github.repository }}"; then
+            mkdir -p dashboard/markets/charts
+            unzip -q -o "$RUNNER_TEMP/charts.zip" -d dashboard/markets/charts
+            echo "Stock charts: $(ls dashboard/markets/charts | wc -l) files"
+          else
+            echo "::warning::market-charts release not available; deploying without stock chart data"
+          fi
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:

@@ -162,6 +162,30 @@ tr.grp td{background:var(--chip);font-weight:700;border-bottom:0;padding-top:8px
 .csc p{margin:4px 0 0;font-size:11.5px;color:var(--sub);line-height:1.35}
 .new{display:inline-block;font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:5px;background:var(--up);color:#fff}
 .days{font-size:11px;color:var(--sub)}
+
+/* 종목차트 */
+.sc-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:4px 0 10px}
+.sc-search{position:relative}
+.sc-search input{width:230px;font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+.sc-sug{position:absolute;top:100%;left:0;z-index:20;min-width:300px;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 26px rgba(0,0,0,.14);margin-top:4px;padding:4px;display:none}
+.sc-sug.on{display:block}
+.sc-sug div{display:flex;gap:8px;align-items:baseline;padding:6px 8px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.sc-sug div.hi,.sc-sug div:hover{background:var(--chip)}
+.sc-recent{display:flex;gap:6px;flex-wrap:wrap}
+.sc-recent button{border:1px solid var(--line);background:var(--card);color:var(--sub);font:inherit;font-size:12px;padding:3px 9px;border-radius:999px;cursor:pointer}
+.sc-head{display:flex;gap:10px 14px;align-items:baseline;flex-wrap:wrap;background:var(--card);border-radius:10px 10px 0 0;padding:12px 14px 6px}
+.sc-head h2{margin:0;font-size:20px;letter-spacing:-.02em}
+.sc-head .px{font-size:20px;font-weight:800}
+.sc-head .meta{color:var(--sub);font-size:12px}
+.sc-head a{color:var(--sub);font-size:12px}
+.sc-ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--card);padding:0 14px 8px}
+.sc-ctl label{font-size:12px;color:var(--sub);display:flex;gap:4px;align-items:center;cursor:pointer}
+.sc-box{position:relative;background:var(--card);border-radius:0 0 10px 10px;padding:0 6px 8px}
+#scchart{height:660px}
+.sc-leg{position:absolute;left:14px;top:2px;z-index:3;font-size:12px;pointer-events:none;display:flex;gap:10px;flex-wrap:wrap;max-width:calc(100% - 90px)}
+.sc-leg b{font-weight:700}
+.sc-plab{position:absolute;left:14px;z-index:3;font-size:11px;color:var(--sub);pointer-events:none}
+@media (max-width:700px){#scchart{height:560px}.sc-search input{width:170px}.sc-head h2,.sc-head .px{font-size:17px}.sc-leg{font-size:10px;gap:2px 6px;max-width:calc(100% - 70px)}.sc-plab{font-size:10px}}
 </style>
 </head>
 <body>
@@ -171,6 +195,7 @@ tr.grp td{background:var(--chip);font-weight:700;border-bottom:0;padding-top:8px
 <main id="main"><div class="empty">데이터를 불러오는 중…</div></main>
 
 <script src="data/overview.js"></script>
+<script src="vendor/lightweight-charts-5.1.0.js" defer></script>
 <script>
 "use strict";
 const D = window.DASH_OVERVIEW;
@@ -346,7 +371,7 @@ async function renderSector(sec){
     const th = ([k, l, al]) => `<th class="${al}" data-k="${k}">${l}${k === secSort ? (secDir < 0 ? " ▼" : " ▲") : ""}</th>`;
     const pc = v => `<td class="${cls(v)}">${pct(v)}</td>`;
     $("#sectbl").innerHTML = `<thead><tr>${SEC_COLS.map(th).join("")}</tr></thead><tbody>${list.map(r => `
-      <tr data-link="${esc(r.link || "")}"><td class="l"><b>${esc(r.name)}</b> <span class="code">${esc(r.market || "")}</span></td>
+      <tr data-code="${r.id}"><td class="l"><b>${esc(r.name)}</b> <span class="code">${esc(r.market || "")}</span></td>
       <td class="l sub upj">${esc(r.upjong || "")}</td>
       <td>${r.mcap == null ? "–" : Math.round(r.mcap).toLocaleString()}</td>
       <td><span class="wbar"><i style="width:${r.w == null ? 0 : Math.max(2, r.w / wmax * 100)}%"></i></span>${r.w == null ? "–" : (r.w * 100).toFixed(1) + "%"}</td>
@@ -355,7 +380,7 @@ async function renderSector(sec){
     $("#cnt").textContent = q ? `${list.length}/${S.cards.length}종목` : "";
     $("#sectbl").querySelectorAll("th").forEach(h => h.onclick = () => {
       const k = h.dataset.k; if (k === secSort) secDir = -secDir; else { secSort = k; secDir = ["name","upjong"].includes(k) ? 1 : -1; } draw(); });
-    $("#sectbl").querySelectorAll("tbody tr[data-link]").forEach(tr => tr.onclick = () => { if (tr.dataset.link) window.open(tr.dataset.link, "_blank", "noopener"); });
+    $("#sectbl").querySelectorAll("tbody tr[data-code]").forEach(tr => tr.onclick = () => { location.hash = "#sc/" + tr.dataset.code; });
   };
   const idx = sc ? ` · 지수 <span class="${cls(sc.chg_1d)}">${pct(sc.chg_1d)}</span> · 1개월 <span class="${cls(sc.ret_1m)}">${pct0(sc.ret_1m)}</span> · 3개월 <span class="${cls(sc.ret_3m)}">${pct0(sc.ret_3m)}</span>` : "";
   $("#main").innerHTML = `
@@ -364,7 +389,7 @@ async function renderSector(sec){
       <span class="note" style="margin:0">${S.cards.length}종목 · 시총가중 (시총 300억↑)${idx}${asof ? ` · ${asof} 기준` : ""}</span></div>
     <div class="note">포함 네이버 업종 — ${S.upjong.map(([u, n]) => `${esc(u)} ${n}`).join(" · ")}</div>
     <div class="tools"><input id="q" placeholder="종목명·코드" value="${esc(secQuery)}" size="12">
-      <span class="note" id="cnt" style="margin:0"></span><span class="note" style="margin:0 0 0 auto">제목을 누르면 정렬 · 종목을 누르면 네이버 증권</span></div>
+      <span class="note" id="cnt" style="margin:0"></span><span class="note" style="margin:0 0 0 auto">제목을 누르면 정렬 · 종목을 누르면 종목차트</span></div>
     <div class="tw"><table class="t sectbl" id="sectbl"></table></div>`;
   $("#back").onclick = () => { location.hash = "#kr"; };
   $("#q").oninput = e => { secQuery = e.target.value; draw(); };
@@ -913,14 +938,144 @@ function drawCS(){
     const k = t.dataset.k; if ((CSST.sort || ds) === k) { CSST.sort = k; CSST.dir = -dir; } else { CSST.sort = k; CSST.dir = ["name","sector"].includes(k) ? 1 : -1; } drawCS(); };
 }
 
+// ================================================================ 종목차트 (일봉·주봉 + 이동평균 / 거래량·50일 평균 / RS)
+const SCST = {tf: "d", rsMode: "line", log: false, code: null};
+const SC_MA = {d: [[10, "#e0383e"], [20, "#2e8b57"], [50, "#2f6fdf"], [200, "var(--ink)"]], w: [[10, "#e0383e"], [30, "#2f6fdf"], [40, "var(--ink)"]]};
+const SC_VMA = {d: 50, w: 10};
+const SC_RECENT = "sc_recent_v1";
+let SCIDX = null, SCMAP = null, scChart = null, scRO = null;
+const cssv = v => v.startsWith("var(") ? getComputedStyle(document.documentElement).getPropertyValue(v.slice(4, -1)).trim() || "#333" : v;
+function scRecent(){ try { const a = JSON.parse(localStorage.getItem(SC_RECENT) || "[]"); return Array.isArray(a) ? a : []; } catch { return []; } }
+function scRemember(code){ try { const a = [code, ...scRecent().filter(c => c !== code)].slice(0, 8); localStorage.setItem(SC_RECENT, JSON.stringify(a)); } catch {} }
+async function scEnsureIdx(){
+  if (!window.DASH_CHART_IDX) await loadScript(`charts/index.js?v=${encodeURIComponent(D.generated || "")}`);
+  SCIDX = window.DASH_CHART_IDX;
+  const k = SCIDX.cols; SCMAP = {};
+  SCIDX.rows.forEach(r => { const o = {}; k.forEach((c, i) => o[c] = r[i]); SCMAP[o.code] = o; });
+}
+function scDecode(o){
+  const n = o.c.length, t = new Array(n);
+  let dt = null;
+  for (let i = 0; i < n; i++){
+    if (i === 0){ const v = o.d[0]; dt = new Date(Date.UTC(Math.floor(v / 1e4), Math.floor(v / 100) % 100 - 1, v % 100)); }
+    else dt = new Date(dt.getTime() + o.d[i] * 864e5);
+    t[i] = dt.toISOString().slice(0, 10);
+  }
+  return {t, o: o.o, h: o.h, l: o.l, c: o.c, v: o.v, r: o.r, ix: o.ix};
+}
+function scWeekly(x){
+  const out = {t: [], o: [], h: [], l: [], c: [], v: [], r: [], ix: []};
+  let key = null;
+  for (let i = 0; i < x.t.length; i++){
+    const d = new Date(x.t[i] + "T00:00:00Z"), mon = new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 864e5).toISOString().slice(0, 10);
+    if (mon !== key){ key = mon; out.t.push(x.t[i]); out.o.push(x.o[i]); out.h.push(x.h[i]); out.l.push(x.l[i]); out.c.push(x.c[i]); out.v.push(x.v[i]); out.r.push(x.r[i]); out.ix.push(x.ix[i]); }
+    else { const j = out.t.length - 1; out.h[j] = Math.max(out.h[j], x.h[i]); out.l[j] = Math.min(out.l[j], x.l[i]); out.c[j] = x.c[i]; out.v[j] += x.v[i]; out.r[j] = x.r[i] ?? out.r[j]; out.ix[j] = x.ix[i]; }
+  }
+  return out;
+}
+const scSMA = (a, n) => { const out = new Array(a.length).fill(null); let s = 0;
+  for (let i = 0; i < a.length; i++){ s += a[i]; if (i >= n) s -= a[i - n]; if (i >= n - 1) out[i] = s / n; } return out; };
+async function renderSC(code){
+  $("#main").innerHTML = `<div class="empty">불러오는 중…</div>`;
+  try { await scEnsureIdx(); } catch { $("#main").innerHTML = `<div class="empty">종목차트 데이터(charts/index.js)가 없습니다. <code>python -m src.dashboard.chart_export</code> 를 먼저 실행하세요.</div>`; return; }
+  if (!code || !SCMAP[code]) code = scRecent().find(c => SCMAP[c]) || SCIDX.rows[0][0];
+  SCST.code = code; scRemember(code);
+  const m = SCMAP[code];
+  const recent = scRecent().filter(c => SCMAP[c] && c !== code);
+  $("#main").innerHTML = `
+    <div class="sc-top"><div class="sc-search"><input id="scq" placeholder="종목명·코드 검색" autocomplete="off"><div class="sc-sug" id="scsug"></div></div>
+      <div class="sc-recent">${recent.map(c => `<button data-c="${c}">${esc(SCMAP[c].name)}</button>`).join("")}</div></div>
+    <div class="sc-head"><h2>${esc(m.name)}</h2><span class="meta">${code} · ${esc(m.market)}${m.sector ? ` · ${esc(m.sector)}${m.sub ? " › " + esc(m.sub) : ""}` : ""}</span>
+      <span class="px">${m.close == null ? "–" : Number(m.close).toLocaleString()}원</span>
+      <span class="${cls((m.chg ?? 0) / 100)}" style="font-weight:700">${m.chg == null ? "" : pct(m.chg / 100, 2)}</span>
+      <span class="meta">시총 ${m.mcap == null ? "–" : m.mcap >= 10000 ? (m.mcap / 10000).toFixed(1) + "조" : m.mcap.toLocaleString() + "억"} · RS ${m.rs ?? "–"} · ${m.date} 기준</span>
+      <a href="https://m.stock.naver.com/domestic/stock/${code}/total" target="_blank" rel="noopener">네이버 증권 ↗</a></div>
+    <div class="sc-ctl"><div class="seg" id="sctf"><button data-k="d" class="${SCST.tf === "d" ? "on" : ""}">일봉</button><button data-k="w" class="${SCST.tf === "w" ? "on" : ""}">주봉</button></div>
+      <div class="seg" id="scrs"><button data-k="line" class="${SCST.rsMode === "line" ? "on" : ""}">RS 라인</button><button data-k="score" class="${SCST.rsMode === "score" ? "on" : ""}">RS 점수</button></div>
+      <label><input type="checkbox" id="sclog" ${SCST.log ? "checked" : ""}>로그</label>
+      <span class="note" style="margin:0 0 0 auto" id="scnote"></span></div>
+    <div class="sc-box"><div class="sc-leg" id="scleg"></div><div class="sc-plab" id="scvlab"></div><div class="sc-plab" id="scrlab"></div><div id="scchart"></div></div>`;
+  const go = c => { if (c) location.hash = "#sc/" + c; };
+  $(".sc-recent").onclick = e => { const b = e.target.closest("button"); if (b) go(b.dataset.c); };
+  const q = $("#scq"), sug = $("#scsug"); let hits = [], hi = 0;
+  const showSug = () => { sug.innerHTML = hits.map((r, i) => `<div class="${i === hi ? "hi" : ""}" data-c="${r.code}"><b>${esc(r.name)}</b><span class="code">${r.code} · ${esc(r.market)}${r.sector ? " · " + esc(r.sector) : ""}</span></div>`).join(""); sug.classList.toggle("on", hits.length > 0); };
+  q.oninput = () => { const v = q.value.trim().toLowerCase(); hi = 0;
+    hits = !v ? [] : SCIDX.rows.filter(r => r[0].includes(v) || String(r[1]).toLowerCase().includes(v)).slice(0, 12).map(r => SCMAP[r[0]]); showSug(); };
+  q.onkeydown = e => { if (e.key === "ArrowDown"){ hi = Math.min(hi + 1, hits.length - 1); showSug(); e.preventDefault(); }
+    else if (e.key === "ArrowUp"){ hi = Math.max(hi - 1, 0); showSug(); e.preventDefault(); }
+    else if (e.key === "Enter" && hits[hi]) go(hits[hi].code); else if (e.key === "Escape"){ hits = []; showSug(); } };
+  sug.onmousedown = e => { const d = e.target.closest("div[data-c]"); if (d) go(d.dataset.c); };
+  q.onblur = () => setTimeout(() => sug.classList.remove("on"), 150);
+  $("#sctf").onclick = e => { const b = e.target.closest("button"); if (b){ SCST.tf = b.dataset.k; renderSC(code); } };
+  $("#scrs").onclick = e => { const b = e.target.closest("button"); if (b){ SCST.rsMode = b.dataset.k; renderSC(code); } };
+  $("#sclog").onchange = e => { SCST.log = e.target.checked; renderSC(code); };
+  try {
+    if (!(window.DASH_CHART && window.DASH_CHART[code])) await loadScript(`charts/${code}.js?v=${encodeURIComponent(SCIDX.asof)}`);
+    let n = 0; while (!window.LightweightCharts && n++ < 50) await new Promise(r => setTimeout(r, 100));
+    if (SCST.code !== code) return;
+    scDraw(window.DASH_CHART[code]);
+  } catch (err) { $("#scchart").innerHTML = `<div class="empty">차트 데이터를 불러오지 못했습니다.</div>`; }
+}
+function scDraw(raw){
+  const LW = window.LightweightCharts, el = $("#scchart");
+  if (scRO){ scRO.disconnect(); scRO = null; }
+  if (scChart){ scChart.remove(); scChart = null; }
+  const day = scDecode(raw), x = SCST.tf === "w" ? scWeekly(day) : day, n = x.t.length;
+  const up = cssv("var(--up)"), dn = cssv("var(--dn)"), sub = cssv("var(--sub)"), line = cssv("var(--line)"), ink = cssv("var(--ink)");
+  const chart = LW.createChart(el, {autoSize: true, layout: {background: {color: "transparent"}, textColor: sub, fontSize: 11, panes: {separatorColor: line}},
+    grid: {vertLines: {color: line + "80"}, horzLines: {color: line + "80"}}, rightPriceScale: {borderColor: line, mode: SCST.log ? 1 : 0},
+    timeScale: {borderColor: line, rightOffset: 4, minBarSpacing: 1}, crosshair: {mode: 0},
+    localization: {priceFormatter: v => Math.abs(v) >= 1000 ? Math.round(v).toLocaleString() : (+v.toFixed(2)).toLocaleString()}});
+  scChart = chart;
+  const cs = chart.addSeries(LW.CandlestickSeries, {upColor: up, downColor: dn, borderUpColor: up, borderDownColor: dn, wickUpColor: up, wickDownColor: dn, priceLineVisible: false});
+  cs.setData(x.t.map((t, i) => ({time: t, open: x.o[i], high: x.h[i], low: x.l[i], close: x.c[i]})));
+  const mas = SC_MA[SCST.tf].map(([p, col]) => { const a = scSMA(x.c, p), s = chart.addSeries(LW.LineSeries, {color: cssv(col), lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false});
+    s.setData(x.t.map((t, i) => a[i] == null ? {time: t} : {time: t, value: a[i]})); return [p, cssv(col), a]; });
+  const vs = chart.addSeries(LW.HistogramSeries, {priceFormat: {type: "volume"}, priceLineVisible: false, lastValueVisible: false}, 1);
+  vs.setData(x.t.map((t, i) => ({time: t, value: x.v[i], color: (i && x.c[i] < x.c[i - 1] ? dn : up) + "aa"})));
+  const vma = scSMA(x.v, SC_VMA[SCST.tf]);
+  const vl = chart.addSeries(LW.LineSeries, {color: ink, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false}, 1);
+  vl.setData(x.t.map((t, i) => vma[i] == null ? {time: t} : {time: t, value: vma[i]}));
+  let rsv;
+  if (SCST.rsMode === "line"){
+    const k = x.ix[n - 1] / x.c[n - 1] * 100;                    // 마지막 날 = 100
+    rsv = x.c.map((c, i) => x.ix[i] ? c / x.ix[i] * k : null);
+  } else rsv = x.r.map(v => v ?? null);
+  const rl = chart.addSeries(LW.LineSeries, {color: "#7b4fd6", lineWidth: 2, priceLineVisible: false, lastValueVisible: true,
+    priceFormat: {type: "price", precision: SCST.rsMode === "line" ? 1 : 0, minMove: SCST.rsMode === "line" ? 0.1 : 1}}, 2);
+  rl.setData(x.t.map((t, i) => rsv[i] == null ? {time: t} : {time: t, value: rsv[i]}));
+  if (SCST.rsMode === "score") [70, 90].forEach(v => rl.createPriceLine({price: v, color: sub, lineWidth: 1, lineStyle: 2, axisLabelVisible: false}));
+  const panes = chart.panes(); panes[0].setStretchFactor(6); panes[1].setStretchFactor(1.8); panes[2].setStretchFactor(1.8);
+  const show = SCST.tf === "w" ? 156 : 290;
+  chart.timeScale().setVisibleLogicalRange({from: Math.max(0, n - show), to: n + 3});
+  const idx = {}; x.t.forEach((t, i) => idx[t] = i);
+  const fmt = v => v == null ? "–" : Math.abs(v) >= 1000 ? Math.round(v).toLocaleString() : (+v.toFixed(2)).toLocaleString();
+  const vfmt = v => v >= 1e8 ? (v / 1e8).toFixed(2) + "억" : v >= 1e4 ? Math.round(v / 1e4).toLocaleString() + "만" : Math.round(v).toLocaleString();
+  const leg = i => {
+    const ch = i > 0 ? x.c[i] / x.c[i - 1] - 1 : null;
+    $("#scleg").innerHTML = `<span>${x.t[i]}</span><span>시 ${fmt(x.o[i])} 고 ${fmt(x.h[i])} 저 ${fmt(x.l[i])} 종 <b class="${cls(ch)}">${fmt(x.c[i])} ${ch == null ? "" : pct(ch, 2)}</b></span>`
+      + mas.map(([p, col, a]) => `<span style="color:${col}">${p}${SCST.tf === "w" ? "주" : "일"} ${fmt(a[i])}</span>`).join("");
+    $("#scvlab").textContent = `거래량 ${vfmt(x.v[i])} · ${SC_VMA[SCST.tf]}${SCST.tf === "w" ? "주" : "일"} 평균 ${vma[i] == null ? "–" : vfmt(vma[i])}${vma[i] ? ` (${(x.v[i] / vma[i]).toFixed(1)}배)` : ""}`;
+    $("#scrlab").textContent = SCST.rsMode === "line" ? `RS 라인 (${raw.market === "KOSDAQ" ? "코스닥" : "코스피"} 대비, 마지막 날 = 100) ${rsv[i] == null ? "–" : rsv[i].toFixed(1)} · RS 점수 ${x.r[i] ?? "–"}`
+      : `RS 점수 (1~99, 점선 70·90) ${x.r[i] ?? "–"}`;
+  };
+  const place = () => { if (!$("#scvlab") || scChart !== chart) return; const h = panes.map(p => p.getHeight()); $("#scvlab").style.top = (h[0] + 6) + "px"; $("#scrlab").style.top = (h[0] + h[1] + 10) + "px"; };
+  leg(n - 1); requestAnimationFrame(place);
+  chart.subscribeCrosshairMove(p => { const i = p && p.time != null ? idx[p.time] : undefined; leg(i == null ? n - 1 : i); });
+  scRO = new ResizeObserver(() => requestAnimationFrame(place)); scRO.observe(el);
+  $("#scnote").textContent = SCST.tf === "w" ? "주봉 · 10주(빨강)·30주(파랑)·40주 이동평균 · 거래량 10주 평균" : "일봉 · 10·20·50·200일 이동평균 · 거래량 50일 평균 · 드래그·휠로 이동/확대";
+}
+
 function route(){
   const h = (location.hash || "#kr").slice(1), [tab, sec] = h.split("/");
-  const mode = ["rs", "nh", "cs"].includes(tab) ? tab : "chart";
-  $("#tabs").hidden = mode === "rs" || mode === "cs"; $("#tf").hidden = mode !== "chart";
-  $("#ptitle").textContent = {rs: "상대강도", nh: "신고가", cs: "차트 셋업"}[mode] || "차트북";
+  const mode = ["rs", "nh", "cs", "sc"].includes(tab) ? tab : "chart";
+  if (mode !== "sc" && scChart){ if (scRO){ scRO.disconnect(); scRO = null; } scChart.remove(); scChart = null; }
+  $("#tabs").hidden = mode === "rs" || mode === "cs" || mode === "sc"; $("#tf").hidden = mode !== "chart";
+  $("#ptitle").textContent = {rs: "상대강도", nh: "신고가", cs: "차트 셋업", sc: "종목차트"}[mode] || "차트북";
   $("#asof").textContent = D && D.generated ? `업데이트 ${D.generated}` : "";
   if (mode === "rs"){ renderRS(sec ? decodeURIComponent(sec) : null); window.scrollTo(0, 0); return; }
   if (mode === "cs"){ renderCS(sec || null); window.scrollTo(0, 0); return; }
+  if (mode === "sc"){ renderSC(sec || null); window.scrollTo(0, 0); return; }
   if (mode === "nh"){
     const k = sec ? "nh/" + sec : "nh";
     $("#tabs").innerHTML = NH_TABS.map(([kk, l]) => `<button class="tab ${kk===k?"on":""}" data-k="${kk}">${l}</button>`).join("");
