@@ -694,7 +694,7 @@ function drawStocks(){
     <td>${rsCell(i.rs)}</td><td>${i.rs_1m ?? "–"}</td><td>${i.rs_3m ?? "–"}</td><td>${i.rs_6m ?? "–"}</td><td>${i.rs_12m ?? "–"}</td><td>-</td><td>-</td></tr>`).join("");
   const rows = list.slice(0, RSST.limit).map(s => `<tr>
     <td class="l">${esc(s.sector || "미분류")}${s.sub ? `<span class="code">${esc(s.sub)}</span>` : ""}</td>
-    <td class="l"><a class="sn" href="https://m.stock.naver.com/domestic/stock/${s.code}/total" target="_blank" rel="noopener">${esc(s.name)}</a><span class="code">${s.code}</span></td>
+    <td class="l"><a class="sn" href="#sc/${s.code}">${esc(s.name)}</a><span class="code">${s.code}</span></td>
     <td class="l">${s.market === "KOSPI" ? "코스피" : s.market === "KOSDAQ" ? "코스닥" : esc(s.market || "")}</td>
     <td>${s.close == null ? "–" : s.close.toLocaleString()}</td><td class="${cls((s.chg_1d ?? 0) / 100)}">${s.chg_1d == null ? "–" : pct(s.chg_1d / 100, 2)}</td>
     <td>${rsCell(s.rs)}</td><td>${s.rs_1m ?? "–"}</td><td>${s.rs_3m ?? "–"}</td><td>${s.rs_6m ?? "–"}</td><td>${s.rs_12m ?? "–"}</td>
@@ -747,7 +747,7 @@ async function renderNH(sub){
 const nhBits = () => NHST.per === "52" ? [1, 2] : [4, 8];
 const nhPass = r => (r.mcap ?? 0) >= NHST.cap && (r.v20 ?? 0) >= NHST.val && (!NHST.market || r.market === NHST.market);
 const fmtV = r => r.value == null ? "–" : `${r.value >= 1000 ? (r.value / 1000).toFixed(1) + "천" : Math.round(r.value)}억${r.vratio ? ` <span class="code">${r.vratio.toFixed(1)}배</span>` : ""}`;
-const nhName = r => `<a class="sn" href="https://m.stock.naver.com/domestic/stock/${r.code}/total" target="_blank" rel="noopener">${esc(r.name)}</a><span class="code">${r.code}</span>`;
+const nhName = r => `<a class="sn" href="#sc/${r.code}">${esc(r.name)}</a><span class="code">${r.code}</span>`;
 function nhTags(r){
   return (r.flags & 16 ? `<span class="tag" title="2021년 이후(DB 전체 기간) 최고 종가">21년 이후 최고가</span>` : "") + (NHST.per === "52" && r.flags & 32 ? `<span class="tag t2">신규상장</span>` : "");
 }
@@ -856,7 +856,7 @@ function drawFlow(){
     <tbody>${rows.map(r => `<tr><td class="l"><b>${esc(r.k)}</b></td><td>${r.a.toFixed(1)}%</td><td>${r.b.toFixed(1)}%</td>
       <td class="${cls(r.d / 100)}">${r.d > 0 ? "▲" : r.d < 0 ? "▼" : ""}${Math.abs(r.d).toFixed(1)}%p</td><td class="l">${dv(r.d)}</td><td>${r.n}</td>
       <td class="l">${r.subs.map(([s, c]) => `${esc(s)} ${c}`).join(" · ")}</td>
-      <td class="l">${r.top.map(t => `${esc(t.name)}(${t.rs ?? "–"})`).join(", ")}</td></tr>`).join("") || `<tr><td colspan="8" class="l"><div class="empty">기간 안에 신고가 종목이 없습니다</div></td></tr>`}</tbody></table></div>`;
+      <td class="l">${r.top.map(t => `<a class="sn" href="#sc/${t.code}">${esc(t.name)}</a>(${t.rs ?? "–"})`).join(", ")}</td></tr>`).join("") || `<tr><td colspan="8" class="l"><div class="empty">기간 안에 신고가 종목이 없습니다</div></td></tr>`}</tbody></table></div>`;
   $("#nhwin").onclick = e => { const b = e.target.closest("button"); if (b){ NHST.win = +b.dataset.w; drawFlow(); } };
 }
 
@@ -924,7 +924,7 @@ function drawCS(){
   $("#csbody").innerHTML = `<div class="tw"><table class="t nhtbl"><thead><tr>${th("name","종목","l")}${th("sector","섹터","l")}${th("streak","연속")}
       ${cols.map(([k, l]) => th(k, l)).join("")}<th>최근 60일${["vcp","cup","ipo"].includes(id) ? (id === "ipo" ? " (점선 = 상장 첫날 시가)" : " (점선 = 피봇)") : ""}</th>
       ${th("close","종가")}${th("chg","등락률")}${th("value","거래대금·20일 대비")}${th("rs","RS · 1M")}<th>MTT</th></tr></thead>
-    <tbody>${list.map(r => `<tr><td class="l"><a class="sn" href="https://m.stock.naver.com/domestic/stock/${r.code}/total" target="_blank" rel="noopener">${esc(r.name)}</a><span class="code">${r.code}</span></td>
+    <tbody>${list.map(r => `<tr><td class="l"><a class="sn" href="#sc/${r.code}">${esc(r.name)}</a><span class="code">${r.code}</span></td>
       <td class="l">${esc(r.sector || "미분류")}<span class="code">${esc(r.sub || "")}</span></td>
       <td>${r.streak <= 1 ? `<span class="new">신규</span>` : `<span class="days">${r.streak}일째</span>`}</td>
       ${cols.map(([k, , f]) => `<td>${r[k] == null ? "–" : f(r[k])}</td>`).join("")}
