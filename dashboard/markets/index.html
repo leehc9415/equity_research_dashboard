@@ -900,10 +900,11 @@ const CS_COLS = {
   trend: [["upl","52주 저점 대비",v=>"+"+v.toFixed(0)+"%",1],["gap52","52주 고점 대비",v=>v.toFixed(1)+"%",-1]],
   vcp:   [["depths","수축 깊이",v=>v.map(x=>x+"%").join(" → "),0],["pivot","피봇",v=>Math.round(v).toLocaleString(),0],["pgap","피봇 대비",v=>v.toFixed(1)+"%",-1]],
   cup:   [["depth","컵 조정폭",v=>v.toFixed(0)+"%",0],["rec","회복률",v=>v.toFixed(0)+"%",-1],["hdepth","핸들 깊이",v=>v.toFixed(1)+"%",1],["weeks","컵 기간",v=>v.toFixed(0)+"주",0],["pivot","피봇",v=>Math.round(v).toLocaleString(),0],["rpk","오른쪽 고점",v=>"피봇+"+v.toFixed(0)+"%",0],["hdays","핸들 기간",v=>v+"일",0],["pgap","피봇 대비",v=>v.toFixed(1)+"%",-1]],
+  htf:   [["up","8주 상승률",v=>"+"+v.toFixed(0)+"%",-1],["pull","고점 대비",v=>"-"+v.toFixed(1)+"%",1],["age","고점 후",v=>v+"일",1],["volc","거래량 수축",v=>v.toFixed(2),1],["rngc","고저폭 수축",v=>v.toFixed(2),1],["peak","깃대 고점",v=>Math.round(v).toLocaleString(),0]],
   ipo:   [["days","상장 후",v=>v+"일",1],["open0","상장 첫날 시가",v=>Math.round(v).toLocaleString(),0],["low","상장 후 저점",v=>v.toFixed(0)+"%",0],["under","시가 아래 기간",v=>v+"일",0],["fday","첫 도달",v=>v===0?"오늘":v+"일 전",1],["vsopen","시가 대비",v=>(v>0?"+":"")+v.toFixed(1)+"%",0]],
   weekv: [["vx","5일 거래량 배수",v=>v.toFixed(1)+"배",-1],["r5","5일 수익률",v=>"+"+v.toFixed(1)+"%",-1]],
 };
-const CS_DEFSORT = {gap: ["vx",-1], lead: ["rs",-1], trend: ["upl",1], vcp: ["pgap",-1], cup: ["pgap",-1], ipo: ["days",1], weekv: ["vx",-1]};
+const CS_DEFSORT = {gap: ["vx",-1], lead: ["rs",-1], trend: ["upl",1], vcp: ["pgap",-1], cup: ["pgap",-1], htf: ["up",-1], ipo: ["days",1], weekv: ["vx",-1]};
 let CS = null;
 
 async function renderCS(id){
@@ -955,9 +956,9 @@ function drawCS(){
     return typeof va === "string" ? dir * va.localeCompare(vb) : dir * (va - vb); });
   const th = (k, l, cl = "") => `<th class="${cl}" data-k="${k}">${l}${sk === k ? (dir < 0 ? " ↓" : " ↑") : ""}</th>`;
   const set = CS.setups.find(s => s.id === id);
-  const line = r => r.pivot ?? (id === "ipo" ? r.open0 : null);
+  const line = r => r.pivot ?? (id === "ipo" ? r.open0 : id === "htf" ? r.peak : null);
   $("#csbody").innerHTML = `<div class="tw"><table class="t nhtbl"><thead><tr>${th("name","종목","l")}${th("sector","섹터","l")}${th("streak","연속")}
-      ${cols.map(([k, l]) => th(k, l)).join("")}<th>최근 60일${["vcp","cup","ipo"].includes(id) ? (id === "ipo" ? " (점선 = 상장 첫날 시가)" : " (점선 = 피봇)") : ""}</th>
+      ${cols.map(([k, l]) => th(k, l)).join("")}<th>최근 60일${["vcp","cup","ipo","htf"].includes(id) ? (id === "ipo" ? " (점선 = 상장 첫날 시가)" : id === "htf" ? " (점선 = 깃대 고점)" : " (점선 = 피봇)") : ""}</th>
       ${th("close","종가")}${th("chg","등락률")}${th("value","거래대금·20일 대비")}${th("rs","RS · 1M")}<th>MTT</th></tr></thead>
     <tbody>${list.map(r => `<tr><td class="l"><a class="sn" href="#sc/${r.code}">${esc(r.name)}</a><span class="code">${r.code}</span></td>
       <td class="l">${esc(r.sector || "미분류")}<span class="code">${esc(r.sub || "")}</span></td>
@@ -972,7 +973,7 @@ function drawCS(){
   $("#csbody").querySelector("thead").onclick = e => { const t = e.target.closest("th[data-k]"); if (!t) return;
     const k = t.dataset.k; if ((CSST.sort || ds) === k) { CSST.sort = k; CSST.dir = -dir; } else { CSST.sort = k; CSST.dir = ["name","sector"].includes(k) ? 1 : -1; } drawCS(); };
   if (viewOf("cs") === "chart"){
-    const lab = id === "ipo" ? "상장 첫날 시가" : ["vcp", "cup"].includes(id) ? "피봇" : "";
+    const lab = id === "ipo" ? "상장 첫날 시가" : id === "htf" ? "깃대 고점" : ["vcp", "cup"].includes(id) ? "피봇" : "";
     const sortSel = `<div class="tools"><select id="cssort">${[["streak","연속"], ...cols.map(([k, l]) => [k, l]), ["chg","등락률"], ["value","거래대금"], ["rs","RS"]]
       .map(([k, l]) => `<option value="${k}" ${k === sk ? "selected" : ""}>${l} 순</option>`).join("")}</select><button class="back" id="csdir">${dir < 0 ? "↓ 큰 순" : "↑ 작은 순"}</button></div>`;
     $("#csbody").innerHTML = sortSel + `<div id="csgrid"></div>`;

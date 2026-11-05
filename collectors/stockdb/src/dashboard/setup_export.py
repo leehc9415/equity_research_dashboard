@@ -20,6 +20,8 @@
                               핸들 = 피봇 이후, 깊이 ≤ 10%, 이후 고가 ≤ 피봇×1.05
                               컵 = 피봇 이전 스윙 고점(7~65주 전, 직전 20일 최고)을 왼쪽 고점으로, 바닥 조정 12~35%
                               회복률(현재가/왼쪽 고점) 95~115% · 핸들 저점이 컵 위쪽 절반 · 현재가가 피봇 −3% ~ +5%
+  htf    HTF 급등 깃발        최근 45거래일 고점이 그 전 저점 대비 +70% 이상 · 고점 이후 하락 ≤25% · 고점 2~25일 전 · 종가>50일선
+                              · 10일/60일 거래량 ≤1.1 · 5일/20일 고저폭 ≤1.25
   ipo    IPO 셋업             상장 후 250거래일 이내 & 종가가 첫날 시가 −10% 아래로 내려간 뒤 10거래일 이상 바닥을 다지고
                               아래에서 올라와 처음으로 첫날 시가의 95%에 도달한 날부터 5거래일 이내 & 현재 종가가 첫날 시가 95~110%
   weekv  주봉 거래량 급증 상승 최근 5거래일 거래량 ≥ 직전 50일의 5일 평균 × 2 & 최근 5거래일 수익률 ≥ +5%
@@ -42,6 +44,7 @@ SETUPS = [
     ("trend", "추세 시작", "이동평균이 정배열로 막 바뀐 상승 2단계 초입, 52주 저점 대비 아직 덜 오른 종목"),
     ("vcp", "VCP", "고점 이후 조정 폭이 점점 줄며 거래량이 마르는 변동성 수축, 피봇 돌파 직전"),
     ("cup", "컵위드핸들", "U자로 왼쪽 고점을 회복한 뒤 핸들에서 낮아진 고점(포켓 피봇) 돌파를 노리는 자리"),
+    ("htf", "HTF 급등 깃발", "8주 안에 70% 넘게 급등한 뒤 고점 대비 25% 이내에서 조용히 숨 고르는 종목"),
     ("ipo", "IPO 셋업", "상장 1년 이내, 첫날 시가 아래에서 바닥을 다진 뒤 처음으로 시가까지 올라온 종목"),
     ("weekv", "주봉 거래량 급증 상승", "최근 1주(5거래일) 거래량이 평소 2배 이상 터지며 5% 이상 상승"),
 ]
@@ -211,6 +214,30 @@ def _ipo(o0, c, lo, t):
             "low": (lo[1:t + 1].min() / o0 - 1) * 100, "under": f - k, "fday": t - f}
 
 
+def _htf(h, l, c, v, t, ma50):
+    """HTF 급등 깃발 (High Tight Flag) — 스탁이지 '8주 상승률·고점 대비·거래량 수축·고저폭 수축'과 같은 정의로 계산.
+
+    깃대: 최근 45거래일 최고가(고점) / 그 구간 시작~고점 사이 최저가 − 1 ≥ 70%
+    깃발: 고점 이후 최저가 기준 고점 대비 하락 ≤ 25%, 고점이 2~25거래일 전, 종가 > 50일선
+    수축: 10일 평균 거래량 / 60일 평균 ≤ 1.1, 5일 평균 고저폭 / 20일 평균 ≤ 1.25
+    (스탁이지 표본 3건 기준의 1차 기준 — 교차검증 누적으로 조정)
+    """
+    W = 45
+    if t < 60:
+        return None
+    ip = t - W + 1 + int(np.argmax(h[t - W + 1:t + 1]))
+    pk, age = h[ip], t - ip
+    up = pk / l[t - W + 1:ip + 1].min() - 1
+    pull = 1 - l[ip:t + 1].min() / pk
+    v60 = v[t - 59:t + 1].mean()
+    rr = (h - l) / c
+    volc = v[t - 9:t + 1].mean() / v60 if v60 > 0 else np.nan
+    rngc = rr[t - 4:t + 1].mean() / rr[t - 19:t + 1].mean() if rr[t - 19:t + 1].mean() > 0 else np.nan
+    if not (up >= 0.70 and pull <= 0.25 and 2 <= age <= 25 and c[t] > ma50 and volc <= 1.1 and rngc <= 1.25):
+        return None
+    return {"up": up * 100, "pull": pull * 100, "age": int(age), "volc": volc, "rngc": rngc, "peak": pk}
+
+
 def _r(v, nd=1):
     return None if v is None or not np.isfinite(v) else round(float(v), nd)
 
@@ -273,6 +300,7 @@ def build(con) -> dict:
             res["vcp"] = vcp or False
             cup = _cup(h, l, c, t) if t >= 200 and r_rs >= 70 and c[t] > ma50[t] and c[t] > ma200[t] else None
             res["cup"] = cup or False
+            res["htf"] = _htf(h, l, c, v, t, ma50[t]) or False
             res["ipo"] = (_ipo(o[0], c, l, t) if listed_new and t <= 250 else None) or False
             if t >= 55:
                 v5, base5 = v[t - 4:t + 1].sum(), v[t - 54:t - 4].sum() / 10
