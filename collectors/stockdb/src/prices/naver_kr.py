@@ -206,7 +206,7 @@ def main():
     con = connect()
     if a.mode == "daily":
         codes = con.execute("""SELECT DISTINCT symbol_id FROM prices_daily
-            WHERE source IN ('marcap','naver','naver_fix')
+            WHERE source IN ('krx','marcap','naver','naver_fix')
               AND date >= current_date - INTERVAL 30 DAY
               AND regexp_matches(symbol_id, '^[0-9A-Z]{6}$')""").df()["symbol_id"].tolist()
         run_daily(con, sorted(codes))

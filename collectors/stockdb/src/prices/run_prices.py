@@ -15,7 +15,7 @@ from datetime import date
 
 import pandas as pd
 
-from . import global_yf, kr, naver_kr
+from . import global_yf, kr, krx_official, naver_kr
 from .db import connect, log_run, upsert_prices
 
 GLOBAL_LOOKBACK_DAYS = 10   # 증분 시 최근 N일을 다시 받아 덮어씀 (수정치 반영)
@@ -36,21 +36,23 @@ def run_kr(con, backfill_years: int | None):
 
     # 매일 증분: 최근 거래일 하루치 (네이버 polling API, 16:30 이후)
     last = con.execute("SELECT max(date) FROM prices_daily "
-                       "WHERE source IN ('naver','naver_fix')").fetchone()[0]
+                       "WHERE source IN ('krx','naver','naver_fix')").fetchone()[0]
     td = naver_kr.last_trade_date()
     gap = 0 if last is None else len(pd.bdate_range(pd.Timestamp(last) + pd.Timedelta(days=1), td))
     if gap > 1:
         # 하루 이상 비었으면 그 구간을 종목별 네이버 일봉으로 먼저 채움 (느림: 종목당 0.2초)
         print(f"  {last} 이후 {gap}영업일 비어 있음 → 구간 보정 실행")
         codes = con.execute("SELECT DISTINCT symbol_id FROM prices_daily WHERE date = ? "
-                            "AND source IN ('marcap','naver','naver_fix')",
+                            "AND source IN ('krx','marcap','naver','naver_fix')",
                             [last]).df()["symbol_id"].tolist()
         naver_kr.fix_window(con, codes, str(pd.Timestamp(last) + pd.Timedelta(days=1))[:10])
         kr.recompute_adj_factor(con, codes)
     codes = con.execute("""SELECT DISTINCT symbol_id FROM prices_daily
         WHERE date >= current_date - INTERVAL 30 DAY
-          AND source IN ('marcap','naver','naver_fix')""").df()["symbol_id"].tolist()
+          AND source IN ('krx','marcap','naver','naver_fix')""").df()["symbol_id"].tolist()
     q = naver_kr.run_daily(con, sorted(codes))
+    # 네이버 값은 시간외 거래가 섞인 임시값 → 아직 교정 안 된 날 + 최근 7영업일을 KRX 정규장 시세로 덮어쓴다
+    krx_official.overlay_since_naver(con, sorted(codes), td)
 
     if backfill_years:
         n = kr.recompute_adj_factor(con)

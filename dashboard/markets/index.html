@@ -893,7 +893,7 @@ function drawFlow(){
 }
 
 // ================================================================ 차트 셋업
-const CSST = {id: "lead", cap: 1000, val: 20, market: "", sort: null, dir: 1};
+const CSST = {id: "lead", cap: 0, val: 0, market: "", sort: null, dir: 1};
 const CS_COLS = {
   gap:   [["gap","갭",v=>v.toFixed(1)+"%",-1],["vx","거래량 50일 대비",v=>v.toFixed(1)+"배",-1]],
   lead:  [["gap52","52주 고점 대비",v=>v.toFixed(1)+"%",-1]],

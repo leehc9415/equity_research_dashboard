@@ -36,11 +36,11 @@ d0 AS (SELECT min(date) AS d, min(date) - INTERVAL 420 DAY AS dw FROM cal),
 pre AS (   -- 계산 창 이전 구간의 최고 종가·거래일 수 (21년 이후 최고 태그용)
   SELECT p.symbol_id, max(p.close) AS pm, count(*) AS pn
   FROM v_prices_adj p JOIN v_rs_universe u USING (symbol_id), d0
-  WHERE p.date < d0.dw AND p.close > 0 AND p.source IN ('marcap', 'naver', 'naver_fix') GROUP BY 1),
+  WHERE p.date < d0.dw AND p.close > 0 AND p.source IN ('krx', 'marcap', 'naver', 'naver_fix') GROUP BY 1),
 p AS (
   SELECT p.symbol_id, p.date, p.open, p.high, p.low, p.close, p.volume, p.value, p.mcap
   FROM v_prices_adj p JOIN v_rs_universe u USING (symbol_id), d0
-  WHERE p.date >= d0.dw AND p.close > 0 AND p.source IN ('marcap', 'naver', 'naver_fix')),
+  WHERE p.date >= d0.dw AND p.close > 0 AND p.source IN ('krx', 'marcap', 'naver', 'naver_fix')),
 w AS (
   SELECT *,
     lag(close) OVER o AS c1,

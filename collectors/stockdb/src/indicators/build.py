@@ -121,7 +121,7 @@ WITH b AS (
     first_value(p.close) OVER w AS c0,
     {lag_cols}
   FROM v_prices_adj p JOIN v_rs_universe u USING (symbol_id)
-  WHERE p.source IN ('marcap', 'naver', 'naver_fix') AND p.close > 0
+  WHERE p.source IN ('krx', 'marcap', 'naver', 'naver_fix') AND p.close > 0
   WINDOW w AS (PARTITION BY p.symbol_id ORDER BY p.date)
 ),
 r AS (

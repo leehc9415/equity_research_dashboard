@@ -51,7 +51,7 @@ def build(con, out: Path, verbose: bool = True) -> dict:
         FROM v_prices_adj p JOIN u ON u.code = p.symbol_id
         LEFT JOIN rs_daily r ON r.symbol_id = p.symbol_id AND r.date = p.date
         LEFT JOIN ix ON ix.symbol_id = CASE WHEN u.market = 'KOSDAQ' THEN 'KQ11' ELSE 'KS11' END AND ix.date = p.date
-        WHERE p.date BETWEEN ? AND ? AND p.close > 0 AND p.source IN ('marcap', 'naver', 'naver_fix')
+        WHERE p.date BETWEEN ? AND ? AND p.close > 0 AND p.source IN ('krx', 'marcap', 'naver', 'naver_fix')
         ORDER BY 1, 2""", [d0, d1]).df()
     info = con.execute("""SELECT s.id code, s.name, CASE WHEN s.subclass = 'KOSDAQ' THEN 'KOSDAQ' ELSE 'KOSPI' END market,
                                  m.se_l, m.se_m

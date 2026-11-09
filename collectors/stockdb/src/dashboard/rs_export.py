@@ -70,7 +70,7 @@ def build_rrg(con) -> dict:
     meta = con.execute("""
         WITH m AS (SELECT s.se_l, s.se_m, s.code, p.mcap FROM se_sector_map s
                    LEFT JOIN prices_daily p ON p.symbol_id = s.code AND p.date = ?
-                     AND p.source IN ('marcap', 'naver', 'naver_fix'))
+                     AND p.source IN ('krx', 'marcap', 'naver', 'naver_fix'))
         SELECT 'L' lvl, se_l AS name, NULL AS parent, count(*) n, sum(mcap) cap FROM m GROUP BY se_l
         UNION ALL
         SELECT 'M', se_m, any_value(se_l), count(*), sum(mcap) FROM m GROUP BY se_m""", [asof.date()]).df()
@@ -108,12 +108,12 @@ def build_rrg(con) -> dict:
 
 STOCK_SQL = """
 WITH u AS (SELECT symbol_id FROM v_rs_universe UNION ALL SELECT 'KS11' UNION ALL SELECT 'KQ11'),
-last AS (SELECT max(date) d FROM prices_daily WHERE source IN ('naver', 'naver_fix', 'marcap')),
+last AS (SELECT max(date) d FROM prices_daily WHERE source IN ('krx', 'naver', 'naver_fix', 'marcap')),
 p AS (
   SELECT p.symbol_id, p.date, p.close, p.high, p.low, p.mcap
   FROM v_prices_adj p JOIN u USING (symbol_id), last
   WHERE p.date BETWEEN last.d - INTERVAL 700 DAY AND last.d AND p.close > 0
-    AND (p.source IN ('marcap', 'naver', 'naver_fix') OR p.symbol_id IN ('KS11', 'KQ11'))),
+    AND (p.source IN ('krx', 'marcap', 'naver', 'naver_fix') OR p.symbol_id IN ('KS11', 'KQ11'))),
 w AS (
   SELECT *,
     lag(close, 1)   OVER o AS c1,
@@ -151,7 +151,7 @@ def _pct_of(value, dist: np.ndarray):
 
 def build_stocks(con) -> dict:
     f = con.execute(STOCK_SQL).df().set_index("symbol_id")
-    asof = con.execute("SELECT max(date) FROM prices_daily WHERE source IN ('naver','naver_fix','marcap')").fetchone()[0]
+    asof = con.execute("SELECT max(date) FROM prices_daily WHERE source IN ('krx','naver','naver_fix','marcap')").fetchone()[0]
     rs = con.execute("SELECT symbol_id, rs, rs_1m, rs_3m, rs_6m, rs_12m FROM rs_daily WHERE date = ?",
                      [asof]).df().set_index("symbol_id")
     info = con.execute("""SELECT s.id, s.name, s.subclass AS market, m.se_l AS sector_id, m.se_m AS sub
@@ -212,7 +212,7 @@ def build_px(con) -> dict:
         FROM v_prices_adj p
         WHERE p.date BETWEEN ? AND ? AND p.close > 0
           AND (p.symbol_id IN ('KS11', 'KQ11')
-               OR (p.symbol_id IN (SELECT symbol_id FROM v_rs_universe) AND p.source IN ('marcap', 'naver', 'naver_fix')))
+               OR (p.symbol_id IN (SELECT symbol_id FROM v_rs_universe) AND p.source IN ('krx', 'marcap', 'naver', 'naver_fix')))
         ORDER BY 1, 2""", [d0, d1]).df()
     px["date"] = pd.to_datetime(px["date"])
     cal = pd.DatetimeIndex(pd.to_datetime(dates))

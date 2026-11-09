@@ -42,6 +42,10 @@ def normalize(df: pd.DataFrame, source: str) -> pd.DataFrame:
     if "ChagesRatio" in d.columns:            # 캐시 CSV의 오타 컬럼명
         d = d.rename(columns={"ChagesRatio": "ChangesRatio"})
     d["Code"] = d["Code"].astype(str).str.zfill(6)
+    for c in ("Open", "High", "Low", "Close", "Changes", "Volume", "Amount", "Marcap", "Stocks"):
+        if c in d.columns:                    # 캐시 CSV에 가끔 숫자 아닌 값이 섞임
+            d[c] = pd.to_numeric(d[c].astype(str).str.replace(",", ""), errors="coerce")
+    d = d.dropna(subset=["Close"])
     d["Date"] = pd.to_datetime(d["Date"]).dt.date
     for c in ("Open", "High", "Low"):        # 거래 없는 날은 시·고·저가 0 → 종가로
         d[c] = d[c].where(d[c] > 0, d["Close"])
@@ -123,7 +127,7 @@ WITH r AS (
          CASE WHEN ref_price > 0 AND lag(close) OVER w > 0
               THEN ref_price / lag(close) OVER w ELSE 1 END AS r
   FROM prices_daily
-  WHERE source IN ('marcap', 'krx_cache', 'naver', 'naver_fix') {where}
+  WHERE source IN ('marcap', 'krx', 'krx_cache', 'naver', 'naver_fix') {where}
   WINDOW w AS (PARTITION BY symbol_id ORDER BY date)
 )
 SELECT symbol_id, date,

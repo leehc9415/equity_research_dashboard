@@ -1,0 +1,50 @@
+name: KRX close correction preview
+
+# 브랜치 krx-close 에 올라온 코드로 KRX 정규장 교정을 미리 돌려 보고 결과를 아티팩트로만 남긴다.
+# (커밋·배포·상태 저장 없음 — 실제 대시보드는 그대로)
+on:
+  push:
+    branches: [krx-close]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      TZ: Asia/Seoul
+      PYTHONUNBUFFERED: '1'
+    defaults:
+      run:
+        working-directory: collectors/stockdb
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: collectors/stockdb/requirements.txt
+      - run: pip install -r requirements.txt pytest
+      - run: python -m pytest -q tests
+      - name: Restore latest verified source history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python cloud_state.py pull
+      - name: Correct closes with KRX and rebuild (preview only)
+        env:
+          KRX_ID: ${{ secrets.KRX_ID }}
+          KRX_PW: ${{ secrets.KRX_PW }}
+        run: python tools/krx_preview.py out 2>&1 | tee preview.log; exit ${PIPESTATUS[0]}
+        shell: bash
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: krx-preview
+          retention-days: 3
+          path: |
+            collectors/stockdb/preview.log
+            collectors/stockdb/out
+            collectors/stockdb/data/market-state-preview.zip

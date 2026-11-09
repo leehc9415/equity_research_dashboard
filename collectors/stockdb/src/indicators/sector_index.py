@@ -34,7 +34,7 @@ WITH m AS (
          p.value
   FROM prices_daily p
   JOIN ({members}) s ON s.code = p.symbol_id
-  WHERE p.source IN ('marcap', 'naver', 'naver_fix') AND p.close > 0
+  WHERE p.source IN ('krx', 'marcap', 'naver', 'naver_fix') AND p.close > 0
 )
 SELECT sector_id, date, symbol_id, mcap, value,
        adj / lag(adj) OVER w - 1 AS r,

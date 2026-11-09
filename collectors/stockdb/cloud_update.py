@@ -51,7 +51,7 @@ def validate_kr_collection(con, started):
         print('Korean close is not confirmed yet; retained previous Korean prices.')
         return
     baseline = con.execute("""SELECT count(DISTINCT symbol_id) FROM prices_daily
-        WHERE source IN ('marcap','naver','naver_fix') AND date>=? - INTERVAL 30 DAY AND date<?""",
+        WHERE source IN ('krx','marcap','naver','naver_fix') AND date>=? - INTERVAL 30 DAY AND date<?""",
         [row[1], row[1]]).fetchone()[0]
     if row[0] < max(1000, int(baseline * .95)):
         raise ValueError(f'Incomplete Korean quotes: {row[0]} of about {baseline}')

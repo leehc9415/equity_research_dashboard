@@ -54,7 +54,7 @@ COLUMNS = {
         "volume": "거래량(원주 기준)", "value": "거래대금(현지 통화)",
         "value_is_est": "TRUE면 종가×거래량 추정치(미국)", "mcap": "시가총액(원, 한국 종목)",
         "shares": "상장주식수(한국 종목)",
-        "source": "marcap(~2026-09-11) / naver_fix(2026-09-14~ 보정) / naver(일별) / fdr(지수) / yf / sector_idx(한국 섹터 지수: close=지수, volume=구성 종목 수, mcap=구성 시총 합)",
+        "source": "marcap(~2026-09-11) / krx(2026-09-14~ KRX 정규장 확정 시세, pykrx) / naver(일별 임시값, 시간외 포함 → KRX 로 교체) / naver_fix(옛 보정) / fdr(지수) / yf / sector_idx(한국 섹터 지수: close=지수, volume=구성 종목 수, mcap=구성 시총 합)",
         "fetched_at": "수집 시각",
     },
     "ind_daily": {
