@@ -141,7 +141,9 @@ def test_indicators_and_rs(tmp_path):
     assert len(rs) == 60 and rs["rs"].between(0, 99).all()
     assert (rs.loc[rs["rs_score"].isna(), "rs"] == 0).all()          # 1년 미만 = 0
     w = con.execute("SELECT * FROM v_weekly WHERE symbol_id='000010' ORDER BY period_start").df()
-    assert not w.iloc[-1]["is_complete"] and w["ma30"].notna().any()
+    last_w = w.iloc[-1]                                              # 마지막 주는 이번 주가 지나야 완료
+    this_week = con.execute("SELECT date_trunc('week', current_date)").fetchone()[0]
+    assert bool(last_w["is_complete"]) == (this_week > last_w["period_start"]) and w["ma30"].notna().any()
 
 
 def test_sector_index(tmp_path):
