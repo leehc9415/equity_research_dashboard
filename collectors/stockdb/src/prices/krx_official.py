@@ -61,8 +61,9 @@ def available() -> bool:
 def overlay(con, codes: list[str], start, end, sleep: float = 1.0) -> pd.DataFrame:
     """start~end 영업일을 KRX 정규장 시세로 덮어쓴다.
 
-    오늘 값은 18:10(KST) 이후에만 받는다. 그 전에는 KRX 도 시간외 단일가(16:00~18:00) 진행 중 가격을
-    종가 칸에 주기 때문(2026-11-09 17:42 확인: BGF리테일 145,400 / 정규장 139,200).
+    오늘(KST) 날짜는 받지 않는다. 당일에는 KRX 도 종가 칸에 시간외 단일가 가격을 준다
+    (2026-11-09 17:42·18:15 확인: BGF리테일 145,400 / 정규장 139,200). 지난 날짜는 정규장 종가로 확정돼 있다.
+    → 당일 저녁 실행은 네이버 임시값, 다음 날 아침 실행에서 KRX 확정값으로 바뀐다.
     """
     if not available():
         print("  KRX 로그인 정보(KRX_ID/KRX_PW)가 없어 정규장 교정을 건너뜀 → 네이버 값 유지")
@@ -72,7 +73,7 @@ def overlay(con, codes: list[str], start, end, sleep: float = 1.0) -> pd.DataFra
     keep = set(codes)
     frames, failed = [], []
     for day in pd.bdate_range(start, end):
-        if day.normalize() == now.normalize() and now.hour * 60 + now.minute < 18 * 60 + 10:
+        if day.normalize() >= now.normalize():
             continue
         try:
             f = fetch_day(day)
