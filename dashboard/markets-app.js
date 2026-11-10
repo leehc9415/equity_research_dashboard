@@ -8,7 +8,7 @@ const TITLES = {kr: '차트북', rs: '상대강도', nh: '신고가', cs: '차�
 // sub: 'kr' = 차트북, 'rs' = 상대강도, 'nh' = 신고가 (증시데이터 하위 메뉴에서 선택)
 export function mountMarkets(root, sub = 'kr') {
   if (!TITLES[sub]) sub = 'kr';
-  const existing = root.querySelector('.market-frame');
+  const existing = root.querySelector('.market-frame:not(.insider-frame)');
   if (existing) {
     const win = existing.contentWindow, cur = (win.location.hash || '#kr').slice(1).split('/')[0];
     const curSub = TITLES[cur] && cur !== 'kr' ? cur : 'kr';

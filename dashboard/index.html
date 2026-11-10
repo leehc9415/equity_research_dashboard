@@ -6,7 +6,7 @@
   <title>Investment Dashboard</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="overrides.css">
-  <link rel="stylesheet" href="site-shell.css?v=20261104-mnav1">
+  <link rel="stylesheet" href="site-shell.css?v=20261110-cnav1">
   <link rel="stylesheet" href="calendar.css?v=20261102-reported">
 </head>
 <body>
@@ -28,15 +28,23 @@
             </div>
           </div>
           <button data-section="briefing">시황</button>
-          <button data-section="companies">기업데이터</button>
+          <div class="nav-item">
+            <button data-section="companies" aria-haspopup="true">기업데이터</button>
+            <div class="nav-menu" role="menu" aria-label="기업데이터 하위 메뉴">
+              <button data-section="companies" data-sub="insider" role="menuitem">내부자 거래</button>
+              <button data-section="companies" data-sub="research" role="menuitem">기업 리서치</button>
+            </div>
+          </div>
           <button data-section="calendar">캘린더</button>
         </nav>
-        <nav class="sub-nav" aria-label="증시데이터 하위 메뉴 (모바일)">
+        <nav class="sub-nav" aria-label="하위 메뉴 (모바일)">
           <button data-section="markets" data-sub="kr">차트북</button>
           <button data-section="markets" data-sub="rs">상대강도</button>
           <button data-section="markets" data-sub="nh">신고가</button>
           <button data-section="markets" data-sub="cs">차트 셋업</button>
           <button data-section="markets" data-sub="sc">종목차트</button>
+          <button data-section="companies" data-sub="insider">내부자 거래</button>
+          <button data-section="companies" data-sub="research">기업 리서치</button>
         </nav>
         <div class="global-note">PRIVATE WORKSPACE <span class="live-dot"></span></div>
       </div>
@@ -68,6 +76,6 @@
       <main id="app"><div class="loading">실제 수출 데이터를 불러오는 중입니다…</div></main>
     </div>
   </div>
-  <script type="module" src="app.js?v=20261106-htf1"></script>
+  <script type="module" src="app.js?v=20261110-insider1"></script>
 </body>
 </html>
