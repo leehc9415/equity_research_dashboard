@@ -32,7 +32,7 @@ const loanBadge = amt => amt ? `<span class="badge loan">차입 ${eok(amt)}억</
 const whoCell = r => `<div class="who">${esc(r.person||'')}<div class="rel">${esc([r.relation,r.position].filter(Boolean).join(' · '))}</div></div>`;
 
 function nav(active){
-  const items = [['trades.html','내부자 매매'],['gifts.html','증여'],['bulk.html','대량보유']];
+  const items = [['trades.html','내부자 매매'],['gifts.html','증여'],['bulk.html','대량보유'],['company.html','기업 페이지']];
   return `<nav class="top">${items.map(([h,l])=>`<a href="${h}" class="${h===active?'on':''}">${l}</a>`).join('')}</nav>`;
 }
 function metaText(){ return `${META.range?META.range[0]+' ~ '+META.range[1]:''} · 종가 ${META.price_last||'-'} 기준 · 생성 ${(META.generated_at||'').replace('T',' ').slice(0,16)}`; }

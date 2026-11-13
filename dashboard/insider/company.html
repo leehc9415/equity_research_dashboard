@@ -62,6 +62,10 @@ tr.hl td{background:#fff7d6}
     <h2>보고자별 요약 <span class="lbl rel" id="sumNote"></span></h2>
     <div class="wrap" id="people"></div>
   </div>
+  <div class="box" style="margin-bottom:12px" id="bulkBox">
+    <h2>대량보유 (외부 5%) <span class="lbl rel">금융기관·외부 투자자 5% 보고</span></h2>
+    <div class="wrap" id="bulk"></div>
+  </div>
   <div class="box">
     <h2>내부자 공시 이력 <span class="lbl rel">매매·증여 외 스톡옵션·그룹 내 이동 등도 포함</span></h2>
     <div class="wrap" id="hist"></div>
@@ -70,7 +74,7 @@ tr.hl td{background:#fff7d6}
 <script src="common.js"></script>
 <script>
 const code = new URLSearchParams(location.search).get('code') || '';
-$('#nav').outerHTML = nav('');
+$('#nav').outerHTML = nav('company.html');
 
 const COLOR = {buy:'var(--buy)', sell:'var(--sell)', gift:'var(--gift)', transfer:'#868e96'};
 let C, ROWS, PLANS, HOLD, CORP;
@@ -189,6 +193,21 @@ function people(){
   ], [...m.values()], {defSort:3});
 }
 
+// ── 대량보유 (외부 5%) ──
+function bulkTable(){
+  const cols = C.bcols || [], rows = C.bulk || [];
+  if(!rows.length){ $('#bulkBox').style.display='none'; return; }
+  const I = Object.fromEntries(cols.map((c,k)=>[c,k]));
+  const FL = {신규:['신규 5% 진입','t-buy'], 이탈:['5% 이탈','t-other'], 목적변경:['보유목적 변경','t-gift'], 경영권:['경영권 영향','t-sell']};
+  $('#bulk').innerHTML = `<table><thead><tr><th>공시일</th><th>보고자</th><th>보유목적</th><th>이벤트</th><th class="num">전(%)</th><th class="num">후(%)</th><th class="num">변동(%p)</th><th>사유</th><th></th></tr></thead><tbody>`+
+    rows.map(a=>{ const fl=a[I.flags]||[], b=a[I.before], af=a[I.after];
+      const chg = af!=null ? af-(b??(fl.includes('신규')?0:af)) : null;
+      return `<tr><td>${a[I.rdt]}</td><td><div class="who">${esc(a[I.filer]||'')}<div class="rel">${esc(a[I.rtype]||'')} · ${a[I.form]}</div></div></td>
+      <td>${esc(a[I.purpose]||'')}</td><td>${fl.map(f=>`<span class="tag ${(FL[f]||['',''])[1]}">${(FL[f]||[f])[0]}</span>`).join(' ')}</td>
+      <td class="num">${b==null?'':Number(b).toFixed(2)}</td><td class="num">${af==null?'':Number(af).toFixed(2)}</td>
+      <td class="num">${chg?pctTxt(chg):''}</td><td><div class="note clamp">${esc(a[I.method]?a[I.method]+' · ':'')}${esc(a[I.reason]||'')}</div></td><td>${dartLink(a[I.rno])}</td></tr>`; }).join('')+'</tbody></table>';
+}
+
 // ── 공시 이력 ──
 function hist(){
   const plans = PLANS.map(p=>({...p, _plan:true, date:p.start, rdt:p.rcept_dt, rno:p.rcept_no}));
@@ -216,7 +235,7 @@ function init(){
   ROWS = C.rows || []; PLANS = C.plans || []; HOLD = C.holdings || []; CORP = C.corp || [code];
   document.title = (CORP[0]||code) + ' · 기업 페이지';
   const draw = cd => {
-    head(cd); periods(cd); chart(cd); fin(); hold(); people(); hist();
+    head(cd); periods(cd); chart(cd); fin(); hold(); people(); bulkTable(); hist();
     window.addEventListener('resize', ()=>chart(cd));
   };
   if(C.prices && C.prices.d && C.prices.d.length) return draw(C.prices);
