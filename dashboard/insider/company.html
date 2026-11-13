@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>기업 페이지</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="common.css">
+<style>
+.head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:6px 0 12px}
+.head .name{font-size:22px;font-weight:700}
+.head .sub{color:var(--sub)}
+.kpis{display:flex;gap:18px;flex-wrap:wrap;margin-left:auto;font-variant-numeric:tabular-nums}
+.kpis div{color:var(--sub);font-size:12px}.kpis b{display:block;color:var(--ink);font-size:16px}
+.grid{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px}
+@media(max-width:1100px){.grid{grid-template-columns:1fr}}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.box h2{font-size:14px;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.box h2 .lbl{font-weight:400}
+#chart{position:relative}
+#chart svg{display:block;width:100%}
+.legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--sub);font-size:12px;margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;margin-right:4px;vertical-align:-1px}
+.tip{position:absolute;pointer-events:none;background:#fff;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);white-space:nowrap;display:none;z-index:5}
+.tip .d{color:var(--sub)}
+.box .wrap{max-height:none;border:none}
+.box table{min-width:0}
+.fin td,.fin th{text-align:right}.fin td:first-child,.fin th:first-child{text-align:left}
+.fin td{color:var(--sub)}
+tr.hl td{background:#fff7d6}
+.small td,.small th{padding:5px 8px;font-size:12px}
+</style>
+</head>
+<body>
+<header><h1>기업 페이지</h1><span class="meta" id="meta"></span><span id="nav"></span></header>
+<main>
+  <div class="head" id="head"></div>
+  <div class="grid">
+    <div class="box">
+      <h2>주가와 내부자 거래 <span id="per"></span></h2>
+      <div id="chart"><div class="tip" id="tip"></div></div>
+      <div class="legend">
+        <span><i style="background:var(--buy)"></i>매수</span><span><i style="background:var(--sell)"></i>매도</span>
+        <span><i style="background:var(--gift);transform:rotate(45deg)"></i>증여</span><span><i style="background:#868e96;transform:rotate(45deg)"></i>그룹 내 이전</span>
+        <span><i style="background:#fde8ef"></i><i style="background:#e3f0fc"></i>거래계획 기간</span>
+        <span>· 표시 크기는 금액, 위치는 변동일 종가</span>
+      </div>
+    </div>
+    <div>
+      <div class="box" style="margin-bottom:12px">
+        <h2>재무 요약 <span class="lbl rel">준비 중</span></h2>
+        <table class="fin small" id="fin"></table>
+      </div>
+      <div class="box">
+        <h2>최대주주 등 지분율 <span class="lbl rel">대량보유·최대주주변동 보고서 기준</span></h2>
+        <div id="hold"></div>
+      </div>
+    </div>
+  </div>
+  <div class="box" style="margin-bottom:12px">
+    <h2>보고자별 요약 <span class="lbl rel" id="sumNote"></span></h2>
+    <div class="wrap" id="people"></div>
+  </div>
+  <div class="box">
+    <h2>내부자 공시 이력 <span class="lbl rel">매매·증여 외 스톡옵션·그룹 내 이동 등도 포함</span></h2>
+    <div class="wrap" id="hist"></div>
+  </div>
+</main>
+<script src="common.js"></script>
+<script>
+const code = new URLSearchParams(location.search).get('code') || '';
+$('#nav').outerHTML = nav('');
+
+const COLOR = {buy:'var(--buy)', sell:'var(--sell)', gift:'var(--gift)', transfer:'#868e96'};
+let C, ROWS, PLANS, HOLD, CORP;
+
+function head(cd){
+  const last = cd ? cd.c[cd.c.length-1] : null, lastD = cd ? cd.d[cd.d.length-1] : '';
+  const sum = dir => ROWS.filter(r=>r.mark===dir).reduce((s,r)=>s+(r.amt||0),0);
+  $('#head').innerHTML = `<span class="name">${esc(CORP[0]||code)}</span>
+    <span class="sub">${code} · ${esc(CORP[1]||'')}</span>
+    <span class="sub">${CORP[2]?esc(CORP[2])+(CORP[3]?' · '+esc(CORP[3]):''):'미분류'}</span>
+    <div class="kpis">
+      <div>종가 (${lastD})<b>${last?fmt(last)+'원':'—'}</b></div>
+      <div>시가총액<b>${cd&&cd.mcap?fmt(Math.round(cd.mcap/1e8))+'억원':'—'}</b></div>
+      <div>내부자 매수 (수집 기간)<b class="pos">${eok(sum('buy'))||'0'}억원</b></div>
+      <div>내부자 매도 (수집 기간)<b class="neg">${eok(sum('sell'))||'0'}억원</b></div>
+    </div>`;
+}
+
+// ── 차트 ──
+let PERIOD = 365;
+function chart(cd){
+  const box = $('#chart');
+  box.querySelectorAll('svg,.empty').forEach(e=>e.remove());
+  if(!cd || !cd.d.length){ box.insertAdjacentHTML('beforeend','<div class="empty">시세 데이터가 없습니다 (stockDB 시세에 없는 종목).</div>'); return; }
+  const lastD = cd.d[cd.d.length-1];
+  const from = PERIOD ? (()=>{ const t=new Date(lastD); t.setDate(t.getDate()-PERIOD); return t.toISOString().slice(0,10); })() : cd.d[0];
+  let i0 = cd.d.findIndex(d=>d>=from); if(i0<0) i0=0;
+  const D = cd.d.slice(i0), P = cd.c.slice(i0), n = D.length;
+  const W = box.clientWidth || 900, H = 320, L = 60, R = 14, T = 12, B = 26;
+  const lo = Math.min(...P), hi = Math.max(...P), pad = (hi-lo)*0.08 || hi*0.05;
+  const y0 = lo-pad, y1 = hi+pad;
+  const x = i => L + (n<=1?0:i*(W-L-R)/(n-1)), y = v => T + (1-(v-y0)/(y1-y0))*(H-T-B);
+  const idx = d => { let a=0,b=n-1,k=-1; while(a<=b){ const m=(a+b)>>1; if(D[m]<=d){k=m;a=m+1;} else b=m-1; } return k; };
+  const step = (()=>{ const raw=(y1-y0)/5, p=Math.pow(10,Math.floor(Math.log10(raw))); return [1,2,2.5,5,10].map(m=>m*p).find(s=>s>=raw); })();
+  let g = '';
+  for(let v=Math.ceil(y0/step)*step; v<=y1; v+=step) g += `<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="var(--sub)">${fmt(Math.round(v))}</text>`;
+  let lastM = '';
+  D.forEach((d,i)=>{ const m=d.slice(0,7); if(m!==lastM){ lastM=m; if(i>0 && (n<300 || +d.slice(5,7)%3===1)) g += `<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="11" fill="var(--sub)">${d.slice(2,4)}.${d.slice(5,7)}</text>`; } });
+  let bands = '';
+  PLANS.forEach(p=>{ const a=idx(p.start), b=idx(p.end); if(b<0) return;
+    const xa = a<0 ? L : x(a), xb = x(b<0?n-1:b) + (p.end>lastD ? (W-R-x(n-1)) : 0);
+    bands += `<rect x="${xa}" y="${T}" width="${Math.max(2,xb-xa)}" height="${H-T-B}" fill="${p.sign>0?'#fde8ef':'#e3f0fc'}" opacity=".7"><title>${esc(p.method)} 계획 ${p.start} ~ ${p.end} · ${fmt(p.qty)}주</title></rect>`; });
+  const path = P.map((v,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
+  const marks = new Map();
+  ROWS.forEach(r=>{ if(!r.mark || !r.date || r.date<from) return; const i=idx(r.date); if(i<0) return;
+    const key=i+'|'+r.mark; const m=marks.get(key)||{i,k:r.mark,amt:0,rows:[]}; m.amt+=Math.abs(r.amt||0); m.rows.push(r); marks.set(key,m); });
+  const maxAmt = Math.max(1, ...[...marks.values()].map(m=>m.amt));
+  let mk = '';
+  [...marks.values()].sort((a,b)=>b.amt-a.amt).forEach(m=>{
+    const r = 4 + 9*Math.sqrt(m.amt/maxAmt), cx = x(m.i), cy = y(P[m.i]), fill = COLOR[m.k];
+    if(m.k==='buy') mk += `<path d="M${cx},${cy+3} l${-r},${r*1.7} h${2*r} z" fill="${fill}" fill-opacity=".85" stroke="#fff"/>`;
+    else if(m.k==='sell') mk += `<path d="M${cx},${cy-3} l${-r},${-r*1.7} h${2*r} z" fill="${fill}" fill-opacity=".85" stroke="#fff"/>`;
+    else mk += `<rect x="${cx-r*0.75}" y="${cy-r*0.75}" width="${r*1.5}" height="${r*1.5}" transform="rotate(45 ${cx} ${cy})" fill="${fill}" fill-opacity=".85" stroke="#fff"/>`;
+  });
+  box.insertAdjacentHTML('beforeend', `<svg viewBox="0 0 ${W} ${H}" height="${H}">${g}${bands}<path d="${path}" fill="none" stroke="var(--ink)" stroke-width="1.4"/>${mk}<line id="vl" y1="${T}" y2="${H-B}" stroke="var(--sub)" stroke-dasharray="3 3" visibility="hidden"/></svg>`);
+  const svg = box.querySelector('svg'), tip = $('#tip'), vl = svg.querySelector('#vl');
+  const byIdx = new Map(); [...marks.values()].forEach(m=>{ (byIdx.get(m.i)||byIdx.set(m.i,[]).get(m.i)).push(...m.rows); });
+  svg.onmousemove = ev => {
+    const rc = svg.getBoundingClientRect(), px = (ev.clientX-rc.left)*W/rc.width;
+    let i = Math.round((px-L)/((W-L-R)/Math.max(1,n-1))); i = Math.max(0, Math.min(n-1, i));
+    for(const k of [0,1,-1,2,-2]) if(byIdx.has(i+k)){ i+=k; break; }
+    vl.setAttribute('x1',x(i)); vl.setAttribute('x2',x(i)); vl.setAttribute('visibility','visible');
+    const ev2 = byIdx.get(i)||[];
+    tip.innerHTML = `<div class="d">${D[i]}</div><b>${fmt(P[i])}원</b>` + ev2.slice(0,6).map(r=>`<div><span style="color:${COLOR[r.mark]}">●</span> ${esc(r.person)} · ${esc(r.kind)} ${fmt(Math.abs(r.qty||0))}주${r.amt?' · '+eok(r.amt)+'억':''}</div>`).join('') + (ev2.length>6?`<div class="d">외 ${ev2.length-6}건</div>`:'');
+    tip.style.display='block';
+    const tx = x(i)*rc.width/W; tip.style.left = Math.min(rc.width-tip.offsetWidth-4, tx+12)+'px'; tip.style.top = '8px';
+  };
+  svg.onmouseleave = () => { tip.style.display='none'; vl.setAttribute('visibility','hidden'); };
+  svg.onclick = () => { const d = tip.querySelector('.d')?.textContent; if(!d) return;
+    const tr = [...document.querySelectorAll('#hist tr[data-date]')].find(e=>e.dataset.date<=d);
+    document.querySelectorAll('#hist tr.hl').forEach(e=>e.classList.remove('hl'));
+    if(tr){ document.querySelectorAll(`#hist tr[data-date="${tr.dataset.date}"]`).forEach(e=>e.classList.add('hl')); tr.scrollIntoView({block:'center',behavior:'smooth'}); } };
+}
+function periods(cd){
+  $('#per').innerHTML = segHTML('pd',[[182,'6개월'],[365,'1년'],[730,'2년']],PERIOD);
+  bindSeg('pd', v=>{ PERIOD=+v; periods(cd); chart(cd); });
+}
+
+// ── 재무 요약(자리만) ──
+function fin(){
+  const y = new Date(LAST).getFullYear();
+  const cols = [y-4, y-3, y-2, y-1].map(String).concat(['최근 4분기']);
+  const rows = ['매출액','영업이익','영업이익률(%)','순이익','PER(배)','PBR(배)'];
+  $('#fin').innerHTML = `<thead><tr><th>억원</th>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>`+
+    rows.map(r=>`<tr><td style="color:var(--ink)">${r}</td>${cols.map(()=>'<td>—</td>').join('')}</tr>`).join('')+'</tbody>';
+}
+
+// ── 최대주주 등 지분율 ──
+function hold(){
+  if(!HOLD.length){ $('#hold').innerHTML = '<div class="empty" style="padding:12px">수집 기간 안에 해당 보고서가 없습니다.</div>'; return; }
+  $('#hold').innerHTML = `<table class="small"><thead><tr><th>공시일</th><th>보고자(대표)</th><th class="num">지분율(%)</th><th class="num">변동(%p)</th><th></th></tr></thead><tbody>`+
+    HOLD.map((h,i)=>{ const prev=HOLD.slice(i+1).find(x=>x.filer===h.filer); const d = prev ? h.pct-prev.pct : null;
+      return `<tr><td>${h.rdt}</td><td><div class="who">${esc(h.filer||'')}<div class="rel">${esc(h.form)}</div></div></td><td class="num">${h.pct.toFixed(2)}</td><td class="num">${d==null?'':pctTxt(d)}</td><td>${dartLink(h.rno)}</td></tr>`; }).join('')+'</tbody></table>';
+}
+
+// ── 보고자별 요약 ──
+function people(){
+  const m = new Map();
+  ROWS.filter(r=>r.mark).forEach(r=>{
+    const a = m.get(r.person) || {person:r.person, relation:r.rel, position:r.pos, grp:r.grp, buyQ:0, buyA:0, sellQ:0, sellA:0, giftQ:0, pct:0, last:r.date, after:r.after, n:0};
+    a.n++;
+    if(r.mark==='gift'||r.mark==='transfer'){ a.giftQ += Math.abs(r.qty||0); a.pct += r.pct||0; }
+    else if(r.mark==='buy'){ a.buyQ += r.qty; a.buyA += r.amt||0; a.pct += r.pct||0; }
+    else { a.sellQ += -r.qty; a.sellA += r.amt||0; a.pct += r.pct||0; }
+    if(r.date>=a.last){ a.last=r.date; if(r.after!=null) a.after=r.after; }
+    m.set(r.person,a);
+  });
+  $('#sumNote').textContent = `매매·증여 신호만 (수집 기간 ${META.range?META.range[0]+' 이후':''})`;
+  renderTable($('#people'), [
+    ['보고자',whoCell,a=>a.person],['구분',a=>esc(a.grp||''),a=>a.grp],
+    ['매수(주)',a=>a.buyQ?`<span class="pos">+${fmt(a.buyQ)}</span>`:'',a=>a.buyQ,1],['매수(억원)',a=>a.buyA?eok(a.buyA):'',a=>a.buyA,1],
+    ['매도(주)',a=>a.sellQ?`<span class="neg">-${fmt(a.sellQ)}</span>`:'',a=>a.sellQ,1],['매도(억원)',a=>a.sellA?eok(a.sellA):'',a=>a.sellA,1],
+    ['증여·이전(주)',a=>a.giftQ?fmt(a.giftQ):'',a=>a.giftQ,1],
+    ['지분 변동(%p)',a=>a.pct?pctTxt(a.pct):'',a=>Math.abs(a.pct),1],['지분율(%)',a=>pctAfter(a.after),a=>a.after??-1,1],
+    ['건수',a=>fmt(a.n),a=>a.n,1],['마지막 변동일',a=>a.last||'',a=>a.last||''],
+  ], [...m.values()], {defSort:3});
+}
+
+// ── 공시 이력 ──
+function hist(){
+  const plans = PLANS.map(p=>({...p, _plan:true, date:p.start, rdt:p.rcept_dt, rno:p.rcept_no}));
+  const all = [...plans, ...ROWS].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(!all.length){ $('#hist').innerHTML='<div class="empty">수집 기간 안에 내부자 공시가 없습니다.</div>'; return; }
+  const tag = r => { const k = r._plan ? `${r.sign>0?'매수':'매도'} 계획` : r.kind; const c = r._plan ? (r.sign>0?'buy':'sell') : (r.mark||'other');
+    return `<span class="tag t-${c==='transfer'?'other':c}">${esc(k)}</span>`; };
+  const shown = all.slice(0,800);
+  $('#hist').innerHTML = `<table><thead><tr><th>변동일</th><th>공시일</th><th>보고자</th><th>유형</th><th class="num">수량(주)</th><th class="num">단가</th><th class="num">금액(억원)</th><th class="num">지분 변동(%p)</th><th class="num">지분율(%)</th><th>비고</th><th></th></tr></thead><tbody>`+
+    shown.map(r=>{ const q = r._plan ? r.sign*r.qty : r.qty; const lag = r._plan ? 0 : Math.round((new Date(r.rdt)-new Date(r.date))/864e5);
+      return `<tr data-date="${r.date||''}"><td>${r._plan?`${r.start} ~ ${r.end}`:(lag>30?`${r.date}<div class="rel">늦은 보고 ${fmt(lag)}일</div>`:r.date||'')}</td><td>${r.rdt}</td>
+      <td><div class="who">${esc(r.person||'')}${r.cp?` <span class="rel">↔ ${esc(r.cp)}</span>`:''}<div class="rel">${esc([r.rel??r.relation,r.pos??r.position].filter(Boolean).join(' · '))}</div></div></td>
+      <td>${tag(r)}</td><td class="num"><span class="${q>0?'pos':'neg'}">${q>0?'+':''}${fmt(q)}</span></td>
+      <td class="num">${fmt(r.price)}</td><td class="num">${eok(r._plan?r.amount:r.amt)}</td>
+      <td class="num">${r._plan?(r.plan_ratio!=null?r.plan_ratio.toFixed(2):''):pctTxt(r.pct, q>0)}</td><td class="num">${r._plan?'':pctAfter(r.after)}</td>
+      <td><div class="note clamp">${esc(r._plan?(r.purpose_text||''):(r.note||''))}</div></td><td>${dartLink(r.rno)}</td></tr>`; }).join('')+'</tbody></table>'
+    + (all.length>800?`<div class="empty">${fmt(all.length)}건 중 최근 800건만 표시합니다.</div>`:'');
+}
+
+function init(){
+  C = window.C;
+  if(!C){ $('#head').innerHTML = `<div class="empty">${esc(code)}: 수집 기간에 내부자 공시가 없는 종목입니다.</div>`; return; }
+  META = C.meta || {}; LAST = META.range ? META.range[1] : LAST;
+  $('#meta').textContent = metaText();
+  ROWS = C.rows || []; PLANS = C.plans || []; HOLD = C.holdings || []; CORP = C.corp || [code];
+  document.title = (CORP[0]||code) + ' · 기업 페이지';
+  const draw = cd => {
+    head(cd); periods(cd); chart(cd); fin(); hold(); people(); hist();
+    window.addEventListener('resize', ()=>chart(cd));
+  };
+  if(C.prices && C.prices.d && C.prices.d.length) return draw(C.prices);
+  // 종가를 기업 파일에 넣지 않은 경우(웹 대시보드): 증시데이터의 종목차트 파일을 같이 쓴다
+  loadChart(code).then(cd => draw(cd && C.shares ? {...cd, mcap:C.shares*cd.c[cd.c.length-1]} : cd));
+}
+const loadScript = src => new Promise(ok => { const s=document.createElement('script'); s.src=src; s.onload=()=>ok(true); s.onerror=()=>ok(false); document.head.appendChild(s); });
+async function loadChart(code){
+  for(const dir of ['../markets/charts/', '../../site/charts/']){
+    if(!(window.DASH_CHART && window.DASH_CHART[code])) await loadScript(`${dir}${code}.js`);
+    const o = window.DASH_CHART && window.DASH_CHART[code];
+    if(!o) continue;
+    const d = []; let t = 0;
+    o.d.forEach((v,i)=>{ t = i===0 ? Date.UTC(Math.floor(v/1e4), Math.floor(v/100)%100-1, v%100) : t + v*864e5; d.push(new Date(t).toISOString().slice(0,10)); });
+    return {d, c:o.c};
+  }
+  return null;
+}
+if(!code){ $('#head').innerHTML='<div class="empty">주소에 ?code=종목코드 가 필요합니다.</div>'; }
+else loadScript(`cdata/${code}.js`).then(init);
+</script>
+</body>
+</html>
