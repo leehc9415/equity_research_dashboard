@@ -26,7 +26,7 @@ function pctTxt(v, up){ if(v==null) return ''; up = up ?? v>0; const a=Math.abs(
 const pctAfter = v => v==null ? '' : Number(v).toFixed(2);
 const secCell = r => r.sector_l ? `${esc(r.sector_l)}${r.sector_m?`<div class="rel">${esc(r.sector_m)}</div>`:''}` : '<span class="rel">미분류</span>';
 const secKey = r => (r.sector_l||'힣')+(r.sector_m||'');
-const corpCell = r => `${r.stock_code?`<a class="corp clink" href="company.html?code=${r.stock_code}" title="기업 페이지">${esc(r.corp_name)}</a>`:`<span class="corp">${esc(r.corp_name)}</span>`}<span class="code">${r.stock_code||''} ${r.market||''}</span>`;
+const corpCell = r => `${r.stock_code?`<a class="corp clink" href="company.html?code=${r.stock_code}" title="기업 페이지">${esc(r.corp_name)}</a>`:`<span class="corp">${esc(r.corp_name)}</span>`}<span class="code">${r.stock_code||''}</span>`;
 const dateCell = r => { const lag=lagOf(r); return lag>30 ? `${r.date}<div class="rel">늦은 보고 ${fmt(lag)}일</div>` : (r.date||''); };
 const loanBadge = amt => amt ? `<span class="badge loan">차입 ${eok(amt)}억</span>` : '';
 const whoCell = r => `<div class="who">${esc(r.person||'')}<div class="rel">${esc([r.relation,r.position].filter(Boolean).join(' · '))}</div></div>`;

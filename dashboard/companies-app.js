@@ -1,6 +1,6 @@
 // 기업데이터 하위 화면: 내부자 거래(insider_tracker 화면을 iframe으로) · 기업 리서치(준비 중)
 // 화면 파일을 바꿀 때마다 올려서 브라우저 캐시를 피한다
-const INSIDER_VERSION = '20261110-insider1';
+const INSIDER_VERSION = '20261113-insider2';
 export const COMPANY_SUBS = ['insider', 'research'];
 const TITLES = {insider: '내부자 거래', research: '기업 리서치'};
 

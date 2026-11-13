@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <link rel="stylesheet" href="common.css">
 <style>
+#cq{width:220px}
 .head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:6px 0 12px}
 .head .name{font-size:22px;font-weight:700}
 .head .sub{color:var(--sub)}
@@ -32,7 +33,7 @@ tr.hl td{background:#fff7d6}
 </style>
 </head>
 <body>
-<header><h1>기업 페이지</h1><span class="meta" id="meta"></span><span id="nav"></span></header>
+<header><h1>기업 페이지</h1><input type="search" id="cq" list="corplist" placeholder="종목명·종목코드로 찾기" autocomplete="off"><datalist id="corplist"></datalist><span class="meta" id="meta"></span><span id="nav"></span></header>
 <main>
   <div class="head" id="head"></div>
   <div class="grid">
@@ -78,7 +79,7 @@ function head(cd){
   const last = cd ? cd.c[cd.c.length-1] : null, lastD = cd ? cd.d[cd.d.length-1] : '';
   const sum = dir => ROWS.filter(r=>r.mark===dir).reduce((s,r)=>s+(r.amt||0),0);
   $('#head').innerHTML = `<span class="name">${esc(CORP[0]||code)}</span>
-    <span class="sub">${code} · ${esc(CORP[1]||'')}</span>
+    <span class="sub">${code}</span>
     <span class="sub">${CORP[2]?esc(CORP[2])+(CORP[3]?' · '+esc(CORP[3]):''):'미분류'}</span>
     <div class="kpis">
       <div>종가 (${lastD})<b>${last?fmt(last)+'원':'—'}</b></div>
@@ -234,7 +235,18 @@ async function loadChart(code){
   }
   return null;
 }
-if(!code){ $('#head').innerHTML='<div class="empty">주소에 ?code=종목코드 가 필요합니다.</div>'; }
+// ── 종목 검색: 수집 기간에 내부자 공시가 있는 종목(cdata/index.js) ──
+loadScript('cdata/index.js').then(()=>{
+  const L = window.CIDX || [];
+  $('#corplist').innerHTML = L.map(([c,n])=>`<option value="${esc(n)} (${c})"></option>`).join('');
+  const go = () => { const q = $('#cq').value.trim(); if(!q) return;
+    const m = q.match(/\((\w{6})\)$/) || q.match(/^(\w{6})$/);
+    const hit = m ? L.find(([c])=>c===m[1]) : (L.find(([,n])=>n===q) || L.find(([,n])=>n.includes(q)));
+    if(hit) location.href = `company.html?code=${hit[0]}`; else $('#cq').setCustomValidity('수집 기간에 내부자 공시가 없는 종목입니다'), $('#cq').reportValidity(); };
+  $('#cq').oninput = e => { e.target.setCustomValidity(''); if(/\(\w{6}\)$/.test(e.target.value)) go(); };
+  $('#cq').onkeydown = e => { if(e.key==='Enter') go(); };
+});
+if(!code){ $('#head').innerHTML='<div class="empty">위 검색창에서 종목을 고르세요.</div>'; }
 else loadScript(`cdata/${code}.js`).then(init);
 </script>
 </body>

@@ -30,9 +30,36 @@ $('#meta').textContent = metaText();
 const EVENTS = D.gifts.map(g => withCorp({stock_code:g.code, rcept_dt:g.rdt, rcept_no:g.rno, date:g.date, kind:g.kind,
   giver:g.giver||'', giverRel:g.giverRel||'', holder_group:g.grp, recips:(g.rec||[]).map(([person,relation,qty])=>({person,relation,qty})),
   qty:g.qty, amount:g.amt, pct:g.pct||0, giverPct:g.giverPct, note:g.note, lag:g.lag}, D.corps));
-const repeat = new Map();
-EVENTS.forEach(e=>{ const k=e.stock_code+'|'+e.giver; repeat.set(k,(repeat.get(k)||0)+1); });
-const rep = e => repeat.get(e.stock_code+'|'+e.giver);
+// 비고에서 수증자 부분을 떼어 수증자 칸으로 보낸다 (공시 표에 수증자가 없을 때만 비고 글을 수증자로 씀)
+const cleanName = n => { n = String(n||'').trim();
+  while((n.match(/\)/g)||[]).length > (n.match(/\(/g)||[]).length) n = n.replace(/\)(?!.*\))/,'').trim();
+  while((n.match(/\(/g)||[]).length > (n.match(/\)/g)||[]).length) n = n.replace(/\((?!.*\()/,'').trim();
+  return n; };
+// '(주)오트로닉'과 '주식회사 오트로닉'처럼 표기가 달라도 같은 이름으로 보고 지운다
+const dropName = (text, n) => { const core = n.replace(/\(주\)|㈜|주식회사|\s/g,''); if(!core) return text;
+  const esc2 = core.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  return text.replace(new RegExp('(\\(주\\)|㈜|주식회사)?\\s*'+esc2+'(\\s*\\(주\\))?','g'),''); };
+const REL_WORDS = /^(자녀|배우자|아들|딸|손자|손녀|자|녀|부|모|형제|친인척|특수관계인|특별관계자)(들)?$/;
+const NAME_LIST = /^[가-힣]{2,4}(\s*[,·/]\s*[가-힣]{2,4})*$/;
+EVENTS.forEach(e=>{
+  let note = (e.note||'').trim(), rtext = '';
+  let m = note.match(/수증(?:자|인)\s*[:：]?\s*\(?/);
+  if(m){ rtext = note.slice(m.index+m[0].length).replace(/\)\s*$/,'').trim(); note = note.slice(0,m.index).replace(/[\s(:：\-]+$/,'').trim(); }
+  else if((m = note.match(/^(?:배우자|자녀)(?=\s*증여$)/))){ rtext = m[0]; note = ''; }
+  else if((m = note.match(/^증여\s*\(?\s*([가-힣]{2,4})\s*\)$/))){ rtext = m[1]; note = ''; }
+  else if(!e.recips.length && (NAME_LIST.test(note) || REL_WORDS.test(note))){ rtext = note.replace(/\s*[,·/]\s*/g,', '); note = ''; }
+  const names = [...new Set(e.recips.map(x=>cleanName(x.person)).filter(Boolean))];
+  // 증여자 없이 수증 공시만 있는데 비고가 이름 하나면 그게 증여자
+  if(!e.giver && names.length && /^[가-힣]{2,4}$/.test(note)){ e.giver = note; note = ''; }
+  if(!e.giver && (m = note.match(/^([가-힣]{2,4})\s*(?:으로부터|로부터|에게서|에게)\s*수증$/))){ e.giver = m[1]; note = ''; }
+  [...names, e.giver].filter(Boolean).forEach(n=>{ note = dropName(note, n); });
+  note = note.replace(/^[\s,·]*에게\s*/,'');
+  // 이름을 뺀 뒤 남는 '상대방:' '매수자:' '외3명' 같은 꼬리표도 지운다
+  note = note.replace(/(증여거래\s*)?(매수자|매도자|증여자|매매\s*상대방|거래\s*상대방|상대방)(\s*성명)?\s*[:：]\s*(외\s*\d+\s*명)?/g,'').trim();
+  note = note.replace(/\(\s*\)/g,'').trim();
+  if(/^[\s,·()\-:：/]*$/.test(note)) note = '';
+  e.note = note; e.recipText = names.length ? names.join(', ') : rtext;
+});
 
 function base(){
   const from = S.days ? daysAgo(S.days) : '';
@@ -48,7 +75,6 @@ function cards(E){
     ['증여·이전 건수', E.length, `${corps.size}개 회사 · 그룹 내 이전 ${E.filter(e=>e.kind!=='증여').length}건`],
     ['증여 금액', eok(E.reduce((s,e)=>s+(e.amount||0),0))||'0', '억원 (증여일 종가 기준)'],
     ['수증자', E.reduce((s,e)=>s+e.recips.length,0), `여러 명에게 준 증여 ${E.filter(e=>e.recips.length>=2).length}건`],
-    ['반복 증여', E.filter(e=>rep(e)>=2).length, '같은 증여자·같은 종목 2회 이상(수집 기간 내)'],
   ]);
 }
 
@@ -69,7 +95,7 @@ function bars(){
   $('#noLate').onchange = e=>{S.noLate=e.target.checked; go();};
 }
 
-const recipCell = e => `<div class="who">${e.recips.map(x=>`${esc(x.person||'?')}${x.relation?` <span class="rel">${esc(x.relation)}</span>`:''}${x.qty&&e.recips.length>1?` <span class="rel">${fmt(x.qty)}주</span>`:''}`).join('<br>')||'<span class="rel">비고에 수증자 없음</span>'}</div>`;
+const recipCell = e => `<div class="who">${esc(e.recipText)}</div>`;
 const pp = v => v ? (v>=0.005?v.toFixed(2):'<0.01') : '';
 
 function draw(){
@@ -78,13 +104,11 @@ function draw(){
   if(S.view==='event'){
     renderTable(el, [
       ['공시일',e=>e.rcept_dt,e=>e.rcept_dt+e.rcept_no],['증여일',dateCell,e=>e.date||''],['종목',corpCell,e=>e.corp_name],['산업',secCell,secKey],
-      ['유형',e=>`<span class="tag ${e.kind==='증여'?'t-gift':'t-other'}" title="${e.kind==='증여'?'':'특수관계인끼리 시간외·장외매매로 넘긴 큰 지분'}">${e.kind}</span>`,e=>e.kind],
-      ['증여자',e=>`<div class="who">${esc(e.giver)||'<span class="rel">수증 공시만 있음</span>'}<div class="rel">${esc(e.giverRel)}</div></div>`,e=>e.giver],
+      ['증여자',e=>`<div class="who">${esc(e.giver)}</div>`,e=>e.giver],
       ['구분',e=>esc(e.holder_group||''),e=>e.holder_group],
-      ['수증자',recipCell,e=>e.recips.length],['수증자 수',e=>e.recips.length?fmt(e.recips.length):'',e=>e.recips.length,1],
+      ['수증자',recipCell,e=>e.recipText],['수증자 수',e=>e.recips.length?fmt(e.recips.length):'',e=>e.recips.length,1],
       ['수량(주)',e=>fmt(e.qty),e=>e.qty,1],['금액(억원)',e=>eok(e.amount),e=>e.amount||0,1],
       ['지분 변동(%p)',e=>pp(e.pct),e=>e.pct,1],['증여자 지분율(%)',e=>pctAfter(e.giverPct),e=>e.giverPct??-1,1],
-      ['같은 증여자 횟수',e=>rep(e)>=2?`<b>${rep(e)}</b>`:rep(e),e=>rep(e),1],
       ['비고',e=>`<div class="note clamp">${esc(e.note||'')}</div>`,e=>e.note||''],['',e=>dartLink(e.rcept_no),e=>0],
     ], E, ST.event);
   } else {
