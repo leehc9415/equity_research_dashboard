@@ -44,20 +44,20 @@ def validate_source(con, baseline):
 
 
 def validate_kr_collection(con, started):
-    row = con.execute("""SELECT n_symbols, max_date FROM collect_log
-        WHERE job='kr_naver_daily' AND run_at>=? ORDER BY run_at DESC LIMIT 1""", [started]).fetchone()
-    if row is None:
-        # A manual run before the confirmed Korean close is a deliberate no-op.
-        print('Korean close is not confirmed yet; retained previous Korean prices.')
-        return
-    baseline = con.execute("""SELECT count(DISTINCT symbol_id) FROM prices_daily
-        WHERE source IN ('marcap','naver','naver_fix') AND date>=? - INTERVAL 30 DAY AND date<?""",
-        [row[1], row[1]]).fetchone()[0]
-    if row[0] < max(1000, int(baseline * .95)):
-        raise ValueError(f'Incomplete Korean quotes: {row[0]} of about {baseline}')
+    """KRX 정규장 확정 시세가 최근 거래일까지 들어왔는지 확인한다.
+    KRX 캐시 확정본은 보통 21~23시에 올라오므로, 그 전 실행은 실패로 끝내 다음 예약 슬롯이 다시 시도하게 한다."""
     expected = naver_kr.last_trade_date().date()
-    if row[1] != expected:
-        raise ValueError('Korean quote date no longer matches the latest exchange date')
+    have = con.execute("""SELECT max(date) FROM prices_daily
+        WHERE source IN ('marcap','krx_cache')""").fetchone()[0]
+    if have is None or have < expected:
+        raise RuntimeError(f'KRX 장 마감 확정 시세 대기 중: 최근 거래일 {expected}, 보유 {have} — 다음 예약 실행에서 다시 수집')
+    n = con.execute("""SELECT count(DISTINCT symbol_id) FROM prices_daily
+        WHERE source IN ('marcap','krx_cache') AND date=?""", [have]).fetchone()[0]
+    baseline = con.execute("""SELECT count(DISTINCT symbol_id) FROM prices_daily
+        WHERE source IN ('marcap','krx_cache') AND date>=? - INTERVAL 30 DAY AND date<?""",
+        [have, have]).fetchone()[0]
+    if n < max(1000, int(baseline * .95)):
+        raise ValueError(f'Incomplete Korean quotes: {n} of about {baseline}')
     for sid in ('KS11', 'KQ11'):
         last = con.execute('SELECT max(date) FROM prices_daily WHERE symbol_id=?', [sid]).fetchone()[0]
         if last is None or last < expected:

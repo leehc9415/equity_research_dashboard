@@ -15,16 +15,16 @@ from datetime import date
 
 import pandas as pd
 
-from . import global_yf, kr, naver_kr
+from . import global_yf, kr
 from .db import connect, log_run, upsert_prices
 
 GLOBAL_LOOKBACK_DAYS = 10   # 증분 시 최근 N일을 다시 받아 덮어씀 (수정치 반영)
 
 
 def run_kr(con, backfill_years: int | None):
-    """한국 종목.
-    과거(~2026-09-11): marcap 연도 파일
-    2026-09-14 ~ : 네이버 (fix 구간 보정 → 이후 매일 polling API)
+    """한국 종목 (KRX 정규장 기준).
+    과거: marcap 연도 파일 / 증분: KRX 캐시 일별 파일(당일분은 장 마감 확정본만).
+    네이버 일별 시세는 NXT 거래가 섞인 통합 시세라 쓰지 않는다(kr.py 문서 참고).
     """
     print("\n[한국] 종목 시세")
     if backfill_years:
@@ -32,31 +32,26 @@ def run_kr(con, backfill_years: int | None):
         for y in range(this - backfill_years, this + 1):
             n = upsert_prices(con, kr.load_marcap_year(y, refresh=(y == this)))
             print(f"  marcap {y}: {n:,}행")
-        print("  ※ 2026-09-14 이후 구간은 `python -m src.prices.naver_kr fix --part i/n` 으로 채우세요")
 
-    # 매일 증분: 최근 거래일 하루치 (네이버 polling API, 16:30 이후)
+    # 매일 증분: 마지막 KRX 일자 다음 날부터 확정된 캐시 파일을 모두 채운다(빈 날도 함께 보정)
     last = con.execute("SELECT max(date) FROM prices_daily "
-                       "WHERE source IN ('naver','naver_fix')").fetchone()[0]
-    td = naver_kr.last_trade_date()
-    gap = 0 if last is None else len(pd.bdate_range(pd.Timestamp(last) + pd.Timedelta(days=1), td))
-    if gap > 1:
-        # 하루 이상 비었으면 그 구간을 종목별 네이버 일봉으로 먼저 채움 (느림: 종목당 0.2초)
-        print(f"  {last} 이후 {gap}영업일 비어 있음 → 구간 보정 실행")
-        codes = con.execute("SELECT DISTINCT symbol_id FROM prices_daily WHERE date = ? "
-                            "AND source IN ('marcap','naver','naver_fix')",
-                            [last]).df()["symbol_id"].tolist()
-        naver_kr.fix_window(con, codes, str(pd.Timestamp(last) + pd.Timedelta(days=1))[:10])
-        kr.recompute_adj_factor(con, codes)
-    codes = con.execute("""SELECT DISTINCT symbol_id FROM prices_daily
-        WHERE date >= current_date - INTERVAL 30 DAY
-          AND source IN ('marcap','naver','naver_fix')""").df()["symbol_id"].tolist()
-    q = naver_kr.run_daily(con, sorted(codes))
+                       "WHERE source IN ('marcap','krx_cache')").fetchone()[0]
+    new = kr.cache_days_after(last)
+    if len(new):
+        upsert_prices(con, new)
+        changed = kr.changed_factor_symbols(con, new)   # 저장 후 비교(여러 날을 한꺼번에 채울 때도 직전일 기준)
+        if changed and not backfill_years:
+            kr.recompute_adj_factor(con, changed)
+            print(f"  권리 변동 수정계수 재계산: {len(changed)}종목")
+    log_run(con, "kr_krx_daily", "ok" if len(new) else "skip", new)
 
     if backfill_years:
         n = kr.recompute_adj_factor(con)
         print(f"  수정계수 전체 재계산: {n:,}행")
     con.execute("UPDATE prices_daily SET adj_factor = 1.0 WHERE adj_factor IS NULL")
-    print(f"  최신일 {con.execute('SELECT max(date) FROM prices_daily WHERE source=?', ['naver']).fetchone()[0]}")
+    latest = con.execute("SELECT max(date) FROM prices_daily "
+                         "WHERE source IN ('marcap','krx_cache')").fetchone()[0]
+    print(f"  최신일 {latest}")
 
     print("[한국] 지수")
     start = f"{date.today().year - (backfill_years or 0)}-01-01" if backfill_years else \

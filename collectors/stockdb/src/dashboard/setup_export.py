@@ -249,11 +249,11 @@ def build(con) -> dict:
         SELECT p.symbol_id code, p.date, p.open, p.high, p.low, p.close,
                CASE WHEN p.volume > 0 THEN p.volume / p.adj_factor ELSE 0 END AS vol, p.value, p.mcap
         FROM v_prices_adj p JOIN v_rs_universe u USING (symbol_id)
-        WHERE p.date >= ? AND p.close > 0 AND p.source IN ('marcap', 'naver', 'naver_fix')
+        WHERE p.date >= ? AND p.close > 0 AND p.source IN ('marcap', 'krx_cache')
         ORDER BY 1, 2""", [d0]).df()
     px["date"] = pd.to_datetime(px["date"]).dt.date
     first = con.execute("""SELECT p.symbol_id code, min(p.date) d FROM prices_daily p JOIN v_rs_universe u USING (symbol_id)
-        WHERE p.source IN ('marcap', 'naver', 'naver_fix') GROUP BY 1""").df()
+        WHERE p.source IN ('marcap', 'krx_cache') GROUP BY 1""").df()
     first = first.assign(d=pd.to_datetime(first["d"]).dt.date).set_index("code")["d"]
     db_start = first.min()
     days = sorted(pd.to_datetime(cal).dt.date)[-DAYS:]
