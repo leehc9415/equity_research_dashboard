@@ -17,8 +17,12 @@
   네이버 일별 시세의 시·고·저·종가는 NXT 거래(08:00 프리마켓~20:00 애프터마켓)가 섞인
   통합 시세라 쓰지 않는다. 2026-09-14~11-13 구간에 들어갔던 네이버 값은 KRX 값으로 교체했다
   (검증: 스탁이지 화면 현재가 138건 = KRX 정규장 종가 138건, 네이버 종가와는 12%만 일치).
-  KRX 캐시는 당일 장중(13~14시)에도 한 번 갱신되므로, 당일 파일은 저녁 갱신 커밋(18시 이후)이
-  확인될 때만 쓴다.
+  KRX 정규장 종가는 15:30에 확정되고, 거래량·거래대금은 시간외 단일가(16:00~18:00)까지 포함해야
+  KRX 공식 일봉과 같다. 그래서 당일분은 18시 이후 다음 KRX 일봉 API(다음 금융 일별 시세)로 받는다
+  (2026-11-13 검증: 코스피·코스닥 2,770종목 종가 99.9%·거래량·거래대금 100% KRX 캐시와 일치,
+  코넥스는 미제공). 이렇게 받은 당일분(source='krx_daum')은 다음 실행 때 KRX 캐시 확정본으로 덮어쓴다.
+  KRX 캐시(FinanceData 깃허브)는 제3자 수집이라 당일 확정본 커밋이 21~23시에 올라오고,
+  장중(13~14시)에도 한 번 갱신되므로 당일 파일은 18시 이후 커밋일 때만 쓴다.
 """
 from __future__ import annotations
 
@@ -39,6 +43,10 @@ KST = "Asia/Seoul"
 CACHE_COMMITS_API = ("https://api.github.com/repos/FinanceData/fdr_krx_data_cache/commits"
                      "?path=data/listing/krx/{d}.csv&per_page=1")
 CACHE_FINAL_HOUR = 18   # 당일 캐시는 이 시각(KST) 이후 커밋이어야 장 마감 확정본으로 본다
+DAUM_DAYS_URL = "https://finance.daum.net/api/quote/A{c}/days?symbolCode=A{c}&page=1&perPage=2&pagination=true"
+DAUM_HEADERS = {"User-Agent": "Mozilla/5.0", "Referer": "https://finance.daum.net/"}
+DAUM_READY = (18, 5)    # 시간외 단일가(~18:00)까지 끝난 뒤에 받아야 거래량·거래대금이 KRX 일봉과 같다
+KRX_SOURCES = ("marcap", "krx_cache", "krx_daum")
 
 
 def _now_kst() -> pd.Timestamp:
@@ -135,6 +143,61 @@ def cache_days_after(last: pd.Timestamp | None, cutoff_hour: int = CACHE_FINAL_H
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
+def daum_ready(now: pd.Timestamp | None = None) -> bool:
+    now = now or _now_kst()
+    return (now.hour, now.minute) >= DAUM_READY
+
+
+def load_daum_day(codes: list[str], day: pd.Timestamp, workers: int = 8) -> pd.DataFrame:
+    """당일 KRX 정규장 일봉을 종목별로 받는다(코스피·코스닥, 코넥스는 미제공).
+    tradePrice=정규장 종가, totalAccTradeVolume/Price=시간외 포함 KRX 일 거래량/대금."""
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+
+    target = day.strftime("%Y-%m-%d")
+    session = requests.Session()
+
+    def one(code):
+        for attempt in range(3):
+            try:
+                r = session.get(DAUM_DAYS_URL.format(c=code), headers=DAUM_HEADERS, timeout=15)
+                if r.status_code == 400:          # 미제공 종목(코넥스 등)
+                    return None
+                r.raise_for_status()
+                for x in r.json().get("data", []):
+                    if x["date"][:10] == target:
+                        return x
+                return None
+            except Exception:  # noqa: BLE001
+                time.sleep(1 + attempt)
+        return None
+
+    with ThreadPoolExecutor(workers) as ex:
+        got = list(ex.map(one, codes))
+    rows = []
+    for code, x in zip(codes, got):
+        if not x or not x.get("tradePrice"):
+            continue
+        close = float(x["tradePrice"])
+        shares = float(x.get("listedSharesCount") or 0) or None
+        rows.append({
+            "symbol_id": code, "date": day.date(),
+            "open": float(x.get("openingPrice") or close), "high": float(x.get("highPrice") or close),
+            "low": float(x.get("lowPrice") or close), "close": close,
+            "ref_price": close - float(x.get("changePrice") or 0),   # changePrice 는 부호 포함(하락 시 음수)
+            "volume": float(x.get("totalAccTradeVolume") or x.get("accTradeVolume") or 0),
+            "value": float(x.get("totalAccTradePrice") or x.get("accTradePrice") or 0),
+            "value_is_est": False,
+            "mcap": close * shares if shares else None, "shares": shares,
+            "source": "krx_daum",
+        })
+    out = pd.DataFrame(rows)
+    if len(out):
+        out["fetched_at"] = pd.Timestamp(datetime.now())
+    print(f"  KRX 당일분(다음 일봉) {target}: {len(out)}/{len(codes)}종목")
+    return out
+
+
 def load_indices(start: str) -> pd.DataFrame:
     import FinanceDataReader as fdr
 
@@ -163,7 +226,7 @@ WITH r AS (
          CASE WHEN ref_price > 0 AND lag(close) OVER w > 0
               THEN ref_price / lag(close) OVER w ELSE 1 END AS r
   FROM prices_daily
-  WHERE source IN ('marcap', 'krx_cache') {where}
+  WHERE source IN ('marcap', 'krx_cache', 'krx_daum') {where}
   WINDOW w AS (PARTITION BY symbol_id ORDER BY date)
 )
 SELECT symbol_id, date,

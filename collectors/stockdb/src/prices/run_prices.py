@@ -15,7 +15,7 @@ from datetime import date
 
 import pandas as pd
 
-from . import global_yf, kr
+from . import global_yf, kr, naver_kr
 from .db import connect, log_run, upsert_prices
 
 GLOBAL_LOOKBACK_DAYS = 10   # 증분 시 최근 N일을 다시 받아 덮어씀 (수정치 반영)
@@ -23,7 +23,7 @@ GLOBAL_LOOKBACK_DAYS = 10   # 증분 시 최근 N일을 다시 받아 덮어씀 
 
 def run_kr(con, backfill_years: int | None):
     """한국 종목 (KRX 정규장 기준).
-    과거: marcap 연도 파일 / 증분: KRX 캐시 일별 파일(당일분은 장 마감 확정본만).
+    과거: marcap 연도 파일 / 지난 날짜: KRX 캐시 확정본 / 당일: 18:05 이후 다음 KRX 일봉(krx_daum).
     네이버 일별 시세는 NXT 거래가 섞인 통합 시세라 쓰지 않는다(kr.py 문서 참고).
     """
     print("\n[한국] 종목 시세")
@@ -33,10 +33,24 @@ def run_kr(con, backfill_years: int | None):
             n = upsert_prices(con, kr.load_marcap_year(y, refresh=(y == this)))
             print(f"  marcap {y}: {n:,}행")
 
-    # 매일 증분: 마지막 KRX 일자 다음 날부터 확정된 캐시 파일을 모두 채운다(빈 날도 함께 보정)
+    # 매일 증분 ① 지난 날짜: KRX 캐시 확정본으로 채우고, 전날 받은 당일분(krx_daum)도 확정본으로 덮어쓴다
     last = con.execute("SELECT max(date) FROM prices_daily "
                        "WHERE source IN ('marcap','krx_cache')").fetchone()[0]
     new = kr.cache_days_after(last)
+    # ② 당일: 18:05 이후 KRX 정규장 일봉(다음 일별 시세)으로 받는다(캐시 확정본은 21~23시라 늦음)
+    td = naver_kr.last_trade_date()
+    have_today = (len(new) and (new["date"] == td.date()).any()) or con.execute(
+        "SELECT count(*) FROM prices_daily WHERE date=? AND source IN ('marcap','krx_cache','krx_daum')",
+        [td.date()]).fetchone()[0] > 0
+    if not have_today and td.normalize() == kr._now_kst().normalize() and kr.daum_ready():
+        codes = con.execute("""SELECT DISTINCT p.symbol_id FROM prices_daily p JOIN symbols s ON s.id = p.symbol_id
+            WHERE p.date >= current_date - INTERVAL 10 DAY AND p.source IN ('marcap','krx_cache','krx_daum')
+              AND s.subclass IN ('KOSPI','KOSDAQ')""").df()["symbol_id"].tolist()
+        daum = kr.load_daum_day(sorted(codes), td)
+        if len(daum) >= max(1000, int(len(codes) * .95)):
+            new = pd.concat([new, daum], ignore_index=True) if len(new) else daum
+        else:
+            print(f"  당일분이 부족해 저장하지 않음: {len(daum)}/{len(codes)}")
     if len(new):
         upsert_prices(con, new)
         changed = kr.changed_factor_symbols(con, new)   # 저장 후 비교(여러 날을 한꺼번에 채울 때도 직전일 기준)
@@ -50,7 +64,7 @@ def run_kr(con, backfill_years: int | None):
         print(f"  수정계수 전체 재계산: {n:,}행")
     con.execute("UPDATE prices_daily SET adj_factor = 1.0 WHERE adj_factor IS NULL")
     latest = con.execute("SELECT max(date) FROM prices_daily "
-                         "WHERE source IN ('marcap','krx_cache')").fetchone()[0]
+                         "WHERE source IN ('marcap','krx_cache','krx_daum')").fetchone()[0]
     print(f"  최신일 {latest}")
 
     print("[한국] 지수")

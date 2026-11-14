@@ -44,17 +44,17 @@ def validate_source(con, baseline):
 
 
 def validate_kr_collection(con, started):
-    """KRX 정규장 확정 시세가 최근 거래일까지 들어왔는지 확인한다.
-    KRX 캐시 확정본은 보통 21~23시에 올라오므로, 그 전 실행은 실패로 끝내 다음 예약 슬롯이 다시 시도하게 한다."""
+    """KRX 정규장 시세가 최근 거래일까지 들어왔는지 확인한다.
+    당일분은 18:05 이후 받으므로, 그 전 실행이나 수집 실패는 실패로 끝내 다음 예약 슬롯이 다시 시도하게 한다."""
     expected = naver_kr.last_trade_date().date()
     have = con.execute("""SELECT max(date) FROM prices_daily
-        WHERE source IN ('marcap','krx_cache')""").fetchone()[0]
+        WHERE source IN ('marcap','krx_cache','krx_daum')""").fetchone()[0]
     if have is None or have < expected:
-        raise RuntimeError(f'KRX 장 마감 확정 시세 대기 중: 최근 거래일 {expected}, 보유 {have} — 다음 예약 실행에서 다시 수집')
+        raise RuntimeError(f'KRX 정규장 일봉 대기 중: 최근 거래일 {expected}, 보유 {have} — 다음 예약 실행에서 다시 수집')
     n = con.execute("""SELECT count(DISTINCT symbol_id) FROM prices_daily
-        WHERE source IN ('marcap','krx_cache') AND date=?""", [have]).fetchone()[0]
+        WHERE source IN ('marcap','krx_cache','krx_daum') AND date=?""", [have]).fetchone()[0]
     baseline = con.execute("""SELECT count(DISTINCT symbol_id) FROM prices_daily
-        WHERE source IN ('marcap','krx_cache') AND date>=? - INTERVAL 30 DAY AND date<?""",
+        WHERE source IN ('marcap','krx_cache','krx_daum') AND date>=? - INTERVAL 30 DAY AND date<?""",
         [have, have]).fetchone()[0]
     if n < max(1000, int(baseline * .95)):
         raise ValueError(f'Incomplete Korean quotes: {n} of about {baseline}')
