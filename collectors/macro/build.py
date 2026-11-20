@@ -68,10 +68,14 @@ class Data:
         self.exports = json.loads((raw / "exports.json").read_text()) if (raw / "exports.json").exists() else {}
         cons = {}
         # 우선순위: 수동 < ForexFactory 주간 스냅샷 < Investing.com (뒤에서 덮어씀)
+        self.arc = {}
         for f in ("consensus_manual.json", "consensus_archive.json"):
             p = out / f
             if p.exists():
-                cons.update({k: v for k, v in json.loads(p.read_text()).items() if not k.startswith("_")})
+                part = {k: v for k, v in json.loads(p.read_text()).items() if not k.startswith("_")}
+                cons.update(part)
+                if f == "consensus_archive.json":
+                    self.arc = part
         p = raw / "investing.json"
         self.inv = json.loads(p.read_text()) if p.exists() else {"events": {}}
         for eid, ev in self.inv.get("events", {}).items():
@@ -350,28 +354,43 @@ def months_back(end, n):
 
 
 def surprise_block(D: Data, title, keys, unit, d, n=12, scale=1.0, note=None):
-    """Investing.com 발표 이력으로 최근 n회 (실제 − 예측) 막대."""
-    series, xs = [], None
+    """최근 n회 (실제 − 예측) 막대.
+    과거 이력 = Investing.com 1회 백필(raw/investing.json), 이후 = ForexFactory 예측 + 발표일 FRED 첫 발표값(아카이브)."""
+    mult_of = {v[0]: v[2] for v in C.INVESTING_EVENTS.values()}
+    series, xs = [], set()
     for key, name in keys:
+        mp = {}
         ev = D.inv_event(key)
-        if not ev:
-            continue
-        occ = sorted([o for o in ev.get("occurrences", []) if o.get("actual") is not None and o.get("forecast") is not None],
-                     key=lambda o: o["occurrence_time"])[-n:]
-        mp = {o["occurrence_time"][:10]: (o["actual"] - o["forecast"]) * scale for o in occ}
-        xs = sorted(set(xs or []) | set(mp))
-        series.append((name, mp))
+        for o in (ev or {}).get("occurrences", []):
+            if o.get("actual") is not None and o.get("forecast") is not None:
+                mp[o["occurrence_time"][:10]] = (o["actual"] - o["forecast"]) * scale
+        mult = mult_of.get(key, 1)
+        for k, v in D.arc.items():
+            rel, kk = k.split("|", 1)
+            if kk != key or v.get("actual") is None or v.get("forecast") is None:
+                continue
+            if any(abs((dt.date.fromisoformat(rel) - dt.date.fromisoformat(x)).days) <= 1 for x in mp):
+                continue  # 같은 발표가 이미 있으면 백필 값 유지
+            mp[rel] = (v["actual"] - v["forecast"]) / mult * scale
+        if mp:
+            series.append((name, mp))
+            xs |= set(mp)
     if not series:
         return None
-    xs = xs[-n:]
+    xs = sorted(xs)[-n:]
     return chart_block(title, xs, [{"name": nm, "kind": "bar", "values": [mp.get(x) for x in xs]} for nm, mp in series],
                        unit=unit, d=d, kind="bar", zero=True,
-                       note=note or "Investing.com 발표 이력의 예측치 대비 실제치. x축 = 발표일.")
+                       note=note or "예측치 대비 실제치(첫 발표값). 과거분은 Investing.com 이력, 이후는 ForexFactory 예측 + FRED. x축 = 발표일.")
 
 
 def build_upcoming(D: Data, days=21):
+    """Investing.com 백필 파일의 다음 발표 일정. 정기 갱신을 하지 않으므로 3일 넘게 지난 파일이면 패널을 숨긴다
+    (이번 주 예상치는 ForexFactory 일정 카드가 보여준다)."""
     now = dt.datetime.now(dt.timezone.utc)
     out = []
+    upd = D.inv.get("updatedAt")
+    if not upd or now - dt.datetime.fromisoformat(upd.replace("Z", "+00:00")) > dt.timedelta(days=3):
+        return {"updatedAt": upd, "items": []}
     for eid, ev in D.inv.get("events", {}).items():
         m = C.INVESTING_EVENTS.get(int(eid))
         nx = ev.get("next") if m else None

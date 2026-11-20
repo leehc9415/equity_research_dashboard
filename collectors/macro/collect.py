@@ -309,6 +309,59 @@ def collect_ff(out: Path) -> list:
     return keep
 
 
+# 발표 후 실제치(첫 발표값)를 컨센서스 아카이브에 기록 → 서프라이즈 이력이 ForexFactory 만으로 이어진다
+#   키: (FRED 시리즈, 계산) — 기준월 = 발표월의 전월 (CPI·고용·소매·PPI·PCE)
+ACTUAL_RULES = {
+    "US_CPI.headline_mom": ("CPIAUCSL", "mom"), "US_CPI.core_mom": ("CPILFESL", "mom"),
+    "US_CPI.headline_yoy": ("CPIAUCSL", "yoy"),
+    "US_NFP.nfp": ("PAYEMS", "diff_k"), "US_NFP.ur": ("UNRATE", "level"), "US_NFP.ahe_mom": ("CES0500000003", "mom"),
+    "US_RETAIL.headline_mom": ("RSAFS", "mom"), "US_RETAIL.exauto_mom": ("RSFSXMV", "mom"),
+    "US_PPI.headline_mom": ("PPIFIS", "mom"), "US_PPI.core_mom": ("PPIFES", "mom"),
+    "US_PCE.core_mom": ("PCEPILFE", "mom"), "US_CLAIMS.icsa": ("ICSA", "week"),
+}
+
+
+def _prev_month(d: str, n: int = 1) -> str:
+    y, m = int(d[:4]), int(d[5:7]) - n
+    while m <= 0:
+        y, m = y - 1, m + 12
+    return f"{y}-{m:02d}-01"
+
+
+def fill_actuals(out: Path, fred: dict, today: dt.date) -> None:
+    arc_path = out / "consensus_archive.json"
+    if not arc_path.exists():
+        return
+    arc = json.loads(arc_path.read_text())
+    filled = 0
+    for k, v in arc.items():
+        rel, key = k.split("|", 1)
+        if v.get("actual") is not None or key not in ACTUAL_RULES or rel > today.isoformat():
+            continue
+        sid, how = ACTUAL_RULES[key]
+        mp = {d: x for d, x in fred.get(sid, {}).get("obs", [])}
+        val = None
+        if how == "week":  # 발표 목요일 기준 직전 토요일 주간
+            wk = (dt.date.fromisoformat(rel) - dt.timedelta(days=5)).isoformat()
+            val = mp.get(wk)
+        else:
+            ref = _prev_month(rel)
+            if how == "level":
+                val = mp.get(ref)
+            elif how == "mom" and ref in mp and _prev_month(ref) in mp:
+                val = round((mp[ref] / mp[_prev_month(ref)] - 1) * 100, 1)
+            elif how == "yoy" and ref in mp and _prev_month(ref, 12) in mp:
+                val = round((mp[ref] / mp[_prev_month(ref, 12)] - 1) * 100, 1)
+            elif how == "diff_k" and ref in mp and _prev_month(ref) in mp:
+                val = (mp[ref] - mp[_prev_month(ref)]) * 1000  # FF 단위(명)와 맞춤
+        if val is not None:
+            v["actual"] = val
+            v["actualCaptured"] = today.isoformat()
+            filled += 1
+    arc_path.write_text(json.dumps(arc, ensure_ascii=False, indent=1, sort_keys=True))
+    log(f"컨센서스 아카이브 실제치 기록 {filled}건")
+
+
 # ─────────────────────────── FOMC 성명
 def _statement_text(raw: str) -> dict:
     i = raw.find('id="article"')
@@ -446,6 +499,7 @@ def main(argv=None):
         (raw / "ecos.json").write_text(json.dumps(collect_ecos(today), ensure_ascii=False))
     if want("ff"):
         (raw / "ff_thisweek.json").write_text(json.dumps(collect_ff(out), ensure_ascii=False, indent=1))
+        fill_actuals(out, fred, today)
     if want("fomc"):
         (raw / "fomc.json").write_text(json.dumps(collect_fomc(today), ensure_ascii=False, indent=1))
     if want("kalshi"):
