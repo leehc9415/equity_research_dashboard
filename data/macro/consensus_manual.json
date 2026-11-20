@@ -1,0 +1,8 @@
+{
+  "_note": "FF 주간 스냅샷에 없는 과거 발표용 수동 컨센서스. 키 = 발표일|지표키. 값 단위는 FF 파싱과 동일(%, 명).",
+  "2026-11-10|US_CPI.headline_mom": {"forecast": 0.3, "source": "Dow Jones·Bloomberg 서베이 중간값(언론 보도)"},
+  "2026-11-10|US_CPI.core_mom": {"forecast": 0.2, "source": "Dow Jones·Bloomberg 서베이 중간값(언론 보도)"},
+  "2026-11-06|US_NFP.nfp": {"forecast": 65000, "source": "LSEG 서베이(언론 보도)"},
+  "2026-11-06|US_NFP.ur": {"forecast": 4.2, "source": "LSEG 서베이(언론 보도)"},
+  "2026-11-06|US_NFP.ahe_mom": {"forecast": 0.3, "source": "Newsquawk 프리뷰"}
+}

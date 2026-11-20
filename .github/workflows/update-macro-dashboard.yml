@@ -1,0 +1,76 @@
+name: Update macro dashboard
+
+on:
+  schedule:
+    # 미국 지표 22:30 KST(서머타임 21:30) 발표 후 FRED 반영 → 23:13 / 00:13 KST (평일)
+    - cron: '13 14 * * 1-5'
+    - cron: '13 15 * * 1-5'
+    # FOMC 성명 04:00 KST(서머타임 03:00) 이후 → 05:13 KST (화~토 새벽)
+    - cron: '13 20 * * 1-5'
+    # 한국 지표(ECOS)·이번 주 일정(ForexFactory) → 08:43 KST 매일
+    - cron: '43 23 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: update-macro-dashboard
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+    env:
+      TZ: Asia/Seoul
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Collect (FRED · ALFRED · ECOS · ForexFactory · Fed · Kalshi · 수출 데이터)
+        env:
+          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}   # 없으면 공개 sample 키로 동작
+        run: python collectors/macro/collect.py --out data/macro --exports dashboard/data/dashboard-data.json
+      - name: Build board and briefings
+        # Investing.com 컨센서스(data/macro/raw/investing.json)는 PC 브라우저에서 받아 커밋한 파일을 그대로 쓴다
+        run: python collectors/macro/build.py --out data/macro --dest dashboard/macro/data
+      - name: Commit changed macro data only
+        id: commit
+        shell: bash
+        run: |
+          if ! git diff --quiet -- dashboard/macro/data data/macro/consensus_archive.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add dashboard/macro/data data/macro/consensus_archive.json
+            git commit -m "Update macro dashboard data"
+            for attempt in 1 2 3; do
+              git pull --rebase origin main
+              if git push origin HEAD:main; then
+                echo "changed=true" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              sleep 5
+            done
+            exit 1
+          fi
+          echo "No changed macro data."
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: update
+    if: needs.update.result == 'success' && (needs.update.outputs.changed == 'true' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/deploy-dashboard.yml
+    with:
+      skip_validate: true

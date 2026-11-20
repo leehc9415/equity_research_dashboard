@@ -14,3 +14,5 @@ data/local/**
 
 # Stock chart data is published as a release asset (market-charts) and added at deploy time.
 dashboard/markets/charts/
+data/macro/raw/*
+!data/macro/raw/investing.json

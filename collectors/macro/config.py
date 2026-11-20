@@ -1,0 +1,285 @@
+"""매크로 보드·지표 브리핑 수집 설정.
+
+- FRED 시리즈는 키 없이 fredgraph.csv 로 받는다 (start = 수집 시작일).
+- ECOS 는 환경변수 ECOS_API_KEY 가 있으면 사용, 없으면 공개 sample 키(호출당 10행)로 동작한다.
+- 보드 타일 정의(BOARD)는 '어떤 숫자를 어떤 변환으로 보여줄지'만 담고, 계산은 build.py 가 한다.
+"""
+
+D_START = "2023-06-01"   # 일간·주간
+M_START = "2017-01-01"   # 월간 (YoY·6개월 표·24개월 차트 여유)
+Q_START = "2015-01-01"   # 분기·연간
+
+# id: (이름, 단위, 시작일)
+FRED = {
+    # ── 정책·금리
+    "DFEDTARU": ("FFR 목표 상단", "%", D_START),
+    "DFEDTARL": ("FFR 목표 하단", "%", D_START),
+    "EFFR": ("실효 연방기금금리", "%", D_START),
+    "SOFR": ("SOFR", "%", D_START),
+    "DGS3MO": ("미 국채 3M", "%", D_START),
+    "DGS2": ("미 국채 2Y", "%", D_START),
+    "DGS10": ("미 국채 10Y", "%", D_START),
+    "DGS30": ("미 국채 30Y", "%", D_START),
+    "T10Y2Y": ("10Y-2Y", "%p", D_START),
+    "T10Y3M": ("10Y-3M", "%p", D_START),
+    "DFII10": ("10Y 실질금리(TIPS)", "%", D_START),
+    "T10YIE": ("10Y BEI", "%", D_START),
+    "T5YIFR": ("5y5y 기대인플레", "%", D_START),
+    "MORTGAGE30US": ("30Y 모기지", "%", D_START),
+    # SEP 중간값 (연간)
+    "FEDTARMD": ("SEP 정책금리 중간값", "%", Q_START),
+    "FEDTARMDLR": ("SEP 장기 정책금리", "%", Q_START),
+    "UNRATEMD": ("SEP 실업률", "%", Q_START),
+    "PCECTPIMD": ("SEP PCE", "%", Q_START),
+    "JCXFEMD": ("SEP 근원 PCE", "%", Q_START),
+    "GDPC1MD": ("SEP 실질 GDP", "%", Q_START),
+    # ── 물가
+    "CPIAUCSL": ("CPI", "지수", M_START),
+    "CPILFESL": ("근원 CPI", "지수", M_START),
+    "PCEPI": ("PCE 물가", "지수", M_START),
+    "PCEPILFE": ("근원 PCE", "지수", M_START),
+    "PPIFIS": ("PPI 최종수요", "지수", M_START),
+    "PPIFES": ("근원 PPI", "지수", M_START),
+    "MEDCPIM158SFRBCLE": ("중위 CPI(연율)", "%", M_START),
+    "TRMMEANCPIM158SFRBCLE": ("절사평균 CPI(연율)", "%", M_START),
+    "CORESTICKM159SFRBATL": ("경직 근원 CPI YoY", "%", M_START),
+    "MICH": ("미시간 1년 기대인플레", "%", M_START),
+    # CPI 세부 (SA)
+    "CUSR0000SAF11": ("가정식", "지수", M_START),
+    "CUSR0000SEFV": ("외식", "지수", M_START),
+    "CPIUFDSL": ("식품", "지수", M_START),
+    "CPIENGSL": ("에너지", "지수", M_START),
+    "CUSR0000SETB01": ("휘발유", "지수", M_START),
+    "CUSR0000SACL1E": ("근원 상품", "지수", M_START),
+    "CUSR0000SETA01": ("신차", "지수", M_START),
+    "CUSR0000SETA02": ("중고차", "지수", M_START),
+    "CPIAPPSL": ("의류", "지수", M_START),
+    "CUSR0000SAM1": ("의료 상품", "지수", M_START),
+    "CUSR0000SASLE": ("근원 서비스", "지수", M_START),
+    "CUSR0000SAH1": ("주거", "지수", M_START),
+    "CUSR0000SEHA": ("렌트", "지수", M_START),
+    "CUSR0000SEHC": ("OER(자가주거비)", "지수", M_START),
+    "CUSR0000SEHB": ("숙박", "지수", M_START),
+    "CUSR0000SAM2": ("의료 서비스", "지수", M_START),
+    "CUSR0000SAS4": ("운송 서비스", "지수", M_START),
+    "CUSR0000SETG01": ("항공료", "지수", M_START),
+    "CPIRECSL": ("레크리에이션", "지수", M_START),
+    "CPIEDUSL": ("교육·통신", "지수", M_START),
+    # ── 고용
+    "PAYEMS": ("비농업 고용", "천명", M_START),
+    "USPRIV": ("민간", "천명", M_START),
+    "USMINE": ("광업·벌목", "천명", M_START),
+    "USCONS": ("건설", "천명", M_START),
+    "MANEMP": ("제조", "천명", M_START),
+    "USTPU": ("무역·운송·유틸", "천명", M_START),
+    "USTRADE": ("소매", "천명", M_START),
+    "USINFO": ("정보", "천명", M_START),
+    "USFIRE": ("금융", "천명", M_START),
+    "USPBS": ("전문·사업서비스", "천명", M_START),
+    "TEMPHELPS": ("임시직", "천명", M_START),
+    "USEHS": ("교육·헬스", "천명", M_START),
+    "CES6562000001": ("헬스케어", "천명", M_START),
+    "USLAH": ("레저·접객", "천명", M_START),
+    "USSERV": ("기타 서비스", "천명", M_START),
+    "USGOVT": ("정부", "천명", M_START),
+    "UNRATE": ("실업률", "%", M_START),
+    "U6RATE": ("U-6 실업률", "%", M_START),
+    "CIVPART": ("경제활동참가율", "%", M_START),
+    "LNS11300060": ("핵심연령 참가율", "%", M_START),
+    "LNS12300060": ("핵심연령 고용률", "%", M_START),
+    "LNS12032194": ("비자발적 시간제", "천명", M_START),
+    "UEMP27OV": ("27주+ 장기실업", "천명", M_START),
+    "CES0500000003": ("평균시급", "$", M_START),
+    "AWHAETP": ("주당 근로시간", "시간", M_START),
+    "SAHMREALTIME": ("삼 룰 지표", "%p", M_START),
+    "ICSA": ("신규 실업수당", "명", D_START),
+    "IC4WSA": ("신규 실업수당 4주평균", "명", D_START),
+    "CCSA": ("계속 실업수당", "명", D_START),
+    "JTSJOL": ("JOLTS 구인", "천건", M_START),
+    "JTSQUR": ("자발적 이직률", "%", M_START),
+    # ── 성장·활동·심리
+    "A191RL1Q225SBEA": ("실질 GDP(QoQ 연율)", "%", Q_START),
+    "GDPNOW": ("GDPNow", "%", Q_START),
+    "RSAFS": ("소매판매", "백만$", M_START),
+    "RSXFS": ("소매업(음식점 제외)", "백만$", M_START),
+    "RSFSXMV": ("소매판매(자동차 제외)", "백만$", M_START),
+    "RSGASS": ("주유소", "백만$", M_START),
+    "RSBMGESD": ("건자재", "백만$", M_START),
+    "RSFSDP": ("음식점", "백만$", M_START),
+    "RSMVPD": ("자동차·부품", "백만$", M_START),
+    "RSNSR": ("무점포(온라인)", "백만$", M_START),
+    "INDPRO": ("산업생산", "지수", M_START),
+    "CFNAI": ("시카고연은 활동지수", "", M_START),
+    "GACDFSA066MSFRBPHI": ("필라델피아 연은 제조업", "", M_START),
+    "GACDISA066MSFRBNY": ("엠파이어 제조업", "", M_START),
+    "HOUST": ("주택착공(연율)", "천호", M_START),
+    "PERMIT": ("건축허가(연율)", "천호", M_START),
+    "UMCSENT": ("미시간 소비심리", "", M_START),
+    # ── 금융여건·유동성·시장
+    "VIXCLS": ("VIX", "", D_START),
+    "BAMLH0A0HYM2": ("HY 스프레드", "%p", D_START),
+    "BAMLC0A0CM": ("IG 스프레드", "%p", D_START),
+    "NFCI": ("시카고연은 금융여건(NFCI)", "", D_START),
+    "STLFSI4": ("세인트루이스 금융스트레스", "", D_START),
+    "WALCL": ("연준 총자산", "백만$", D_START),
+    "WRESBAL": ("지급준비금", "백만$", D_START),
+    "RRPONTSYD": ("역레포(RRP)", "십억$", D_START),
+    "WTREGEN": ("재무부 일반계정(TGA)", "백만$", D_START),
+    "M2SL": ("M2", "십억$", M_START),
+    "DTWEXBGS": ("달러지수(Broad)", "", D_START),
+    "SP500": ("S&P 500", "", D_START),
+    "DCOILWTICO": ("WTI", "$", D_START),
+    "GASREGW": ("휘발유 소매가", "$/gal", D_START),
+}
+
+# ECOS: key -> (통계표, 주기, 항목코드1, 항목코드2|None, 이름, 단위, 필터(ITEM_NAME2))
+ECOS = {
+    "KR_BASE": ("722Y001", "M", "0101000", None, "한국 기준금리", "%", None),
+    "KR_KTB3Y": ("817Y002", "D", "010200000", None, "국고채 3Y", "%", None),
+    "KR_KTB10Y": ("817Y002", "D", "010210000", None, "국고채 10Y", "%", None),
+    "KR_USDKRW": ("731Y001", "D", "0000001", None, "원/달러", "원", None),
+    "KR_CPI": ("901Y009", "M", "0", None, "소비자물가", "지수", None),
+    "KR_CORE": ("901Y010", "M", "QB", None, "농산물·석유류 제외", "지수", None),
+    "KR_CORE_OECD": ("901Y010", "M", "DB", None, "식료품·에너지 제외", "지수", None),
+    "KR_CA": ("301Y013", "M", "000000", None, "경상수지", "백만$", None),
+    "KR_GOODS": ("301Y013", "M", "100000", None, "상품수지", "백만$", None),
+    "KR_CSI": ("511Y002", "M", "FME", "99988", "소비자심리지수", "", None),
+    "KR_UR": ("901Y027", "M", "I61BC", None, "실업률(SA)", "%", "계절조정"),
+    "KR_EMPR": ("901Y027", "M", "I61E", None, "고용률(SA)", "%", "계절조정"),
+}
+ECOS_DAILY_DAYS = 120      # 일간 시리즈 수집 기간
+ECOS_MONTHS = 40           # 월간 시리즈 수집 기간
+
+# 2026 FOMC 성명 발표일 (2일차)
+FOMC_DATES = ["2026-01-28", "2026-03-18", "2026-04-29", "2026-06-17",
+              "2026-07-29", "2026-09-16", "2026-10-28", "2026-12-09"]
+
+# BLS CPI-U 상대중요도 (2025년 12월, 전 도시 평균) — 매년 2월 갱신 확인
+CPI_WEIGHTS_DEC2025 = {
+    "CPIAUCSL": 100.000, "CPIUFDSL": 13.698, "CUSR0000SAF11": 8.325, "CUSR0000SEFV": 5.373,
+    "CPIENGSL": 6.383, "CUSR0000SETB01": 2.895, "CPILFESL": 79.919,
+    "CUSR0000SACL1E": 19.176, "CUSR0000SETA01": 3.838, "CUSR0000SETA02": 2.759,
+    "CPIAPPSL": 2.368, "CUSR0000SAM1": 1.489, "CUSR0000SASLE": 60.744,
+    "CUSR0000SAH1": 35.625, "CUSR0000SEHA": 7.840, "CUSR0000SEHC": 26.204,
+    "CUSR0000SEHB": 1.289, "CUSR0000SAM2": 6.935, "CUSR0000SAS4": 6.315,
+    "CUSR0000SETG01": 0.881, "CPIRECSL": 5.137, "CPIEDUSL": 5.846,
+}
+CPI_WEIGHT_BASE = "2025-12-01"
+
+# ForexFactory 이벤트명 -> 컨센서스 키 (발표일 기준으로 저장)
+FF_MAP = {
+    "CPI m/m": "US_CPI.headline_mom", "Core CPI m/m": "US_CPI.core_mom",
+    "CPI y/y": "US_CPI.headline_yoy",
+    "Non-Farm Employment Change": "US_NFP.nfp", "Unemployment Rate": "US_NFP.ur",
+    "Average Hourly Earnings m/m": "US_NFP.ahe_mom",
+    "Retail Sales m/m": "US_RETAIL.headline_mom", "Core Retail Sales m/m": "US_RETAIL.exauto_mom",
+    "Unemployment Claims": "US_CLAIMS.icsa",
+    "Federal Funds Rate": "US_FOMC.rate",
+    "Core PCE Price Index m/m": "US_PCE.core_mom", "PPI m/m": "US_PPI.headline_mom",
+    "Core PPI m/m": "US_PPI.core_mom", "Prelim UoM Consumer Sentiment": "US_UMICH.sentiment",
+    "Philly Fed Manufacturing Index": "US_PHILLY.index",
+}
+
+# 보드 타일: (그룹, [ (series, transform, 라벨, 옵션) ... ])
+#  transform: level | yoy | mom | diff | netliq | kalshi
+BOARD = [
+    ("정책·금리", "미국 정책금리와 국채 곡선", [
+        ("DFEDTARU", "level", "FFR 목표 상단", {"chg": "bp"}),
+        ("KALSHI", "kalshi", "12월 FOMC 확률", {}),
+        ("SOFR", "level", "SOFR", {"chg": "bp"}),
+        ("DGS2", "level", "미 국채 2Y", {"chg": "bp"}),
+        ("DGS10", "level", "미 국채 10Y", {"chg": "bp"}),
+        ("DGS30", "level", "미 국채 30Y", {"chg": "bp"}),
+        ("T10Y2Y", "level", "10Y-2Y 스프레드", {"chg": "bp"}),
+        ("DFII10", "level", "10Y 실질금리", {"chg": "bp"}),
+        ("T10YIE", "level", "10Y BEI", {"chg": "bp"}),
+        ("MORTGAGE30US", "level", "30Y 모기지", {"chg": "bp"}),
+    ]),
+    ("물가", "헤드라인·근원·기조 물가와 기대인플레", [
+        ("CPIAUCSL", "yoy", "CPI YoY", {}),
+        ("CPILFESL", "yoy", "근원 CPI YoY", {}),
+        ("CPILFESL", "mom", "근원 CPI MoM", {}),
+        ("PCEPILFE", "yoy", "근원 PCE YoY", {}),
+        ("PPIFIS", "yoy", "PPI YoY", {}),
+        ("MEDCPIM158SFRBCLE", "level", "중위 CPI(연율)", {"chg": "pp"}),
+        ("CORESTICKM159SFRBATL", "level", "경직 근원 CPI", {"chg": "pp"}),
+        ("MICH", "level", "1년 기대인플레(미시간)", {"chg": "pp"}),
+        ("T5YIFR", "level", "5y5y 기대인플레", {"chg": "bp"}),
+        ("DCOILWTICO", "level", "WTI", {"chg": "pct"}),
+    ]),
+    ("고용", "고용 증가·실업·임금과 주간 실업수당", [
+        ("PAYEMS", "diff", "비농업 고용 증감", {}),
+        ("UNRATE", "level", "실업률", {"chg": "pp"}),
+        ("U6RATE", "level", "U-6 실업률", {"chg": "pp"}),
+        ("CES0500000003", "yoy", "평균시급 YoY", {}),
+        ("LNS12300060", "level", "핵심연령 고용률", {"chg": "pp"}),
+        ("SAHMREALTIME", "level", "삼 룰 지표", {"chg": "pp"}),
+        ("ICSA", "level", "신규 실업수당", {"chg": "k", "scale": 0.001, "unit": "k"}),
+        ("CCSA", "level", "계속 실업수당", {"chg": "k", "scale": 0.001, "unit": "k"}),
+        ("JTSJOL", "level", "JOLTS 구인", {"chg": "k", "scale": 0.001, "unit": "M"}),
+        ("JTSQUR", "level", "자발적 이직률", {"chg": "pp"}),
+    ]),
+    ("성장·심리", "GDP·소비·생산·서베이", [
+        ("A191RL1Q225SBEA", "level", "실질 GDP(연율)", {"chg": "pp"}),
+        ("GDPNOW", "level", "GDPNow", {"chg": "pp"}),
+        ("RSAFS", "mom", "소매판매 MoM", {}),
+        ("INDPRO", "mom", "산업생산 MoM", {}),
+        ("GACDFSA066MSFRBPHI", "level", "필라델피아 연은", {"chg": "abs"}),
+        ("GACDISA066MSFRBNY", "level", "엠파이어 스테이트", {"chg": "abs"}),
+        ("CFNAI", "level", "CFNAI", {"chg": "abs"}),
+        ("HOUST", "level", "주택착공", {"chg": "pct", "unit": "k"}),
+        ("UMCSENT", "level", "미시간 소비심리", {"chg": "abs"}),
+    ]),
+    ("금융여건·유동성", "위험선호·신용·연준 유동성", [
+        ("SP500", "level", "S&P 500", {"chg": "pct"}),
+        ("VIXCLS", "level", "VIX", {"chg": "abs"}),
+        ("BAMLH0A0HYM2", "level", "HY 스프레드", {"chg": "bp"}),
+        ("BAMLC0A0CM", "level", "IG 스프레드", {"chg": "bp"}),
+        ("NFCI", "level", "NFCI", {"chg": "abs"}),
+        ("DTWEXBGS", "level", "달러지수(Broad)", {"chg": "pct"}),
+        ("WALCL", "level", "연준 총자산", {"chg": "k", "scale": 1e-6, "unit": "조$"}),
+        ("NETLIQ", "netliq", "순유동성(자산-TGA-RRP)", {}),
+        ("WRESBAL", "level", "지급준비금", {"chg": "k", "scale": 1e-6, "unit": "조$"}),
+        ("M2SL", "yoy", "M2 YoY", {}),
+    ]),
+    ("한국", "금리·환율·물가·대외·심리", [
+        ("KR_BASE", "level", "한국 기준금리", {"chg": "bp"}),
+        ("KR_KTB3Y", "level", "국고채 3Y", {"chg": "bp"}),
+        ("KR_KTB10Y", "level", "국고채 10Y", {"chg": "bp"}),
+        ("KR_USDKRW", "level", "원/달러", {"chg": "pct"}),
+        ("KR_CPI", "yoy", "소비자물가 YoY", {}),
+        ("KR_CORE", "yoy", "근원물가 YoY", {}),
+        ("KR_EXPORT", "level", "수출 YoY", {"chg": "pp", "unit": "%"}),
+        ("KR_CA", "level", "경상수지", {"chg": "k", "scale": 0.01, "unit": "억$"}),
+        ("KR_CSI", "level", "소비자심리지수", {"chg": "abs"}),
+        ("KR_UR", "level", "실업률(SA)", {"chg": "pp"}),
+    ]),
+]
+
+# Investing.com 이벤트 ID -> (컨센서스 키, 표시 이름, 배수: 'K' 단위 → 명/건)
+#   이벤트 페이지: https://kr.investing.com/economic-calendar/x-{id}
+#   수집: 브라우저에서 investing_extract.js 실행 → JSON → collect.py --investing
+INVESTING_EVENTS = {
+    69: ("US_CPI.headline_mom", "미국 CPI (MoM)", 1),
+    733: ("US_CPI.headline_yoy", "미국 CPI (YoY)", 1),
+    56: ("US_CPI.core_mom", "미국 근원 CPI (MoM)", 1),
+    736: ("US_CPI.core_yoy", "미국 근원 CPI (YoY)", 1),
+    227: ("US_NFP.nfp", "미국 비농업 고용", 1000),
+    300: ("US_NFP.ur", "미국 실업률", 1),
+    8: ("US_NFP.ahe_mom", "미국 평균시급 (MoM)", 1),
+    1777: ("US_NFP.ahe_yoy", "미국 평균시급 (YoY)", 1),
+    1: ("US_ADP.adp", "미국 ADP 민간고용", 1000),
+    294: ("US_CLAIMS.icsa", "미국 신규 실업수당", 1000),
+    522: ("US_CLAIMS.ccsa", "미국 계속 실업수당", 1000),
+    256: ("US_RETAIL.headline_mom", "미국 소매판매 (MoM)", 1),
+    63: ("US_RETAIL.exauto_mom", "미국 근원 소매판매 (MoM)", 1),
+    238: ("US_PPI.headline_mom", "미국 PPI (MoM)", 1),
+    62: ("US_PPI.core_mom", "미국 근원 PPI (MoM)", 1),
+    61: ("US_PCE.core_mom", "미국 근원 PCE (MoM)", 1),
+    905: ("US_PCE.core_yoy", "미국 근원 PCE (YoY)", 1),
+    173: ("US_ISM.mfg", "미국 ISM 제조업", 1),
+    176: ("US_ISM.svc", "미국 ISM 서비스업", 1),
+    375: ("US_GDP.qoq", "미국 GDP (QoQ 연율)", 1),
+    168: ("US_FOMC.rate", "미국 기준금리 결정", 1),
+    320: ("US_UMICH.sentiment", "미시간 소비자심리", 1),
+}

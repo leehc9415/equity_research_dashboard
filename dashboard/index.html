@@ -6,7 +6,7 @@
   <title>Investment Dashboard</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="overrides.css">
-  <link rel="stylesheet" href="site-shell.css?v=20261110-cnav1">
+  <link rel="stylesheet" href="site-shell.css?v=20261120-macro1">
   <link rel="stylesheet" href="calendar.css?v=20261102-reported">
 </head>
 <body>
@@ -27,7 +27,13 @@
               <button data-section="markets" data-sub="sc" role="menuitem">종목차트</button>
             </div>
           </div>
-          <button data-section="briefing">시황</button>
+          <div class="nav-item">
+            <button data-section="macro" aria-haspopup="true">시황/매크로</button>
+            <div class="nav-menu" role="menu" aria-label="시황/매크로 하위 메뉴">
+              <button data-section="macro" data-sub="board" role="menuitem">매크로 보드</button>
+              <button data-section="macro" data-sub="brief" role="menuitem">지표 브리핑</button>
+            </div>
+          </div>
           <div class="nav-item">
             <button data-section="companies" aria-haspopup="true">기업데이터</button>
             <div class="nav-menu" role="menu" aria-label="기업데이터 하위 메뉴">
@@ -43,6 +49,8 @@
           <button data-section="markets" data-sub="nh">신고가</button>
           <button data-section="markets" data-sub="cs">차트 셋업</button>
           <button data-section="markets" data-sub="sc">종목차트</button>
+          <button data-section="macro" data-sub="board">매크로 보드</button>
+          <button data-section="macro" data-sub="brief">지표 브리핑</button>
           <button data-section="companies" data-sub="insider">내부자 거래</button>
           <button data-section="companies" data-sub="research">기업 리서치</button>
         </nav>
@@ -76,6 +84,6 @@
       <main id="app"><div class="loading">실제 수출 데이터를 불러오는 중입니다…</div></main>
     </div>
   </div>
-  <script type="module" src="app.js?v=20261113-insider3"></script>
+  <script type="module" src="app.js?v=20261120-macro1"></script>
 </body>
 </html>
