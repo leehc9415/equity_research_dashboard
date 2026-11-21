@@ -2,7 +2,7 @@
  "2026-11-17|US_RETAIL.exauto_mom": {
   "actual": 0.6,
   "actualCaptured": "2026-11-21",
-  "captured": "2026-11-20T22:15:17+00:00",
+  "captured": "2026-11-21T01:28:52+00:00",
   "forecast": 0.4,
   "previous": "0.9%",
   "raw": "0.4%",
@@ -11,7 +11,7 @@
  "2026-11-17|US_RETAIL.headline_mom": {
   "actual": 0.2,
   "actualCaptured": "2026-11-21",
-  "captured": "2026-11-20T22:15:17+00:00",
+  "captured": "2026-11-21T01:28:52+00:00",
   "forecast": 0.1,
   "previous": "0.8%",
   "raw": "0.1%",
@@ -20,14 +20,14 @@
  "2026-11-19|US_CLAIMS.icsa": {
   "actual": 203000.0,
   "actualCaptured": "2026-11-21",
-  "captured": "2026-11-20T22:15:17+00:00",
+  "captured": "2026-11-21T01:28:52+00:00",
   "forecast": 198000.0,
   "previous": "200K",
   "raw": "198K",
   "source": "ForexFactory"
  },
  "2026-11-19|US_PHILLY.index": {
-  "captured": "2026-11-20T22:15:17+00:00",
+  "captured": "2026-11-21T01:28:52+00:00",
   "forecast": 20.6,
   "previous": "20.9",
   "raw": "20.6",
