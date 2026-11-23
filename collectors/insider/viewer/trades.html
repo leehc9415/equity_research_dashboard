@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>내부자 매매</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="common.css">
+</head>
+<body>
+<header><h1>내부자 매매</h1><span class="meta" id="meta"></span><span id="nav"></span></header>
+<main>
+  <div class="funnel" id="cards"></div>
+  <details class="panel"><summary id="planSum">예정 거래 (사전공시)</summary><div class="wrap" id="plans"></div></details>
+  <div class="bar" id="bar"></div>
+  <div class="bar" id="bar2"></div>
+  <div class="wrap" id="table"></div>
+</main>
+<script src="data/main.js"></script>
+<script src="common.js"></script>
+<script>
+const KEY='insider-trades';
+const S = loadState(KEY, {days:30, dir:'buy', groups:GROUPS.slice(), market:'', minEok:0, minPct:0, noLate:true, view:'corp', q:''});
+S.groups = new Set(S.groups);
+const ST = {corp:{}, person:{defSort:8}, row:{}, plan:{}};
+const save = () => saveState(KEY, S, ['days','dir','groups','market','minEok','minPct','noLate','view']);
+$('#nav').outerHTML = nav('trades.html');
+$('#meta').textContent = metaText();
+
+const ALL = loadTrades(D);
+const PLANS = D.plans.map(p=>withCorp({...p}, D.corps));
+const has = (r,q) => [r.corp_name,r.stock_code,r.person].join(' ').toLowerCase().includes(q.toLowerCase());
+
+function base(){
+  const from = S.days ? daysAgo(S.days) : '';
+  return ALL.filter(r => (!from || r.rcept_dt>=from) && S.groups.has(r.holder_group||'기타')
+    && (!S.market || r.market===S.market) && (!S.noLate || r.lag<=30) && (!S.q || has(r,S.q)));
+}
+const dirOk = r => S.dir==='all' || r.direction===S.dir;
+
+function byPerson(rows){
+  const m = new Map();
+  for(const r of rows){
+    const k = r.stock_code+'|'+r.person+'|'+r.direction;
+    let a = m.get(k);
+    if(!a){ a = {...r, n:0, qty:0, amount:0, pct:0, first:r.date, last:r.date, loan:0, kinds:new Set()}; m.set(k,a); }
+    a.n += r.n; a.qty += r.qty_change; a.amount += r.amount||0; a.pct += r.pct_chg||0; a.kinds.add(r.kind);
+    if(r.date<a.first) a.first=r.date; if(r.date>a.last) a.last=r.date;
+    if(r.rcept_no>=a.rcept_no){ a.rcept_no=r.rcept_no; a.rcept_dt=r.rcept_dt; if(r.pct_after!=null) a.pct_after=r.pct_after; }
+    a.loan = Math.max(a.loan, r.loan||0);
+  }
+  return [...m.values()];
+}
+function byCorp(rows){
+  const m = new Map();
+  for(const r of rows){
+    let a = m.get(r.stock_code);
+    if(!a){ a = {...r, buy:0, sell:0, pctB:0, pctS:0, people:new Map(), first:r.date, last:r.date, loan:false, n:0}; m.set(r.stock_code,a); }
+    a.n += r.n;
+    if(r.direction==='buy'){ a.buy += r.amount||0; a.pctB += r.pct_chg||0; } else { a.sell += r.amount||0; a.pctS += r.pct_chg||0; }
+    const p = a.people.get(r.person) || {amt:0, dir:r.direction, grp:r.holder_group}; p.amt += r.amount||0; a.people.set(r.person,p);
+    if(r.date<a.first) a.first=r.date; if(r.date>a.last) a.last=r.date; if(r.rcept_dt>a.rcept_dt) a.rcept_dt=r.rcept_dt;
+    if(r.loan) a.loan = true;
+  }
+  return [...m.values()].map(a=>{
+    const ppl=[...a.people.entries()], g={};
+    ppl.forEach(([,p])=>g[p.grp]=(g[p.grp]||0)+1);
+    return {...a, nB:ppl.filter(([,p])=>p.dir==='buy').length, nS:ppl.filter(([,p])=>p.dir==='sell').length,
+      grpTxt:GROUPS.filter(x=>g[x]).map(x=>`${x} ${g[x]}`).join(' · '),
+      top:ppl.sort((x,y)=>y[1].amt-x[1].amt).slice(0,3).map(([n])=>n).join(', ')};
+  });
+}
+
+function cards(rows){
+  const C = byCorp(rows), sum=(k)=>C.reduce((s,x)=>s+x[k],0);
+  $('#cards').innerHTML = cardsHTML([
+    ['매수 기업', C.filter(c=>c.buy>0||c.nB).length, `매수 금액 ${eok(sum('buy'))}억원`],
+    ['매도 기업', C.filter(c=>c.sell>0||c.nS).length, `매도 금액 ${eok(sum('sell'))}억원`],
+    ['내부자 2명 이상 매수', C.filter(c=>c.nB>=2).length, '같은 기간 서로 다른 내부자 (군집)'],
+    ['차입 매수 포함 기업', C.filter(c=>c.loan).length, '취득자금에 차입금 기재'],
+  ]);
+}
+
+function plans(){
+  const from = S.days ? daysAgo(S.days) : '';
+  const P = PLANS.filter(p => (!from || p.rcept_dt>=from) && (!S.market || p.market===S.market)
+    && (S.dir==='all' || (S.dir==='buy' ? p.sign>0 : p.sign<0)) && (!S.q || has(p,S.q)));
+  $('#planSum').textContent = `예정 거래 (사전공시) ${P.length}건`;
+  renderTable($('#plans'), [
+    ['공시일',p=>p.rcept_dt,p=>p.rcept_dt],['종목',corpCell,p=>p.corp_name],['산업',secCell,secKey],['보고자',whoCell,p=>p.person],
+    ['방법',p=>`<span class="tag t-${p.sign>0?'buy':'sell'}">${esc(p.method||'')}</span>`,p=>p.method],['증권',p=>esc(p.security||''),p=>p.security],
+    ['거래 기간',p=>`${p.start||''} ~ ${p.end||''}`,p=>p.start],['수량',p=>fmt(p.qty),p=>p.qty||0,1],['금액(억원)',p=>eok(p.amount),p=>p.amount||0,1],
+    ['발행주식 대비(%)',p=>p.plan_ratio??'',p=>p.plan_ratio??0,1],['목적',p=>`<div class="note">${esc(p.purpose_text||'')}</div>`,p=>p.purpose_text||''],['',p=>dartLink(p.rcept_no),p=>0]
+  ], P, ST.plan);
+}
+
+function bars(){
+  $('#bar').innerHTML = segHTML('days',[[7,'7일'],[30,'30일'],[90,'90일'],[0,'전체']],S.days)
+    + segHTML('dir',[['buy','매수'],['sell','매도'],['all','전체']],S.dir)
+    + segHTML('view',[['corp','종목별'],['person','종목·보고자별'],['row','일별']],S.view)
+    + `<input type="search" id="q" placeholder="종목·종목코드·이름" value="${esc(S.q)}">`;
+  $('#bar2').innerHTML = `<span class="lbl">보고자</span>` + GROUPS.map(g=>`<span class="chip ${S.groups.has(g)?'on':''}" data-g="${g}">${g}</span>`).join('')
+    + marketSelect(S.market)
+    + `<span class="lbl">최소 금액</span><input type="number" id="minEok" min="0" step="0.5" value="${S.minEok||''}" placeholder="억원">`
+    + `<span class="lbl">최소 지분 변동</span><input type="number" id="minPct" min="0" step="0.05" value="${S.minPct||''}" placeholder="%p">`
+    + `<label class="toggle"><input type="checkbox" id="noLate" ${S.noLate?'checked':''}>늦은 보고(30일+) 제외</label>`;
+  bindSeg('days', v=>{S.days=+v; go();}); bindSeg('dir', v=>{S.dir=v; go();}); bindSeg('view', v=>{S.view=v; go();});
+  $('#q').oninput = e=>{S.q=e.target.value; draw();};
+  $$('[data-g]').forEach(e=>e.onclick=()=>{ const g=e.dataset.g; S.groups.has(g)?S.groups.delete(g):S.groups.add(g); go(); });
+  $('#mk').onchange = e=>{S.market=e.target.value; go();};
+  $('#minEok').oninput = e=>{S.minEok=+e.target.value||0; save(); draw();};
+  $('#minPct').oninput = e=>{S.minPct=+e.target.value||0; save(); draw();};
+  $('#noLate').onchange = e=>{S.noLate=e.target.checked; go();};
+}
+
+function draw(){
+  const rows = base(); cards(rows); plans();
+  const R = rows.filter(dirOk);
+  const big = (amt,pct) => Math.abs(amt||0) >= S.minEok*1e8 && Math.abs(pct||0) >= S.minPct;
+  const el = $('#table');
+  if(S.view==='corp'){
+    ST.corp.defSort = S.dir==='sell' ? 6 : 5;
+    const C = byCorp(R).filter(c=>big(S.dir==='sell'?c.sell:c.buy+c.sell, S.dir==='sell'?c.pctS:c.pctB+c.pctS));
+    renderTable(el, [
+      ['종목',corpCell,c=>c.corp_name],['산업',secCell,secKey],
+      ['내부자 수',c=>`${c.nB?`<span class="pos">매수 ${c.nB}</span>`:''}${c.nB&&c.nS?' · ':''}${c.nS?`<span class="neg">매도 ${c.nS}</span>`:''}`,c=>c.nB*100+c.nS,1],
+      ['보고자 구분',c=>`<span class="rel">${c.grpTxt}</span>`,c=>c.grpTxt],
+      ['주요 보고자',c=>`<div class="who">${esc(c.top)}</div>`,c=>c.top],
+      ['매수(억원)',c=>c.buy?`<span class="pos">${eok(c.buy)}</span>`:'',c=>c.buy,1],
+      ['매도(억원)',c=>c.sell?`<span class="neg">${eok(c.sell)}</span>`:'',c=>c.sell,1],
+      ['지분 변동(%p)',c=>pctTxt(c.pctB+c.pctS),c=>Math.abs(c.pctB+c.pctS),1],
+      ['건수',c=>fmt(c.n),c=>c.n,1],
+      ['변동 기간',c=>`${c.first} ~ ${c.last}`,c=>c.last],['최근 공시',c=>c.rcept_dt+(c.loan?'<span class="badge loan">차입</span>':''),c=>c.rcept_dt],
+    ], C, ST.corp, c=>{ S.q=c.stock_code; S.view='person'; go(); });
+  } else if(S.view==='person'){
+    renderTable(el, [
+      ['종목',corpCell,a=>a.corp_name],['산업',secCell,secKey],['보고자',whoCell,a=>a.person],['구분',a=>esc(a.holder_group||''),a=>a.holder_group],
+      ['유형',a=>[...a.kinds].map(k=>`<span class="tag t-${a.direction}">${esc(k)}</span>`).join(' '),a=>a.direction],
+      ['건수',a=>fmt(a.n),a=>a.n,1],['수량(주)',a=>`<span class="${a.qty>0?'pos':'neg'}">${a.qty>0?'+':''}${fmt(a.qty)}</span>`,a=>Math.abs(a.qty),1],
+      ['평균 단가',a=>a.qty&&a.amount?fmt(Math.round(a.amount/Math.abs(a.qty))):'',a=>a.qty?a.amount/Math.abs(a.qty):0,1],
+      ['금액(억원)',a=>eok(a.amount),a=>a.amount,1],['지분 변동(%p)',a=>pctTxt(a.pct,a.qty>0),a=>Math.abs(a.pct),1],['지분율(%)',a=>pctAfter(a.pct_after),a=>a.pct_after??-1,1],
+      ['변동 기간',a=>`${a.first} ~ ${a.last}`,a=>a.last],['자금',a=>loanBadge(a.loan),a=>a.loan||0],['최근 공시',a=>`${a.rcept_dt} ${dartLink(a.rcept_no)}`,a=>a.rcept_dt],
+    ], byPerson(R).filter(a=>big(a.amount,a.pct)), ST.person);
+  } else {
+    renderTable(el, [
+      ['공시일',r=>r.rcept_dt,r=>r.rcept_dt+r.rcept_no],['변동일',dateCell,r=>r.date||''],['종목',corpCell,r=>r.corp_name],['산업',secCell,secKey],
+      ['보고자',whoCell,r=>r.person],['구분',r=>esc(r.holder_group||''),r=>r.holder_group],['유형',r=>`<span class="tag t-${r.direction}">${esc(r.kind)}</span>`,r=>r.kind],
+      ['건수',r=>fmt(r.n),r=>r.n,1],['수량(주)',r=>`<span class="${r.qty_change>0?'pos':'neg'}">${r.qty_change>0?'+':''}${fmt(r.qty_change)}</span>`,r=>Math.abs(r.qty_change||0),1],
+      ['평균 단가',r=>r.amount&&r.qty_change?fmt(Math.round(r.amount/Math.abs(r.qty_change))):'',r=>r.amount&&r.qty_change?r.amount/Math.abs(r.qty_change):0,1],
+      ['금액(억원)',r=>eok(r.amount),r=>r.amount||0,1],
+      ['지분 변동(%p)',r=>pctTxt(r.pct_chg,r.qty_change>0),r=>Math.abs(r.pct_chg||0),1],['지분율(%)',r=>pctAfter(r.pct_after),r=>r.pct_after??-1,1],
+      ['자금',r=>loanBadge(r.loan),r=>r.loan||0],['',r=>dartLink(r.rcept_no),r=>0],
+    ], R.filter(r=>big(r.amount,r.pct_chg)), ST.row);
+  }
+}
+function go(){ save(); bars(); draw(); }
+go();
+</script>
+</body>
+</html>

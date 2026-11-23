@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>대량보유</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="common.css">
+<style>
+.t-new{background:#e6f4ea;color:#2b8a3e}.t-exit{background:var(--chip);color:var(--sub)}
+.t-ctl{background:#fff1e0;color:var(--warn)}.t-chg{background:#efe9fd;color:var(--gift)}
+</style>
+</head>
+<body>
+<header><h1>대량보유 <span class="meta">외부 투자자 5% 보고</span></h1><span class="meta" id="meta"></span><span id="nav"></span></header>
+<main>
+  <div class="funnel" id="cards"></div>
+  <div class="bar" id="bar"></div>
+  <div class="bar" id="bar2"></div>
+  <div class="wrap" id="table"></div>
+</main>
+<script src="data/bulk.js"></script>
+<script src="common.js"></script>
+<script>
+const KEY='insider-bulk';
+const FLAGS = [['신규','신규 5% 진입','t-new'],['이탈','5% 이탈','t-exit'],['목적변경','보유목적 변경','t-chg'],['경영권','경영권 영향','t-ctl']];
+const TYPES = ['금융기관','국내법인','외국','개인','기타'];
+const S = loadState(KEY, {days:30, flags:[], dir:'all', types:TYPES.slice(), simple:true, market:'', minPct:0, view:'filing', q:''});
+S.flags = new Set(S.flags); S.types = new Set(S.types);
+const ST = {filing:{}, filer:{defSort:2}, corp:{defSort:3}};
+const save = () => saveState(KEY, S, ['days','flags','dir','types','simple','market','minPct','view']);
+$('#nav').outerHTML = nav('bulk.html');
+$('#meta').textContent = metaText();
+
+const typeOf = t => !t ? '기타' : t.includes('금융') ? '금융기관' : t.includes('외국') ? '외국' : t.includes('개인') ? '개인' : t.includes('법인') ? '국내법인' : '기타';
+const I = Object.fromEntries(B.cols.map((c,k)=>[c,k]));
+const ALL = B.rows.map(a => withCorp({stock_code:a[I.code], rcept_dt:a[I.rdt], rcept_no:a[I.rno], form:a[I.form], filer:a[I.filer],
+  rtype:a[I.rtype], tgroup:typeOf(a[I.rtype]), purpose:a[I.purpose], rkind:a[I.rkind], before:a[I.before], after:a[I.after],
+  chg: a[I.after]!=null ? +(a[I.after]-(a[I.before]??((a[I.flags]||[]).includes('신규')?0:a[I.after]))).toFixed(2) : null,
+  buy:a[I.buy], sell:a[I.sell], n:a[I.n], first:a[I.first], last:a[I.last], method:a[I.method], reason:a[I.reason], flags:a[I.flags]||[]}, B.corps));
+
+function base(){
+  const from = S.days ? daysAgo(S.days) : '';
+  return ALL.filter(r => (!from || r.rcept_dt>=from) && (S.simple || r.form!=='약식') && S.types.has(r.tgroup)
+    && (!S.market || r.market===S.market)
+    && (!S.flags.size || r.flags.some(f=>S.flags.has(f)))
+    && (S.dir==='all' || (S.dir==='up' ? (r.chg||0)>0 : (r.chg||0)<0))
+    && Math.abs(r.chg||0) >= S.minPct
+    && (!S.q || [r.corp_name,r.stock_code,r.filer].join(' ').toLowerCase().includes(S.q.toLowerCase())));
+}
+const flagTags = r => r.flags.map(f=>{ const x=FLAGS.find(y=>y[0]===f); return `<span class="tag ${x[2]}">${x[1]}</span>`; }).join(' ');
+const pctCell = v => v==null ? '' : Number(v).toFixed(2);
+
+function cards(R){
+  const cnt = f => R.filter(r=>r.flags.includes(f)).length;
+  $('#cards').innerHTML = cardsHTML([
+    ['보고 건수', R.length, `${new Set(R.map(r=>r.stock_code)).size}개 종목 · ${new Set(R.map(r=>r.filer)).size}개 보고자`],
+    ['신규 5% 진입', cnt('신규'), '새로 5%를 넘긴 보고'],
+    ['5% 이탈', cnt('이탈'), '5% 아래로 내려간 보고'],
+    ['경영권 영향 목적', cnt('경영권'), `그중 보유목적 변경 ${cnt('목적변경')}건`],
+  ]);
+}
+
+function bars(){
+  $('#bar').innerHTML = segHTML('days',[[7,'7일'],[30,'30일'],[90,'90일'],[0,'전체']],S.days)
+    + segHTML('dir',[['all','전체'],['up','증가'],['down','감소']],S.dir)
+    + segHTML('view',[['filing','공시별'],['filer','보고자별'],['corp','종목별']],S.view)
+    + `<input type="search" id="q" placeholder="종목·보고자" value="${esc(S.q)}">`;
+  $('#bar2').innerHTML = `<span class="lbl">이벤트</span>` + FLAGS.map(([k,l])=>`<span class="chip ${S.flags.has(k)?'on':''}" data-f="${k}">${l}</span>`).join('')
+    + `<span class="lbl">보고자</span>` + TYPES.map(t=>`<span class="chip ${S.types.has(t)?'on':''}" data-t="${t}">${t}</span>`).join('')
+    + marketSelect(S.market)
+    + `<span class="lbl">최소 변동</span><input type="number" id="minPct" min="0" step="0.1" value="${S.minPct||''}" placeholder="%p">`
+    + `<label class="toggle"><input type="checkbox" id="simple" ${S.simple?'checked':''}>약식(단순·일반투자) 포함</label>`;
+  bindSeg('days', v=>{S.days=+v; go();}); bindSeg('dir', v=>{S.dir=v; go();}); bindSeg('view', v=>{S.view=v; go();});
+  $('#q').oninput = e=>{S.q=e.target.value; draw();};
+  $$('[data-f]').forEach(e=>e.onclick=()=>{ const f=e.dataset.f; S.flags.has(f)?S.flags.delete(f):S.flags.add(f); go(); });
+  $$('[data-t]').forEach(e=>e.onclick=()=>{ const t=e.dataset.t; S.types.has(t)?S.types.delete(t):S.types.add(t); go(); });
+  $('#mk').onchange = e=>{S.market=e.target.value; go();};
+  $('#minPct').oninput = e=>{S.minPct=+e.target.value||0; save(); draw();};
+  $('#simple').onchange = e=>{S.simple=e.target.checked; go();};
+}
+
+function draw(){
+  const R = base(); cards(R);
+  const el = $('#table');
+  if(S.view==='filing'){
+    renderTable(el, [
+      ['공시일',r=>r.rcept_dt,r=>r.rcept_dt+r.rcept_no],['종목',corpCell,r=>r.corp_name],['산업',secCell,secKey],
+      ['보고자',r=>`<div class="who">${esc(r.filer||'')}<div class="rel">${esc(r.rtype||'')} · ${r.form}</div></div>`,r=>r.filer],
+      ['보유목적',r=>esc(r.purpose||''),r=>r.purpose||''],['보고 구분',r=>esc(r.rkind||''),r=>r.rkind||''],
+      ['이벤트',flagTags,r=>r.flags.join()],
+      ['전(%)',r=>pctCell(r.before),r=>r.before??-1,1],['후(%)',r=>pctCell(r.after),r=>r.after??-1,1],
+      ['변동(%p)',r=>r.chg?pctTxt(r.chg):'',r=>Math.abs(r.chg||0),1],
+      ['매수(주)',r=>r.buy?`<span class="pos">+${fmt(r.buy)}</span>`:'',r=>r.buy||0,1],['매도(주)',r=>r.sell?`<span class="neg">-${fmt(r.sell)}</span>`:'',r=>r.sell||0,1],
+      ['변동 기간',r=>r.first?`${r.first} ~ ${r.last}`:'',r=>r.last||''],
+      ['사유',r=>`<div class="note clamp" title="${esc(r.reason||'')}">${esc(r.method?r.method+' · ':'')}${esc(r.reason||'')}</div>`,r=>r.reason||''],
+      ['',r=>dartLink(r.rcept_no),r=>0],
+    ], R, ST.filing);
+  } else if(S.view==='filer'){
+    const m = new Map();
+    for(const r of R){ const a = m.get(r.filer) || {filer:r.filer, rtype:r.rtype, n:0, up:new Set(), down:new Set(), news:new Set(), exits:new Set(), ctl:0, last:r.rcept_dt, codes:new Map()};
+      a.n++; const nm=r.corp_name;
+      if((r.chg||0)>0) a.up.add(nm); if((r.chg||0)<0) a.down.add(nm);
+      if(r.flags.includes('신규')) a.news.add(nm); if(r.flags.includes('이탈')) a.exits.add(nm); if(r.flags.includes('경영권')) a.ctl++;
+      if(r.rcept_dt>a.last) a.last=r.rcept_dt; m.set(r.filer,a); }
+    renderTable(el, [
+      ['보고자',a=>`<div class="who">${esc(a.filer||'')}<div class="rel">${esc(a.rtype||'')}</div></div>`,a=>a.filer],
+      ['보고 건수',a=>fmt(a.n),a=>a.n,1],['늘린 종목',a=>fmt(a.up.size),a=>a.up.size,1],['줄인 종목',a=>fmt(a.down.size),a=>a.down.size,1],
+      ['신규 진입',a=>`<div class="who">${esc([...a.news].join(', '))}</div>`,a=>a.news.size],
+      ['이탈',a=>`<div class="who">${esc([...a.exits].join(', '))}</div>`,a=>a.exits.size],
+      ['늘린 종목 목록',a=>`<div class="note clamp">${esc([...a.up].join(', '))}</div>`,a=>a.up.size],
+      ['경영권 영향 보고',a=>a.ctl?fmt(a.ctl):'',a=>a.ctl,1],['최근 공시',a=>a.last,a=>a.last],
+    ], [...m.values()], ST.filer, a=>{ S.q=a.filer; S.view='filing'; go(); });
+  } else {
+    const m = new Map();
+    for(const r of R){ const a = m.get(r.stock_code) || {...r, n:0, filers:new Set(), net:0, flagSet:new Set(), last:r.rcept_dt};
+      a.n++; a.filers.add(r.filer); a.net += r.chg||0; r.flags.forEach(f=>a.flagSet.add(f)); if(r.rcept_dt>a.last) a.last=r.rcept_dt; m.set(r.stock_code,a); }
+    renderTable(el, [
+      ['종목',corpCell,a=>a.corp_name],['산업',secCell,secKey],['보고자 수',a=>fmt(a.filers.size),a=>a.filers.size,1],['보고 건수',a=>fmt(a.n),a=>a.n,1],
+      ['보고자',a=>`<div class="note clamp">${esc([...a.filers].join(', '))}</div>`,a=>a.filers.size],
+      ['변동 합계(%p)',a=>a.net?pctTxt(a.net):'',a=>Math.abs(a.net),1],
+      ['이벤트',a=>flagTags({flags:[...a.flagSet]}),a=>a.flagSet.size],['최근 공시',a=>a.last,a=>a.last],
+    ], [...m.values()], ST.corp, a=>{ S.q=a.stock_code; S.view='filing'; go(); });
+  }
+}
+function go(){ save(); bars(); draw(); }
+go();
+</script>
+</body>
+</html>
