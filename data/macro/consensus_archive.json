@@ -34,14 +34,14 @@
   "source": "ForexFactory"
  },
  "2026-11-25|US_CLAIMS.icsa": {
-  "captured": "2026-11-24T07:06:33+00:00",
+  "captured": "2026-11-24T23:28:46+00:00",
   "forecast": 201000.0,
   "previous": "203K",
   "raw": "201K",
   "source": "ForexFactory"
  },
  "2026-11-25|US_PCE.core_mom": {
-  "captured": "2026-11-24T07:06:33+00:00",
+  "captured": "2026-11-24T23:28:46+00:00",
   "forecast": 0.3,
   "previous": "0.3%",
   "raw": "0.3%",
