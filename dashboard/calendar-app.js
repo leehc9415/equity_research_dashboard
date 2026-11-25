@@ -1,4 +1,8 @@
-import {preferredCalendarEvents,calendarDayGroups,useReportedBasis,hasBasisDifference,financialHistory,consensusComparison} from './calendar-events.mjs?v=20261103-quarter';
+import {preferredCalendarEvents,calendarDayGroups,useReportedBasis,hasBasisDifference,financialHistory,consensusComparison} from './calendar-events.mjs?v=20261126-report';
+import {renderSummary} from './earnings-summary.js?v=20261126-ime';
+let sectorsPromise;
+const loadQuarterly=()=>fetch('data/quarterly-results.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null);
+const loadSectors=()=>sectorsPromise??=fetch('data/stockeasy-sectors.json').then(r=>r.ok?r.json():{}).then(d=>d.sectors||{}).catch(()=>({}));
 let cachedData;
 let dataPromise;
 let remembered;
@@ -54,15 +58,15 @@ export async function mountCalendar(container,options={}){
   activeContainer=container;
   if(!options.preserveView)container.innerHTML='<div class="loading">공시 캘린더를 불러오는 중입니다…</div>';
   try{
-    const dataset=options.data||await loadCalendar();
+    const [dataset,sectors,quarterly]=await Promise.all([options.data||loadCalendar(),loadSectors(),loadQuarterly()]);
     if(!calendarActive(container))return;
-    container.innerHTML='<div class="calendar-page-head"><div class="eyebrow">EVENT CALENDAR</div><h1>캘린더</h1><p>기업 실적 발표와 IR 일정을 확인합니다.</p><div class="calendar-status"></div></div>'+"<div id=\"dart-calendar-sample\" aria-label=\"투자 대시보드 일정 캘린더 샘플\">\n<div class=\"dc-header\">\n    <div class=\"dc-month-control\"><button type=\"button\" class=\"dc-arrow\" data-action=\"prev\" aria-label=\"이전 달\">‹</button><button type=\"button\" class=\"dc-today-button\" data-action=\"today\">오늘</button></div>\n    <div class=\"dc-heading\"><div class=\"dc-month\"></div><div class=\"dc-total\" aria-live=\"polite\"></div></div>\n    <div class=\"dc-month-control\"><button type=\"button\" class=\"dc-arrow\" data-action=\"next\" aria-label=\"다음 달\">›</button></div>\n  </div>\n  <div class=\"dc-toolbar\">\n    <div class=\"dc-tabs\" role=\"tablist\" aria-label=\"일정 종류\">\n      <button type=\"button\" id=\"dc-earnings-tab\" class=\"dc-tab\" role=\"tab\" aria-selected=\"true\" aria-controls=\"dc-content\" data-tab=\"earnings\">실적발표</button>\n      <button type=\"button\" id=\"dc-ir-tab\" class=\"dc-tab\" role=\"tab\" aria-selected=\"false\" aria-controls=\"dc-content\" data-tab=\"ir\">IR일정</button>\n    </div>\n    <div class=\"dc-legend\"></div>\n  </div>\n  <div id=\"dc-content\" role=\"tabpanel\" aria-labelledby=\"dc-earnings-tab\">\n    <div class=\"dc-layout\">\n      <div class=\"dc-calendar\"><div class=\"dc-weekdays\" aria-hidden=\"true\"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class=\"dc-grid\" role=\"group\" aria-label=\"월간 일정 날짜 선택\"></div></div>\n      <aside class=\"dc-sidebar\" aria-label=\"선택한 날짜의 기업 목록\"><div class=\"dc-sidebar-header\"><span class=\"dc-selected-date\"><span class=\"dc-date-label\"></span></span><span class=\"dc-selected-count\"></span></div><div class=\"dc-details\" tabindex=\"0\" aria-label=\"선택한 날짜의 전체 일정, 스크롤하여 보기\" aria-live=\"polite\"></div></aside>\n    </div>\n  </div>\n  <div class=\"dc-footer\"><span>실제 공시 표본 · 과거 실적·컨센서스 Quantiwise</span><span>QoQ 전분기 · YoY 전년동기 · 엑셀 갱신 10/28 02:41</span></div>\n</div>\n";
+    container.innerHTML='<div class="calendar-page-head"><div class="eyebrow">EVENT CALENDAR</div><h1>캘린더</h1><p>기업 실적 발표와 IR 일정을 확인합니다.</p><div class="calendar-status"></div></div>'+"<div id=\"dart-calendar-sample\" aria-label=\"투자 대시보드 일정 캘린더 샘플\">\n<div class=\"dc-header\">\n    <div class=\"dc-month-control\"><button type=\"button\" class=\"dc-arrow\" data-action=\"prev\" aria-label=\"이전 달\">‹</button><button type=\"button\" class=\"dc-today-button\" data-action=\"today\">오늘</button></div>\n    <div class=\"dc-heading\"><div class=\"dc-month\"></div><div class=\"dc-total\" aria-live=\"polite\"></div></div>\n    <div class=\"dc-month-control\"><button type=\"button\" class=\"dc-arrow\" data-action=\"next\" aria-label=\"다음 달\">›</button></div>\n  </div>\n  <div class=\"dc-toolbar\">\n    <div class=\"dc-tabs\" role=\"tablist\" aria-label=\"일정 종류\">\n      <button type=\"button\" id=\"dc-earnings-tab\" class=\"dc-tab\" role=\"tab\" aria-selected=\"true\" aria-controls=\"dc-content\" data-tab=\"earnings\">실적발표</button>\n      <button type=\"button\" id=\"dc-ir-tab\" class=\"dc-tab\" role=\"tab\" aria-selected=\"false\" aria-controls=\"dc-content\" data-tab=\"ir\">IR일정</button>\n      <button type=\"button\" id=\"dc-summary-tab\" class=\"dc-tab\" role=\"tab\" aria-selected=\"false\" aria-controls=\"dc-content\" data-tab=\"summary\">실적 모아보기</button>\n    </div>\n    <div class=\"dc-legend\"></div>\n  </div>\n  <div id=\"dc-content\" role=\"tabpanel\" aria-labelledby=\"dc-earnings-tab\">\n    <div class=\"dc-summary\"></div>\n    <div class=\"dc-layout\">\n      <div class=\"dc-calendar\"><div class=\"dc-weekdays\" aria-hidden=\"true\"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class=\"dc-grid\" role=\"group\" aria-label=\"월간 일정 날짜 선택\"></div></div>\n      <aside class=\"dc-sidebar\" aria-label=\"선택한 날짜의 기업 목록\"><div class=\"dc-sidebar-header\"><span class=\"dc-selected-date\"><span class=\"dc-date-label\"></span></span><span class=\"dc-selected-count\"></span></div><div class=\"dc-details\" tabindex=\"0\" aria-label=\"선택한 날짜의 전체 일정, 스크롤하여 보기\" aria-live=\"polite\"></div></aside>\n    </div>\n  </div>\n  <div class=\"dc-footer\"><span>실제 공시 표본 · 과거 실적·컨센서스 Quantiwise</span><span>QoQ 전분기 · YoY 전년동기 · 엑셀 갱신 10/28 02:41</span></div>\n</div>\n";
     updateCalendarStatus(container,dataset);
-    initializeCalendar(dataset);
+    initializeCalendar(dataset,sectors,quarterly);
     scheduleRefresh();
   }catch(error){if(!calendarActive(container))return;container.innerHTML='<div class="card card-pad"><h2>캘린더를 불러오지 못했습니다</h2><p>잠시 후 다시 시도해 주세요.</p><button id="calendar-retry">다시 시도</button></div>';container.querySelector('#calendar-retry').onclick=()=>mountCalendar(container);}
 }
-function initializeCalendar(dataset){
+function initializeCalendar(dataset,sectors,quarterly){
 
   const root=document.getElementById('dart-calendar-sample');
   const events=preferredCalendarEvents(dataset.events);
@@ -132,7 +136,9 @@ function initializeCalendar(dataset){
     root.querySelector('[data-action="prev"]').disabled=state.month===firstMonth;
     root.querySelector('[data-action="next"]').disabled=state.month===lastMonth;
     root.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===state.tab)));
-    root.querySelector('#dc-content').setAttribute('aria-labelledby',state.tab==='earnings'?'dc-earnings-tab':'dc-ir-tab');
+    root.querySelector('#dc-content').setAttribute('aria-labelledby',`dc-${state.tab}-tab`);
+    root.classList.toggle('dc-summary-mode',state.tab==='summary');
+    if(state.tab==='summary'){root.querySelector('.dc-legend').innerHTML='';renderSummary(root.querySelector('.dc-summary'),quarterly,sectors,{amount,esc});return;}
     root.querySelector('.dc-legend').innerHTML=state.tab==='ir'?'<span class="dc-key"><span class="dc-dot ir"></span>IR 일정</span>':'<span class="dc-key"><span class="dc-dot"></span>발표 예정</span><span class="dc-key"><span class="dc-dot published"></span>공시 발표</span>';
     const first=new Date(year,month-1,1,12);const count=new Date(year,month,0).getDate();const cells=Math.ceil((first.getDay()+count)/7)*7;
     root.style.setProperty('--dc-week-rows',cells/7);
@@ -192,6 +198,6 @@ function initializeCalendar(dataset){
     }
   });
   root.addEventListener('change',event=>{if(event.target.matches('.dc-sort')){state.sort=event.target.value;draw();persist();}});
-  root.querySelector('.dc-tabs').addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();state.tab=event.key==='Home'?'earnings':event.key==='End'?'ir':state.tab==='ir'?'earnings':'ir';draw();root.querySelector(`[data-tab="${state.tab}"]`).focus();persist();}});
+  root.querySelector('.dc-tabs').addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const tabs=['earnings','ir','summary'],i=tabs.indexOf(state.tab);state.tab=event.key==='Home'?tabs[0]:event.key==='End'?tabs[2]:tabs[(i+(event.key==='ArrowLeft'?2:1))%3];draw();root.querySelector(`[data-tab="${state.tab}"]`).focus();persist();}});
   draw();
 }

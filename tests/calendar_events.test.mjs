@@ -96,3 +96,27 @@ test('cumulative periods and unclassified notices remain visible',()=>{
  const cumulative=release({financials:{period:'2026.01~09'}}),unknown=release({financials:{}});
  assert.equal(preferredCalendarEvents([cumulative,unknown]).length,2);
 });
+
+import {reportRows,growth} from '../dashboard/calendar-events.mjs';
+test('growth labels sign flips instead of percentages',()=>{
+  assert.equal(growth(110,100).rate,10);
+  assert.equal(growth(5,-10).label,'흑자전환');
+  assert.equal(growth(-5,10).label,'적자전환');
+  assert.equal(growth(-5,-10).label,'적자지속');
+  assert.equal(growth(5,0).rate,null);
+  assert.equal(growth(null,10).rate,null);
+});
+test('reportRows joins consensus, growth and stockeasy sector',()=>{
+  const [a,b]=reportRows({companies:[
+    {stock:'005930',company:'A',basis:'연결',receipt:'20261114000123',filed:'2026-11-14',marketCap:10,
+     metrics:{operatingProfit:{value:110,priorYear:100,previous:-10}},consensus:{operatingProfit:80}},
+    {stock:'000660',company:'B',basis:'별도',metrics:{},consensus:null},
+  ]},{'005930':['반도체','메모리']});
+  assert.deepEqual([a.sector,a.subSector],['반도체','메모리']);
+  assert.equal(a.operatingProfit.vs.text,'+37.5%');
+  assert.equal(a.operatingProfit.yoy,10);
+  assert.equal(a.operatingProfit.qoqLabel,'흑자전환');
+  assert.match(a.url,/rcpNo=20261114000123$/);
+  assert.equal(b.operatingProfit.vs,null);
+  assert.equal(b.sector,'미분류');
+});
