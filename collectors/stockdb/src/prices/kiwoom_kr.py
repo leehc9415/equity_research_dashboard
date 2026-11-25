@@ -243,14 +243,17 @@ AUCTION_EXT = 4   # 종가 단일가 연장(종가 VI 등)으로 체결이 늦�
 def session_close(ref: pd.DataFrame) -> dict[str, str]:
     """날짜별 정규장 마감 시각(HHMM, 보통 1530·수능일 1630). 종가 단일가 직전 10분은 체결이 없으므로
     '15:30 이후 처음으로 직전 체결과 5~15분 떨어진 봉'(보통 15:19→15:30). 기준 종목의 종가 단일가가
-    연장돼 15:31~15:34 에 체결된 날도 정시(…30)로 맞춘다."""
+    연장돼 15:31~15:34 에 체결된 날도 정시(…30)로 맞춘다. 종가 단일가가 아직 없는 날(장중 실행,
+    수능일 15:40 실행 등)은 결과에서 빠진다 → 그날 정규장 일봉은 다음 실행에서 받는다."""
     out = {}
     for d, g in ref.groupby("date"):
         g = g.sort_values("hm")
         mins = g["hm"].str[:2].astype(int) * 60 + g["hm"].str[2:].astype(int)
         gap = mins.diff()
         hit = g[(g["hm"] >= "1530") & gap.between(5, 15)]
-        hm = hit["hm"].iloc[0] if len(hit) else "1530"
+        if hit.empty:
+            continue
+        hm = hit["hm"].iloc[0]
         out[d] = hm[:2] + "30" if "30" <= hm[2:] <= f"{30 + AUCTION_EXT}" else hm
     return out
 
@@ -289,9 +292,10 @@ def upsert(con, df: pd.DataFrame) -> int:
 
 def today_cutoff(venue: str) -> str:
     """오늘 봉 확정 시각(KST) 이후면 오늘, 아니면 어제를 base_dt 로.
-    KRX 18:10: 거래량·거래대금이 시간외 단일가(~18:00)까지 포함돼야 KRX 일봉과 같다. AL 20:10: NXT 애프터마켓 종료."""
+    KRX·REG 15:35: 정규장 종가 확정(종가 단일가 연장 ~15:34) 뒤. 이때 받은 KRX 일봉은 임시값이고
+    20:15 실행이 다시 받아 덮어쓴다(최근 7일 덮어쓰기). AL 20:10: NXT 애프터마켓 종료."""
     now = datetime.now(ZoneInfo(KST))
-    hm = (20, 10) if venue == "AL" else (18, 10)
+    hm = (20, 10) if venue == "AL" else (15, 35)
     d = now if (now.hour, now.minute) >= hm else now - timedelta(days=1)
     return d.strftime("%Y%m%d")
 
@@ -314,6 +318,7 @@ def run(con, codes: list[str] | None, venues: list[str], start: str, skip_done: 
         ref = fetch(api, REG_REF, "KRX", lo, base["REG"])
         reg_days = sorted(d.strftime("%Y%m%d") for d in ref["date"] if str(d) >= lo)
         closes = session_close(minutes_for(api, REG_REF, reg_days))
+        reg_days = [d for d in reg_days if d in closes]   # 정규장 일봉은 한 번 받으면 다시 받지 않으므로 마감이 확인된 날만
         # 정규장 일봉은 그날 종가 단일가에 확정 → 이미 받은 날은 다시 받지 않는다
         reg_have = {(r[0], r[1].strftime("%Y%m%d")) for r in con.execute(
             "SELECT symbol_id, date FROM prices_kiwoom WHERE venue = 'REG' AND date >= ?", [lo]).fetchall()}
@@ -425,7 +430,8 @@ def sync_prices_daily(con) -> int:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("mode", choices=["backfill", "daily"])
-    ap.add_argument("--venue", choices=["krx", "al", "reg", "both"], default="both", help="both = KRX·AL·REG")
+    ap.add_argument("--venue", choices=["krx", "al", "reg", "close", "both"], default="both",
+                    help="both = KRX·AL·REG, close = KRX·REG (15:40 실행: 정규장 종가)")
     ap.add_argument("--start", default="2019-01-01", help="backfill 시작일")
     ap.add_argument("--days", type=int, default=7, help="daily: 최근 N일(달력) 덮어쓰기")
     ap.add_argument("--part", default="1/1", help="i/n 으로 나눠 실행")
@@ -438,7 +444,7 @@ def main():
     # zfill: PowerShell 이 005930,000660 을 숫자 배열로 넘겨 앞자리 0이 사라지는 경우 복원
     codes = [c.strip().zfill(6) for c in a.codes.split(",")] if a.codes else None
     part = tuple(map(int, a.part.split("/")))
-    venues = {"krx": ["KRX"], "al": ["AL"], "reg": ["REG"], "both": ["KRX", "AL", "REG"]}[a.venue]
+    venues = {"krx": ["KRX"], "al": ["AL"], "reg": ["REG"], "close": ["KRX", "REG"], "both": ["KRX", "AL", "REG"]}[a.venue]
     if a.mode == "backfill":
         run(con, codes, venues, a.start, skip_done=not a.force, job="kiwoom_backfill", part=part)
     else:

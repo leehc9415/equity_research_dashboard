@@ -50,7 +50,8 @@ python cloud_update.py --region all
 | `KRX` | 키움 일봉. 2026-09-14부터 15:30 이후 체결(~20:00)이 섞인 마지막 체결가 | 기록만 (수정비율 `upd_rt` 은 여기서 씀) |
 | `AL` | KRX+NXT 통합(SOR) 일봉 | 기록만 |
 
-- PC: `run_daily.bat` (예약 작업 `stockDB_daily`, 평일 20:15, 절전 중이면 깨움 — `setup_task.ps1` 로 등록). 데이터는 `STOCKDB_DATA`(기본 `Documents\stockDB\data`), 필요 환경변수 `KIWOOM_APPKEY`·`KIWOOM_SECRETKEY`·`GH_TOKEN`.
+- PC: `run_daily.bat close` (예약 작업 `stockDB_close`, 평일 15:40: 정규장 일봉 + 임시 키움 일봉)와
+  `run_daily.bat` (`stockDB_daily`, 평일 20:15: 시간외·NXT 포함 키움 일봉 확정본). 절전 중이면 깨우고, 놓치면 켜진 뒤 실행 — `setup_task.ps1` 로 등록. 데이터는 `STOCKDB_DATA`(기본 `Documents\stockDB\data`), 필요 환경변수 `KIWOOM_APPKEY`·`KIWOOM_SECRETKEY`·`GH_TOKEN`.
   수집 후 `cloud_state.py push-kiwoom` 이 키움 테이블만 `market-data-state` 릴리스에 `kiwoom-state-*.zip` 으로 올린다.
-- 클라우드: `update-market-dashboard.yml` 한국 슬롯(21:07·22:07·23:07)이 최신 `kiwoom-state` 를 받아 동기화하고, 최근 거래일 정규장 일봉이 없으면 실패한다(PC 수집 확인).
+- 클라우드: `update-market-dashboard.yml` 한국 슬롯(16:37·17:07·17:37, 예비 21:07·22:07)이 최신 `kiwoom-state` 를 받아 동기화하고, 최근 거래일 정규장 일봉이 없으면 실패한다(PC 수집 확인).
 - 정규장 일봉 백필: `python -m src.prices.kiwoom_kr backfill --venue reg --start 2026-09-14` (이미 받은 날은 건너뜀).

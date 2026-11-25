@@ -115,6 +115,8 @@ def test_session_close_and_regular_bars():
     m = parse_minutes(MIN)
     closes = session_close(m)
     assert closes == {"20261117": "1530", "20261119": "1630"}
+    still_open = parse_minutes([r for r in MIN if r["cntr_tm"][:8] == "20261119" and r["cntr_tm"][8:12] <= "1531"])
+    assert session_close(still_open) == {}                          # 수능일 15:40 실행: 아직 마감 전 → 저장 안 함
     r = regular_bars(m, "005930", closes).set_index("date")
     a, b = r.iloc[0], r.iloc[1]
     assert (a.open, a.high, a.low, a.close, a.volume) == (191400, 195900, 190100, 190300, 2000)   # 15:35 이후 제외
