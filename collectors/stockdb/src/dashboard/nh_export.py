@@ -10,14 +10,14 @@
   후보 단계     고가까지 = 1 − 종가 / 직전 P 고가
                 임박 ≤ 3% / 근접 3~7% / 관찰 7~12%   (마지막 날만)
   제외          거래량 0(거래정지)인 날은 판정하지 않음
-  태그          21년 이후 최고 = 종가 ≥ DB 전체 기간(2021-01~) 최고 종가, 이력 3년 이상
+  태그          19년 이후 최고 = 종가 ≥ DB 전체 기간(2019-01~) 최고 종가, 이력 3년 이상
                 신규상장 = 52주 판정 시 이력 250일 미만(60일 이상만 판정)
 
 내보내는 것 (최근 60거래일)
   days    날짜 목록
   rows    (날짜, 종목) 별 스냅샷 — 신고가·터치(52주 또는 20일)였거나, 마지막 날 후보인 경우만
           [day, code, flags, close, chg%, value억, vratio, mcap억, rs, rs1m, dist52%, dist20%, pos52, atr%]
-          flags 비트: 1 신고가52 / 2 터치52 / 4 신고가20 / 8 터치20 / 16 21년이후최고 / 32 신규상장
+          flags 비트: 1 신고가52 / 2 터치52 / 4 신고가20 / 8 터치20 / 16 19년이후최고 / 32 신규상장
   stocks  종목 정보 {code: [name, market, 대분류, 중분류]}  (스탁이지 분류)
   spark   마지막 날 행이 있는 종목의 최근 60거래일 수정종가 + 직전 52주·20일 고가
   RS·섹터 화면과 같은 유니버스: 코스피·코스닥 보통주(스팩·우선주 제외). 시총·거래대금 하한은 화면에서.
@@ -33,14 +33,14 @@ CAND_MAX = 0.12
 SQL = """
 WITH cal AS (SELECT date FROM prices_daily WHERE symbol_id = 'KS11' ORDER BY date DESC LIMIT {days}),
 d0 AS (SELECT min(date) AS d, min(date) - INTERVAL 420 DAY AS dw FROM cal),
-pre AS (   -- 계산 창 이전 구간의 최고 종가·거래일 수 (21년 이후 최고 태그용)
+pre AS (   -- 계산 창 이전 구간의 최고 종가·거래일 수 (19년 이후 최고 태그용)
   SELECT p.symbol_id, max(p.close) AS pm, count(*) AS pn
   FROM v_prices_adj p JOIN v_rs_universe u USING (symbol_id), d0
-  WHERE p.date < d0.dw AND p.close > 0 AND p.source IN ('marcap', 'naver', 'naver_fix') GROUP BY 1),
+  WHERE p.date < d0.dw AND p.close > 0 AND p.source IN ('marcap', 'naver', 'naver_fix', 'kiwoom') GROUP BY 1),
 p AS (
   SELECT p.symbol_id, p.date, p.open, p.high, p.low, p.close, p.volume, p.value, p.mcap
   FROM v_prices_adj p JOIN v_rs_universe u USING (symbol_id), d0
-  WHERE p.date >= d0.dw AND p.close > 0 AND p.source IN ('marcap', 'naver', 'naver_fix')),
+  WHERE p.date >= d0.dw AND p.close > 0 AND p.source IN ('marcap', 'naver', 'naver_fix', 'kiwoom')),
 w AS (
   SELECT *,
     lag(close) OVER o AS c1,

@@ -6,10 +6,10 @@
 
 셋업 정의
   gap    거래량 동반 갭상승   시가 > 전일 고가 & 종가 ≥ 전일 종가 +3% & 거래량 ≥ 직전 50일 평균 × 2
-  lead   RS 선두              MTT 충족 & RS ≥ 85 & RS 1M ≥ 85 & 종가 ≥ 52주 고가 × 0.82
-                              (스탁이지 '강세 선두' 역산: 2일 18종목 전부 일치)
+  lead   RS 선두              MTT 충족 & RS ≥ 85 & RS 1M ≥ 85 & 종가 ≥ 52주 고가 × 0.80 & 시총 ≥ 2,000억 & 20일 평균 거래대금 ≥ 30억
+                              (스탁이지 '강세 선두' 누적 15일 157건 역산: 재현율 93%·정밀도 84%)
   trend  추세 시작            MTT 가격 조건(RS 조건 없음) & 종가 ≥ 52주 고가 × 0.8 & 종가 ≤ 52주 저가 × 2 & RS 1M ≥ 50
-                              (스탁이지 '추세 시작' 역산: 22종목 중 20개 일치), 52주 저점 대비 덜 오른 순
+                              & 시총 ≥ 300억 (스탁이지 '추세 시작' 역산), 52주 저점 대비 덜 오른 순
   vcp    VCP                  MTT 충족 & 최근 120일 고점 이후 '의미 있는' 수축(지그재그 임계 = 50일 평균 ATR%×2, 최소 4%) 2회 이상
                               & 첫 수축이 가장 깊고 10~40% & 마지막 2~4회 수축이 점점 얕아짐 & 마지막 수축 ≤ max(10%, ATR%×3)
                               & 10일 평균 거래량 < 50일 평균 × 0.8
@@ -20,8 +20,9 @@
                               핸들 = 피봇 이후, 깊이 ≤ 10%, 이후 고가 ≤ 피봇×1.05
                               컵 = 피봇 이전 스윙 고점(7~65주 전, 직전 20일 최고)을 왼쪽 고점으로, 바닥 조정 12~35%
                               회복률(현재가/왼쪽 고점) 95~115% · 핸들 저점이 컵 위쪽 절반 · 현재가가 피봇 −3% ~ +5%
-  htf    HTF 급등 깃발        최근 45거래일 고점이 그 전 저점 대비 +70% 이상 · 고점 이후 하락 ≤25% · 고점 2~25일 전 · 종가>50일선
-                              · 10일/60일 거래량 ≤1.1 · 5일/20일 고저폭 ≤1.25
+  htf    HTF 급등 깃발        최근 42거래일 고점이 그 전 저점 대비 +50% 이상 · 고점 이후 하락 ≤25% · 고점 0~19일 전 · 종가>50일선
+                              · 최근 10일 평균 거래량 / 그 전 50일 평균 ≤1.10 · 최근 10일 평균 고저폭(고가−저가)/종가 / 그 전 60일 평균 ≤1.26
+                              · RS ≥ 85 · 시총 ≥ 1,500억 (스탁이지 화면 지표와 같은 정의, 누적 31건 전부 일치)
   ipo    IPO 셋업             상장 후 250거래일 이내 & 종가가 첫날 시가 −10% 아래로 내려간 뒤 10거래일 이상 바닥을 다지고
                               아래에서 올라와 처음으로 첫날 시가의 95%에 도달한 날부터 5거래일 이내 & 현재 종가가 첫날 시가 95~110%
   weekv  주봉 거래량 급증 상승 최근 5거래일 거래량 ≥ 직전 50일의 5일 평균 × 2 & 최근 5거래일 수익률 ≥ +5%
@@ -38,13 +39,17 @@ DAYS = 20          # 판정하는 최근 거래일 수 (연속 일수 계산용)
 HIST = 420         # 지표 계산에 쓰는 과거 거래일 수
 SPARK = 60
 
+# 셋업별 유동성 기준 (시총 억, 직전 20일 평균 거래대금 억). 스탁이지 교차검증에서
+# '선 아래 종목을 스탁이지가 하나도 안 고른' 증거가 충분히 쌓인 셋업만 넣는다.
+LIQ = {"lead": (2000, 30), "trend": (300, 0), "htf": (1500, 0)}
+
 SETUPS = [
     ("gap", "거래량 동반 갭상승", "전일 고가 위로 갭을 띄우고 3% 이상 오르며 거래량이 50일 평균의 2배 이상"),
-    ("lead", "RS 선두", "추세 템플릿을 충족하며 RS·1개월 RS 모두 85 이상, 52주 고점 근처의 시장 주도주"),
-    ("trend", "추세 시작", "이동평균이 정배열로 막 바뀐 상승 2단계 초입, 52주 저점 대비 아직 덜 오른 종목"),
+    ("lead", "RS 선두", "추세 템플릿을 충족하며 RS·1개월 RS 모두 85 이상, 52주 고점 근처의 시장 주도주 (시총 2,000억·20일 평균 거래대금 30억 이상)"),
+    ("trend", "추세 시작", "이동평균이 정배열로 막 바뀐 상승 2단계 초입, 52주 저점 대비 아직 덜 오른 종목 (시총 300억 이상)"),
     ("vcp", "VCP", "고점 이후 조정 폭이 점점 줄며 거래량이 마르는 변동성 수축, 피봇 돌파 직전"),
     ("cup", "컵위드핸들", "U자로 왼쪽 고점을 회복한 뒤 핸들에서 낮아진 고점(포켓 피봇) 돌파를 노리는 자리"),
-    ("htf", "HTF 급등 깃발", "8주 안에 70% 넘게 급등한 뒤 고점 대비 25% 이내에서 조용히 숨 고르는 종목"),
+    ("htf", "HTF 급등 깃발", "8주 안에 50% 넘게 급등한 뒤 고점 대비 25% 이내에서 거래량·변동폭이 줄며 숨 고르는 종목 (RS 85·시총 1,500억 이상)"),
     ("ipo", "IPO 셋업", "상장 1년 이내, 첫날 시가 아래에서 바닥을 다진 뒤 처음으로 시가까지 올라온 종목"),
     ("weekv", "주봉 거래량 급증 상승", "최근 1주(5거래일) 거래량이 평소 2배 이상 터지며 5% 이상 상승"),
 ]
@@ -217,23 +222,26 @@ def _ipo(o0, c, lo, t):
 def _htf(h, l, c, v, t, ma50):
     """HTF 급등 깃발 (High Tight Flag) — 스탁이지 '8주 상승률·고점 대비·거래량 수축·고저폭 수축'과 같은 정의로 계산.
 
-    깃대: 최근 45거래일 최고가(고점) / 그 구간 시작~고점 사이 최저가 − 1 ≥ 70%
-    깃발: 고점 이후 최저가 기준 고점 대비 하락 ≤ 25%, 고점이 2~25거래일 전, 종가 > 50일선
-    수축: 10일 평균 거래량 / 60일 평균 ≤ 1.1, 5일 평균 고저폭 / 20일 평균 ≤ 1.25
-    (스탁이지 표본 3건 기준의 1차 기준 — 교차검증 누적으로 조정)
+    깃대: 최근 42거래일 최고가(고점) / 그 구간 시작~고점 사이 최저가 − 1 ≥ 50%
+    깃발: 고점 이후 최저가 기준 고점 대비 하락 ≤ 25%, 고점이 0~19거래일 전, 종가 > 50일선
+    수축: 최근 10일 평균 거래량 / 그 전 50일 평균 ≤ 1.10,
+          최근 10일 평균 (고가−저가)/종가 / 그 전 60일 평균 ≤ 1.26
+    (스탁이지 화면 수치와 대조해 정의 확정: 고저폭 오차 0.03, 거래량 0.02, 상승률 0.4%p — 2026-11-26)
+    RS ≥ 85 와 시총 1,500억은 build() 에서 건다.
     """
-    W = 45
-    if t < 60:
+    W = 42
+    if t < 70:
         return None
     ip = t - W + 1 + int(np.argmax(h[t - W + 1:t + 1]))
     pk, age = h[ip], t - ip
     up = pk / l[t - W + 1:ip + 1].min() - 1
     pull = 1 - l[ip:t + 1].min() / pk
-    v60 = v[t - 59:t + 1].mean()
+    vb = v[t - 59:t - 9].mean()
     rr = (h - l) / c
-    volc = v[t - 9:t + 1].mean() / v60 if v60 > 0 else np.nan
-    rngc = rr[t - 4:t + 1].mean() / rr[t - 19:t + 1].mean() if rr[t - 19:t + 1].mean() > 0 else np.nan
-    if not (up >= 0.70 and pull <= 0.25 and 2 <= age <= 25 and c[t] > ma50 and volc <= 1.1 and rngc <= 1.25):
+    rb = rr[t - 69:t - 9].mean()
+    volc = v[t - 9:t + 1].mean() / vb if vb > 0 else np.nan
+    rngc = rr[t - 9:t + 1].mean() / rb if rb > 0 else np.nan
+    if not (up >= 0.50 and pull <= 0.25 and 0 <= age <= 19 and c[t] > ma50 and volc <= 1.10 and rngc <= 1.26):
         return None
     return {"up": up * 100, "pull": pull * 100, "age": int(age), "volc": volc, "rngc": rngc, "peak": pk}
 
@@ -249,11 +257,11 @@ def build(con) -> dict:
         SELECT p.symbol_id code, p.date, p.open, p.high, p.low, p.close,
                CASE WHEN p.volume > 0 THEN p.volume / p.adj_factor ELSE 0 END AS vol, p.value, p.mcap
         FROM v_prices_adj p JOIN v_rs_universe u USING (symbol_id)
-        WHERE p.date >= ? AND p.close > 0 AND p.source IN ('marcap', 'naver', 'naver_fix')
+        WHERE p.date >= ? AND p.close > 0 AND p.source IN ('marcap', 'naver', 'naver_fix', 'kiwoom')
         ORDER BY 1, 2""", [d0]).df()
     px["date"] = pd.to_datetime(px["date"]).dt.date
     first = con.execute("""SELECT p.symbol_id code, min(p.date) d FROM prices_daily p JOIN v_rs_universe u USING (symbol_id)
-        WHERE p.source IN ('marcap', 'naver', 'naver_fix') GROUP BY 1""").df()
+        WHERE p.source IN ('marcap', 'naver', 'naver_fix', 'kiwoom') GROUP BY 1""").df()
     first = first.assign(d=pd.to_datetime(first["d"]).dt.date).set_index("code")["d"]
     db_start = first.min()
     days = sorted(pd.to_datetime(cal).dt.date)[-DAYS:]
@@ -273,7 +281,7 @@ def build(con) -> dict:
             continue
         ma50, ma150, ma200 = _ma(c, 50), _ma(c, 150), _ma(c, 200)
         h52, l52 = _roll(h, 250, "max"), _roll(l, 250, "min")
-        # 상장일이 DB 시작(2021-01) 이후이고 계산 창 안에 있어야 상장 후 경과일을 셀 수 있음
+        # 상장일이 DB 시작(2019-01) 이후이고 계산 창 안에 있어야 상장 후 경과일을 셀 수 있음
         listed_new = first.get(code) is not None and first[code] > db_start and first[code] == d[0]
         idx = {dd: i for i, dd in enumerate(d)}
         flags = {k: [] for k in hits}
@@ -290,17 +298,19 @@ def build(con) -> dict:
                       and c[t] >= 1.3 * l52[t] and c[t] >= 0.75 * h52[t])
             mtt = mtt_px and r_rs >= 70
             v50 = v[max(0, t - 50):t].mean() if t >= 20 else np.nan
+            mc_t = mc[t] / 1e8 if np.isfinite(mc[t]) else np.nan
+            v20_t = val[max(0, t - 20):t].mean() / 1e8 if t >= 1 else np.nan
             res = {}
             res["gap"] = (o[t] > h[t - 1] and c[t] >= c[t - 1] * 1.03 and v50 > 0 and v[t] >= 2 * v50) and \
                 {"gap": (o[t] / h[t - 1] - 1) * 100, "vx": v[t] / v50}
-            res["lead"] = (mtt and r_rs >= 85 and r_1m >= 85 and c[t] >= 0.82 * h52[t]) and {"gap52": (c[t] / h52[t] - 1) * 100}
+            res["lead"] = (mtt and r_rs >= 85 and r_1m >= 85 and c[t] >= 0.80 * h52[t]) and {"gap52": (c[t] / h52[t] - 1) * 100}
             res["trend"] = (mtt_px and c[t] >= 0.8 * h52[t] and c[t] <= 2 * l52[t] and r_1m >= 50) and \
                 {"gap52": (c[t] / h52[t] - 1) * 100, "upl": (c[t] / l52[t] - 1) * 100}
             vcp = _vcp(h, l, c, t) if mtt and t >= 60 and v[max(0, t - 9):t + 1].mean() < 0.8 * v50 else None
             res["vcp"] = vcp or False
             cup = _cup(h, l, c, t) if t >= 200 and r_rs >= 70 and c[t] > ma50[t] and c[t] > ma200[t] else None
             res["cup"] = cup or False
-            res["htf"] = _htf(h, l, c, v, t, ma50[t]) or False
+            res["htf"] = (_htf(h, l, c, v, t, ma50[t]) if r_rs >= 85 else None) or False
             res["ipo"] = (_ipo(o[0], c, l, t) if listed_new and t <= 250 else None) or False
             if t >= 55:
                 v5, base5 = v[t - 4:t + 1].sum(), v[t - 54:t - 4].sum() / 10
@@ -308,14 +318,16 @@ def build(con) -> dict:
                 res["weekv"] = (base5 > 0 and v5 >= 2 * base5 and r5 >= 0.05) and {"vx": v5 / base5, "r5": r5 * 100}
             else:
                 res["weekv"] = False
+            for k, (cap, vmin) in LIQ.items():  # 셋업 정의에 포함된 유동성 기준 (값이 없으면 통과)
+                if res[k] and ((np.isfinite(mc_t) and mc_t < cap) or (np.isfinite(v20_t) and v20_t < vmin)):
+                    res[k] = False
             for k in flags:
                 flags[k].append(bool(res[k]))
             if day == last:
                 info = {k: res[k] for k in res if res[k]}
                 base = dict(close=c[t], chg=(c[t] / c[t - 1] - 1) * 100, value=val[t] / 1e8,
                             vratio=val[t] / val[max(0, t - 20):t].mean() if t >= 5 and val[max(0, t - 20):t].mean() > 0 else np.nan,
-                            v20=val[max(0, t - 20):t].mean() / 1e8 if t >= 1 else np.nan,
-                            mcap=mc[t] / 1e8 if np.isfinite(mc[t]) else np.nan, rs=r_rs, rs1m=r_1m, mtt=bool(mtt))
+                            v20=v20_t, mcap=mc_t, rs=r_rs, rs1m=r_1m, mtt=bool(mtt))
         if not info:
             continue
         for k, m in info.items():

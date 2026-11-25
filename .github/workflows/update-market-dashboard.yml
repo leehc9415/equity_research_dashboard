@@ -9,9 +9,8 @@ on:
     - cron: '17 0 * * *'
     - cron: '7 1 * * *'
     - cron: '37 2 * * *'
-    # Korean (weekdays, ending in '1-5'): 17:17 / 18:07 / 19:07 / 20:37 / 22:07 KST — confirmed regular-session close.
-    - cron: '17 8 * * 1-5'
-    - cron: '7 9 * * 1-5'
+    # Korean (weekdays, ending in '1-5'): 18:17 / 19:07 / 20:37 / 22:07 KST — Kiwoom KRX daily bar is final after 18:10.
+    - cron: '17 9 * * 1-5'
     - cron: '7 10 * * 1-5'
     - cron: '37 11 * * 1-5'
     - cron: '7 13 * * 1-5'
@@ -54,7 +53,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           today=$(TZ=Asia/Seoul date +%F)
-          if [ "$REGION" = kr ]; then at='16:40'; else at='08:30'; fi
+          if [ "$REGION" = kr ]; then at='18:10'; else at='08:30'; fi
           since=$(date -u -d "TZ=\"Asia/Seoul\" $today $at" +%Y-%m-%dT%H:%M:%SZ)
           count=$(gh api "repos/${{ github.repository }}/actions/workflows/update-market-dashboard.yml/runs?status=success&created=>=$since&per_page=50" \
             --jq "[.workflow_runs[] | select(.id != ${{ github.run_id }}) | .display_title | select(test(\"· ($REGION|all)$\"))] | length")
@@ -84,6 +83,9 @@ jobs:
       - name: Collect, rebuild indicators, and validate all exported cards
         if: steps.guard.outputs.skip != 'true'
         shell: bash
+        env:
+          KIWOOM_APPKEY: ${{ secrets.KIWOOM_APPKEY }}
+          KIWOOM_SECRETKEY: ${{ secrets.KIWOOM_SECRETKEY }}
         run: python cloud_update.py --region "$REGION"
       - name: Publish stock chart data (release asset, not committed)
         if: steps.guard.outputs.skip != 'true' && env.REGION != 'global'

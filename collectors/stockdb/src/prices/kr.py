@@ -123,7 +123,7 @@ WITH r AS (
          CASE WHEN ref_price > 0 AND lag(close) OVER w > 0
               THEN ref_price / lag(close) OVER w ELSE 1 END AS r
   FROM prices_daily
-  WHERE source IN ('marcap', 'krx_cache', 'naver', 'naver_fix') {where}
+  WHERE source IN ('marcap', 'krx_cache', 'naver', 'naver_fix', 'kiwoom') {where}
   WINDOW w AS (PARTITION BY symbol_id ORDER BY date)
 )
 SELECT symbol_id, date,

@@ -15,7 +15,7 @@ import pandas as pd
 import requests
 
 from src.prices.db import connect, upsert_prices, log_run, DB_PATH
-from src.prices import global_yf, naver_kr
+from src.prices import global_yf, kiwoom_kr, naver_kr
 from src.prices.run_prices import run_kr
 from cloud_state import pack
 
@@ -44,20 +44,22 @@ def validate_source(con, baseline):
 
 
 def validate_kr_collection(con, started):
-    row = con.execute("""SELECT n_symbols, max_date FROM collect_log
-        WHERE job='kr_naver_daily' AND run_at>=? ORDER BY run_at DESC LIMIT 1""", [started]).fetchone()
-    if row is None:
-        # A manual run before the confirmed Korean close is a deliberate no-op.
+    row = con.execute("""SELECT status, note FROM collect_log
+        WHERE job='kiwoom_daily' AND run_at>=? ORDER BY run_at DESC LIMIT 1""", [started]).fetchone()
+    if row is None or row[0] == 'fail':
+        raise ValueError(f'Kiwoom collection failed: {row[1] if row else "no log"}')
+    expected = naver_kr.last_trade_date().date()
+    if kiwoom_kr.today_cutoff('KRX') < expected.strftime('%Y%m%d'):
+        # Before 18:10 KST the Kiwoom daily bar is not final; the next scheduled slot collects it.
         print('Korean close is not confirmed yet; retained previous Korean prices.')
         return
+    n = con.execute("SELECT count(DISTINCT symbol_id) FROM prices_daily WHERE source='kiwoom' AND date=?",
+                    [expected]).fetchone()[0]
     baseline = con.execute("""SELECT count(DISTINCT symbol_id) FROM prices_daily
-        WHERE source IN ('marcap','naver','naver_fix') AND date>=? - INTERVAL 30 DAY AND date<?""",
-        [row[1], row[1]]).fetchone()[0]
-    if row[0] < max(1000, int(baseline * .95)):
-        raise ValueError(f'Incomplete Korean quotes: {row[0]} of about {baseline}')
-    expected = naver_kr.last_trade_date().date()
-    if row[1] != expected:
-        raise ValueError('Korean quote date no longer matches the latest exchange date')
+        WHERE source IN ('marcap','naver','naver_fix','kiwoom') AND date>=? - INTERVAL 30 DAY AND date<?""",
+        [expected, expected]).fetchone()[0]
+    if n < max(1000, int(baseline * .95)):
+        raise ValueError(f'Incomplete Korean quotes on {expected}: {n} of about {baseline}')
     for sid in ('KS11', 'KQ11'):
         last = con.execute('SELECT max(date) FROM prices_daily WHERE symbol_id=?', [sid]).fetchone()[0]
         if last is None or last < expected:

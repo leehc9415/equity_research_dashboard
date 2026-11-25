@@ -15,7 +15,11 @@ import duckdb
 import requests
 
 ROOT = Path(__file__).resolve().parent
-TABLES = ('prices_daily', 'symbols', 'groups', 'group_meta', 'sector_defs', 'sector_map')
+V1_TABLES = ('prices_daily', 'symbols', 'groups', 'group_meta', 'sector_defs', 'sector_map')
+# v2: Kiwoom raw bars and listing snapshots, so the cloud keeps the same Kiwoom history as the PC
+KIWOOM_TABLES = ('prices_kiwoom', 'kiwoom_listing')
+TABLES = V1_TABLES + KIWOOM_TABLES
+SCHEMA = {1: V1_TABLES, 2: TABLES}
 TAG = 'market-data-state'
 SEED = 'market-seed-v1.zip'
 STATE_NAME = re.compile(r'market-state-\d{8}T\d{6}Z-\d+-\d+\.zip')
@@ -32,7 +36,7 @@ def sha256(path):
 def pack(db: Path, archive: Path):
     """Read the original DB without modifying it; derived tables are rebuilt."""
     archive.parent.mkdir(parents=True, exist_ok=True)
-    manifest = {'schemaVersion': 1, 'createdAt': datetime.now(timezone.utc).isoformat(), 'tables': {}}
+    manifest = {'schemaVersion': 2, 'createdAt': datetime.now(timezone.utc).isoformat(), 'tables': {}}
     with tempfile.TemporaryDirectory(dir=archive.parent) as tmp:
         with duckdb.connect(str(db), read_only=True) as con:
             con.execute("SET threads=2; SET memory_limit='4GB'")
@@ -62,15 +66,16 @@ def restore(archive: Path, db: Path):
     db.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=db.parent) as tmp:
         with zipfile.ZipFile(archive) as z:
-            expected = {'manifest.json'} | {f'{table}.parquet' for table in TABLES}
+            if 'manifest.json' not in z.namelist() or z.getinfo('manifest.json').file_size > 65536:
+                raise ValueError('Snapshot manifest missing or too large')
+            manifest = json.loads(z.read('manifest.json'))
+            tables = SCHEMA.get(manifest.get('schemaVersion'))
+            if tables is None or set(manifest.get('tables', {})) != set(tables):
+                raise ValueError('Unsupported snapshot schema')
+            expected = {'manifest.json'} | {f'{table}.parquet' for table in tables}
             if set(z.namelist()) != expected or len(z.namelist()) != len(expected):
                 raise ValueError('Snapshot has unexpected or duplicate files')
-            if z.getinfo('manifest.json').file_size > 65536:
-                raise ValueError('Snapshot manifest too large')
-            manifest = json.loads(z.read('manifest.json'))
-            if manifest.get('schemaVersion') != 1 or set(manifest.get('tables', {})) != set(TABLES):
-                raise ValueError('Unsupported snapshot schema')
-            for table in TABLES:
+            for table in tables:
                 file = Path(tmp) / f'{table}.parquet'
                 if z.getinfo(file.name).file_size > 2_000_000_000:
                     raise ValueError('Snapshot table too large')
@@ -83,12 +88,16 @@ def restore(archive: Path, db: Path):
         if partial.exists():
             raise ValueError('An unfinished restore already exists')
         from src.prices.db import connect
+        from src.prices.kiwoom_kr import DDL as KIWOOM_DDL
         with connect(partial) as con:
             con.execute("SET threads=2; SET memory_limit='4GB'")
-            for table in TABLES:
+            con.execute(KIWOOM_DDL)   # v1 snapshots get empty Kiwoom tables with their primary keys
+            for table in tables:
                 path = str(Path(tmp) / f'{table}.parquet')
                 if table == 'prices_daily':
                     con.execute('INSERT INTO prices_daily SELECT * FROM read_parquet(?)', [path])
+                elif table in KIWOOM_TABLES:
+                    con.execute(f'INSERT INTO {table} BY NAME SELECT * FROM read_parquet(?)', [path])
                 else:
                     con.execute(f'CREATE TABLE {table} AS SELECT * FROM read_parquet(?)', [path])
                 rows = con.execute(f'SELECT count(*) FROM {table}').fetchone()[0]
