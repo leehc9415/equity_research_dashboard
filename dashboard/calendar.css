@@ -176,6 +176,7 @@
 #dart-calendar-sample .es-vs.strong{font-weight:700}
 #dart-calendar-sample .es-vs.strong.up{background:light-dark(#fff0f0,#3e252d)}
 #dart-calendar-sample .es-vs.strong.down{background:var(--dc-blue-bg)}
+#dart-calendar-sample .es-badge{display:inline-block;margin-left:5px;padding:0 4px;border-radius:3px;font-size:10px;color:var(--dc-purple);border:1px solid var(--dc-purple)}
 #dart-calendar-sample .es-empty{text-align:center;color:var(--dc-muted);padding:30px}
 #dart-calendar-sample .es-note{padding:9px 14px;font-size:11px;color:var(--dc-muted)}
 @media(pointer:coarse){#dart-calendar-sample .es-chip{min-height:44px}}

@@ -97,7 +97,7 @@ test('cumulative periods and unclassified notices remain visible',()=>{
  assert.equal(preferredCalendarEvents([cumulative,unknown]).length,2);
 });
 
-import {reportRows,growth} from '../dashboard/calendar-events.mjs';
+import {reportRows,growth,seasonRows} from '../dashboard/calendar-events.mjs';
 test('growth labels sign flips instead of percentages',()=>{
   assert.equal(growth(110,100).rate,10);
   assert.equal(growth(5,-10).label,'흑자전환');
@@ -119,4 +119,17 @@ test('reportRows joins consensus, growth and stockeasy sector',()=>{
   assert.match(a.url,/rcpNo=20261114000123$/);
   assert.equal(b.operatingProfit.vs,null);
   assert.equal(b.sector,'미분류');
+});
+
+test('seasonRows shows preliminary first and replaces it once the quarterly report is filed',()=>{
+  const prelim=(stock,op,date,basis='연결')=>release({stock,company:stock,corp:stock,basis,date,receipt:stock+date,
+    financials:{period:'2026.3Q',metrics:{operatingProfit:{value:op,priorYear:50}},consensus:{metrics:{operatingProfit:80}}}});
+  const rows=seasonRows({companies:[{stock:'A',company:'A',basis:'연결',receipt:'r',filed:'2026-11-14',metrics:{operatingProfit:{value:105,priorYear:50}},consensus:{operatingProfit:80}}]},
+    [prelim('A',100,'2026-10-29'),prelim('B',90,'2026-10-20'),prelim('B',70,'2026-10-30','별도'),prelim('C',1,'2026-07-20')].map((e,i)=>i===3?{...e,financials:{...e.financials,period:'2026.2Q'}}:e),
+    '2026.3Q',{});
+  const by=Object.fromEntries(rows.map(r=>[r.stock,r]));
+  assert.deepEqual(Object.keys(by).sort(),['A','B']);
+  assert.equal(by.A.source,'분기보고서');assert.equal(by.A.operatingProfit.actual,105);
+  assert.equal(by.B.source,'잠정');assert.equal(by.B.operatingProfit.actual,90);  // 연결 우선
+  assert.equal(by.B.operatingProfit.vs.text,'+12.5%');
 });

@@ -1,5 +1,5 @@
-// 캘린더 '실적 모아보기' 탭: 분기보고서 기준 실적을 한 표로 모아 컨센서스 대비와 스탁이지 산업 필터를 제공.
-import {reportRows} from './calendar-events.mjs?v=20261126-report';
+// 캘린더 '실적 모아보기' 탭: 잠정실적 → 분기보고서 순으로 갱신되는 분기 실적을 한 표로 모아 컨센서스 대비와 스탁이지 산업 필터를 제공.
+import {seasonRows} from './calendar-events.mjs?v=20261126-season';
 
 const state={period:null,sectors:new Set(),sub:'',query:'',beat:'',consOnly:false,sort:'marketCap',desc:true};
 const METRICS=[['revenue','매출액'],['operatingProfit','영업이익'],['netIncome','순이익']];
@@ -13,12 +13,13 @@ const SORTS={
 const amount=n=>!Number.isFinite(n)?'—':Math.abs(n)>=10000?`${Math.round(n/10000).toLocaleString('ko-KR')}조`:`${Math.round(n).toLocaleString('ko-KR')}억`;
 const opSign=r=>{const v=r.operatingProfit.vs;return !v?0:v.percent===null?(v.positive?1:-1):Math.sign(v.percent);};
 
-export function renderSummary(el,quarterly,sectors,{esc}){
-  const periods=Object.keys(quarterly?.quarters||{}).sort().reverse();
+export function renderSummary(el,quarterly,events,sectors,{esc}){
+  const eventPeriods=events.filter(e=>e.type==='earnings'&&e.status==='published').map(e=>e.financials?.period).filter(p=>/^20\d{2}\.[1-4]Q$/.test(p||''));
+  const periods=[...new Set([...Object.keys(quarterly?.quarters||{}),...eventPeriods])].sort().reverse();
   if(!periods.includes(state.period))state.period=periods[0]||null;
   const quarter=quarterly?.quarters?.[state.period];
-  if(!quarter){el.innerHTML='<div class="es-empty">분기보고서 실적 데이터가 아직 없습니다.</div>';return;}
-  const all=reportRows(quarter,sectors);
+  if(!state.period){el.innerHTML='<div class="es-empty">표시할 실적 데이터가 아직 없습니다.</div>';return;}
+  const all=seasonRows(quarter,events,state.period,sectors),reported=all.filter(r=>r.source==='분기보고서').length;
   const consRows=r=>!state.consOnly||r.operatingProfit.expected!==null||r.revenue.expected!==null;
   const matchBeat=r=>!state.beat||(state.beat==='none'?!r.operatingProfit.vs:state.beat==='beat'?opSign(r)>0:opSign(r)<0);
   const q=state.query.trim().toLowerCase();
@@ -59,7 +60,7 @@ export function renderSummary(el,quarterly,sectors,{esc}){
     <button type="button" class="es-chip" data-es-sector="" aria-pressed="${!state.sectors.size}">전체 <b>${base.length}</b></button>
     ${chipSectors.map(s=>{const t=tally.get(s);return `<button type="button" class="es-chip" data-es-sector="${esc(s)}" aria-pressed="${state.sectors.has(s)}">${esc(s)} <b>${t.n}</b>${t.up||t.down?` <span class="es-up">▲${t.up}</span><span class="es-down">▼${t.down}</span>`:''}</button>`;}).join('')}
   </div>
-  <div class="es-kpis"><span>발표 <b>${rows.length}</b>곳</span><span>영익 컨센 비교 <b>${compared.length}</b>곳</span><span class="es-up">상회 <b>${up}</b>${compared.length?` (${Math.round(up/compared.length*100)}%)`:''}</span><span class="es-down">하회 <b>${down}</b></span>${median!==null?`<span>영익 서프라이즈 중앙값 <b class="${median>=0?'es-up':'es-down'}">${pct(median)}</b></span>`:''}</div>
+  <div class="es-kpis"><span>발표 <b>${rows.length}</b>곳</span><span>분기보고서 <b>${rows.filter(r=>r.source==='분기보고서').length}</b> · 잠정 <b>${rows.filter(r=>r.source==='잠정').length}</b></span><span>영익 컨센 비교 <b>${compared.length}</b>곳</span><span class="es-up">상회 <b>${up}</b>${compared.length?` (${Math.round(up/compared.length*100)}%)`:''}</span><span class="es-down">하회 <b>${down}</b></span>${median!==null?`<span>영익 서프라이즈 중앙값 <b class="${median>=0?'es-up':'es-down'}">${pct(median)}</b></span>`:''}</div>
   <div class="es-table-wrap"><table class="es-table"><thead><tr>
     ${th('company','종목','')}${th('sector','산업','')}${th('date','공시일','')}${th('marketCap','시총')}
     ${th('revenue','매출액')}${th('operatingProfit','영업이익')}${th('netIncome','순이익')}${th('revenueYoy','매출 YoY')}${th('operatingProfitYoy','영익 YoY')}
@@ -67,15 +68,15 @@ export function renderSummary(el,quarterly,sectors,{esc}){
   </tr></thead><tbody>${rows.length?rows.map(r=>`<tr>
     <td><a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer" class="es-name">${esc(r.company)}</a><span class="es-code">${esc(r.stock)}${r.basis&&r.basis!=='연결'?' · '+esc(r.basis):''}</span></td>
     <td><span class="es-sector">${esc(r.sector)}</span><span class="es-code">${esc(r.subSector)}</span></td>
-    <td class="es-muted">${esc(r.date.slice(5).replace('-','/'))}</td>
+    <td class="es-muted">${esc(r.date.slice(5).replace('-','/'))}${r.source==='잠정'?'<span class="es-badge" title="잠정실적 공시 수치, 분기보고서 제출 시 교체">잠정</span>':''}</td>
     <td class="es-num">${amount(r.marketCap)}</td>
     <td class="es-num">${amount(r.revenue.actual)}</td><td class="es-num">${amount(r.operatingProfit.actual)}</td><td class="es-num">${amount(r.netIncome.actual)}</td>
     ${growthCell(r.revenue.yoy,r.revenue.yoyLabel)}${growthCell(r.operatingProfit.yoy,r.operatingProfit.yoyLabel)}
     <td class="es-num es-muted">${amount(r.operatingProfit.expected)}</td>${vsCell(r.revenue.vs)}${vsCell(r.operatingProfit.vs)}
   </tr>`).join(''):`<tr><td colspan="12" class="es-empty">조건에 맞는 종목이 없습니다.</td></tr>`}</tbody></table></div>
-  <div class="es-note">분기보고서 기준 3개월 실적 (OpenDART 주요계정) · 연결 우선 · 순이익은 비지배지분 포함 · 컨센서스 Quantiwise${quarter.consensusSavedAt?' ('+esc(quarter.consensusSavedAt.slice(0,10))+' 저장)':''} · 대상 ${quarter.universe}곳 중 제출 ${all.length}곳 · 적자 예상치는 절댓값을 분모로 계산 · ±10% 이상 굵게</div>`;
+  <div class="es-note">3개월 실적 · 잠정실적 공시로 먼저 표시하고 분기보고서(OpenDART 주요계정)가 제출되면 그 수치로 교체 · 연결 우선 · 순이익은 비지배지분 포함 · 컨센서스 Quantiwise${quarter?.consensusSavedAt?' ('+esc(quarter.consensusSavedAt.slice(0,10))+' 저장)':''}${quarter?` · 분기보고서 대상 ${quarter.universe}곳 중 제출 ${reported}곳`:''} · 적자 예상치는 절댓값을 분모로 계산 · ±10% 이상 굵게</div>`;
 
-  const rerender=()=>renderSummary(el,quarterly,sectors,{esc});
+  const rerender=()=>renderSummary(el,quarterly,events,sectors,{esc});
   el.onclick=e=>{
     const chip=e.target.closest('[data-es-sector]');
     if(chip){const s=chip.dataset.esSector;if(!s){state.sectors.clear();state.sub='';}else if(state.sectors.has(s))state.sectors.delete(s);else state.sectors.add(s);rerender();return;}

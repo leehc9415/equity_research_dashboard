@@ -1,5 +1,5 @@
-import {preferredCalendarEvents,calendarDayGroups,useReportedBasis,hasBasisDifference,financialHistory,consensusComparison} from './calendar-events.mjs?v=20261126-report';
-import {renderSummary} from './earnings-summary.js?v=20261126-ime';
+import {preferredCalendarEvents,calendarDayGroups,useReportedBasis,hasBasisDifference,financialHistory,consensusComparison} from './calendar-events.mjs?v=20261126-season';
+import {renderSummary} from './earnings-summary.js?v=20261126-season';
 let sectorsPromise;
 const loadQuarterly=()=>fetch('data/quarterly-results.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null);
 const loadSectors=()=>sectorsPromise??=fetch('data/stockeasy-sectors.json').then(r=>r.ok?r.json():{}).then(d=>d.sectors||{}).catch(()=>({}));
@@ -138,7 +138,7 @@ function initializeCalendar(dataset,sectors,quarterly){
     root.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===state.tab)));
     root.querySelector('#dc-content').setAttribute('aria-labelledby',`dc-${state.tab}-tab`);
     root.classList.toggle('dc-summary-mode',state.tab==='summary');
-    if(state.tab==='summary'){root.querySelector('.dc-legend').innerHTML='';renderSummary(root.querySelector('.dc-summary'),quarterly,sectors,{amount,esc});return;}
+    if(state.tab==='summary'){root.querySelector('.dc-legend').innerHTML='';renderSummary(root.querySelector('.dc-summary'),quarterly,events,sectors,{esc});return;}
     root.querySelector('.dc-legend').innerHTML=state.tab==='ir'?'<span class="dc-key"><span class="dc-dot ir"></span>IR 일정</span>':'<span class="dc-key"><span class="dc-dot"></span>발표 예정</span><span class="dc-key"><span class="dc-dot published"></span>공시 발표</span>';
     const first=new Date(year,month-1,1,12);const count=new Date(year,month,0).getDate();const cells=Math.ceil((first.getDay()+count)/7)*7;
     root.style.setProperty('--dc-week-rows',cells/7);

@@ -1,11 +1,14 @@
 """분기보고서(정기공시) 기준 분기 실적: OpenDART 다중회사 주요계정(fnlttMultiAcnt)을 100개사씩 모아 수집."""
 import re
+from datetime import date, timedelta
 from io import BytesIO
 from xml.etree import ElementTree
 from zipfile import ZipFile
 
-# 4Q는 사업보고서 연간값에서 3Q 누적을 빼야 해서 아직 지원하지 않음.
-REPORT_CODES = {1: '11013', 2: '11012', 3: '11014'}
+# 1Q 분기, 2Q 반기, 3Q 분기, 4Q는 사업보고서(연간)에서 1~3Q를 빼서 구함.
+REPORT_CODES = {1: '11013', 2: '11012', 3: '11014', 4: '11011'}
+# 정기보고서 제출 마감 (월, 일): 1~3Q는 분기 종료 후 45일, 4Q는 사업연도 종료 후 90일
+DEADLINES = {1: (5, 15), 2: (8, 14), 3: (11, 14), 4: (3, 31)}
 ACCOUNTS = {
     'revenue': ('매출액', '영업수익', '수익(매출액)'),
     'operatingProfit': ('영업이익', '영업이익(손실)'),
@@ -18,9 +21,37 @@ def quarter_end(period):
     """'2026.3Q' -> (2026, 3, '2026.09.30')"""
     m = re.fullmatch(r'(20\d{2})\.([1-4])Q', period or '')
     if not m or int(m[2]) not in REPORT_CODES:
-        raise ValueError(f'지원하지 않는 분기: {period} (1Q~3Q만 지원)')
+        raise ValueError(f'지원하지 않는 분기: {period}')
     year, q = int(m[1]), int(m[2])
     return year, q, f'{year}.{q * 3:02}.{30 if q in (2, 3) else 31}'
+
+
+def next_business_day(day, holidays):
+    while day.weekday() >= 5 or day in holidays:
+        day += timedelta(days=1)
+    return day
+
+
+def season_window(period, holidays):
+    """실적 시즌: 분기 종료 다음 달 둘째 주 월요일 ~ 정기보고서 마감일(주말·공휴일이면 다음 영업일)."""
+    year, q, _ = quarter_end(period)
+    start_year, start_month = (year + 1, 1) if q == 4 else (year, q * 3 + 1)
+    first = date(start_year, start_month, 1)
+    start = first + timedelta(days=(7 - first.weekday()) % 7 + 7)  # 첫 월요일 + 7일
+    month, day = DEADLINES[q]
+    return start, next_business_day(date(start_year, month, day), holidays)
+
+
+def season_period(today, holidays):
+    """오늘이 실적 시즌이면 그 분기('2026.3Q'), 아니면 None."""
+    last = (today.month - 1) // 3  # 직전에 끝난 분기 (0 = 작년 4Q)
+    period = f'{today.year - 1}.4Q' if last == 0 else f'{today.year}.{last}Q'
+    # 4Q 시즌(1월~3월 말)은 다음 분기 종료(3/31) 이후 4월 초까지 이어질 수 있음
+    for candidate in (period, f'{today.year - 1}.4Q'):
+        start, end = season_window(candidate, holidays)
+        if start <= today <= end:
+            return candidate
+    return None
 
 
 def amount(text):
@@ -55,6 +86,22 @@ def parse_rows(rows, end_date):
         div = 'CFS' if 'CFS' in divs else 'OFS'
         if div in divs:
             result[stock] = dict(basis='연결' if div == 'CFS' else '별도', **divs[div])
+    return result
+
+
+def derive_q4(annual, quarters):
+    """4Q 3개월 = 연간 - (1Q+2Q+3Q). 전년 4Q도 같은 방식. 세 분기가 모두 같은 기준(연결/별도)일 때만."""
+    result = {}
+    for stock, item in annual.items():
+        parts = [q.get(stock) for q in quarters]
+        values = {}
+        if all(p and p['basis'] == item['basis'] for p in parts):
+            for m, (fy, prior_fy) in item['values'].items():
+                cur = [p['values'].get(m, (None, None))[0] for p in parts]
+                old = [p['values'].get(m, (None, None))[1] for p in parts]
+                values[m] = (round(fy - sum(cur), 2) if fy is not None and None not in cur else None,
+                             round(prior_fy - sum(old), 2) if prior_fy is not None and None not in old else None)
+        result[stock] = dict(item, values=values)
     return result
 
 

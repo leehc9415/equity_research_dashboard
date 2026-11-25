@@ -1,7 +1,7 @@
 import { mountMarkets } from './markets-app.js?v=20261110-insider1';
 import { mountCompanies, COMPANY_SUBS } from './companies-app.js?v=20261113-insider3';
 import { mountMacro, MACRO_SUBS } from './macro-app.js?v=20261120-macro1';
-import { mountCalendar } from './calendar-app.js?v=20261126-ime';
+import { mountCalendar } from './calendar-app.js?v=20261126-season';
 const app = document.querySelector('#app');
 const fmt = new Intl.NumberFormat('ko-KR', {maximumFractionDigits: 1});
 const num = v => fmt.format(v ?? 0);

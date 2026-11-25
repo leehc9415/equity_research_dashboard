@@ -1,7 +1,9 @@
 """분기보고서 기준 실적을 수집해 dashboard/data/quarterly-results.json 에 분기별로 저장.
 
-    python scripts/update_quarterly_results.py              # 가장 최근 1Q~3Q
-    python scripts/update_quarterly_results.py --period 2026.3Q
+    python scripts/update_quarterly_results.py                   # 실적 시즌일 때만 해당 분기 수집, 아니면 건너뜀
+    python scripts/update_quarterly_results.py --period 2026.3Q  # 시즌과 무관하게 지정 분기 수집
+
+실적 시즌 = 분기 종료 다음 달 둘째 주 월요일 ~ 정기보고서 마감일(주말·공휴일이면 다음 영업일).
 """
 import argparse, csv, json, os, sys
 from datetime import date, datetime, timezone
@@ -10,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 from investment_data.calendar import DartClient, CollectionError
-from investment_data.quarterly_results import REPORT_CODES, quarter_end, parse_rows, corp_codes, build_quarter
+from investment_data.quarterly_results import REPORT_CODES, quarter_end, parse_rows, corp_codes, build_quarter, derive_q4, season_period
 
 OUT = ROOT / 'dashboard/data/quarterly-results.json'
 SNAPSHOT = ROOT / 'data/reference/quantiwise-calendar.json'
@@ -18,11 +20,12 @@ SECTORS = ROOT / 'collectors/stockdb/config/universe/stockeasy_sectors.csv'
 CALENDAR = ROOT / 'dashboard/data/calendar-data.json'
 
 
-def latest_period(today):
-    year, q = today.year, (today.month - 1) // 3  # 직전에 끝난 분기 (0 = 작년 4Q)
-    if q == 0:
-        year, q = year - 1, 3  # 4Q 미지원 → 작년 3Q 유지
-    return f'{year}.{q}Q'
+def kr_holidays(today):
+    try:
+        import holidays  # 워크플로에서 pip install holidays
+    except ImportError:
+        raise CollectionError('공휴일 판정에 holidays 패키지가 필요합니다: pip install holidays') from None
+    return holidays.KR(years=[today.year - 1, today.year])
 
 
 def fetch(client, corps, year, reprt_code):
@@ -41,7 +44,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--period')
     args = parser.parse_args()
-    period = args.period or latest_period(date.today())
+    today = date.today()
+    period = args.period or season_period(today, kr_holidays(today))
+    if not period:
+        print(f'{today}: 실적 시즌이 아니어서 분기보고서 수집을 건너뜁니다.')
+        return
     year, q, end = quarter_end(period)
     key = os.environ.get('DART_API_KEY')
     if not key:
@@ -55,11 +62,11 @@ def main():
     names = corp_codes(client.request('corpCode.xml', {}))
     corps = sorted(names[s][0] for s in universe if s in names)
 
-    current = parse_rows(fetch(client, corps, year, REPORT_CODES[q]), end)
-    previous = {}
-    if q > 1:
-        _, _, prev_end = quarter_end(f'{year}.{q - 1}Q')
-        previous = parse_rows(fetch(client, corps, year, REPORT_CODES[q - 1]), prev_end)
+    report = lambda n: parse_rows(fetch(client, corps, year, REPORT_CODES[n]), quarter_end(f'{year}.{n}Q')[2])
+    current = report(q)
+    previous = report(q - 1) if q > 1 else {}
+    if q == 4:  # 사업보고서는 연간값이라 1~3Q를 빼서 4Q 3개월 값을 만듦
+        current = derive_q4(current, [report(1), report(2), previous])
     rows = build_quarter(period, current, previous, names, snapshot)
     if not rows:
         raise CollectionError(f'{period}: 수집된 분기보고서가 없습니다; 기존 파일 유지')

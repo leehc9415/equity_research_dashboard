@@ -5,8 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 sys.path.insert(0, str(ROOT / 'scripts'))
-from investment_data.quarterly_results import amount, parse_rows, build_quarter, quarter_end
-from update_quarterly_results import latest_period
+from investment_data.quarterly_results import amount, parse_rows, build_quarter, quarter_end, season_window, season_period, derive_q4
 
 
 def row(stock, fs, account, cur, prior, dt='2026.07.01 ~ 2026.09.30', sj='IS', rcept='20261114000123'):
@@ -58,11 +57,37 @@ class QuarterlyResultsTest(unittest.TestCase):
     def test_periods(self):
         self.assertEqual(quarter_end('2026.3Q'), (2026, 3, '2026.09.30'))
         self.assertEqual(quarter_end('2026.1Q')[2], '2026.03.31')
+        self.assertEqual(quarter_end('2026.4Q'), (2026, 4, '2026.12.31'))
         with self.assertRaises(ValueError):
-            quarter_end('2026.4Q')
-        self.assertEqual(latest_period(date(2026, 11, 26)), '2026.3Q')
-        self.assertEqual(latest_period(date(2027, 1, 5)), '2026.3Q')
-        self.assertEqual(latest_period(date(2027, 5, 1)), '2027.1Q')
+            quarter_end('2026.5Q')
+
+    def test_season_window(self):
+        # 2026-10-01(목) → 둘째 주 월요일 10/12, 마감 11/14(토) → 11/16(월)
+        self.assertEqual(season_window('2026.3Q', set()), (date(2026, 10, 12), date(2026, 11, 16)))
+        self.assertEqual(season_window('2026.2Q', set()), (date(2026, 7, 13), date(2026, 8, 14)))
+        # 1일이 월요일이면 그 다음 월요일이 둘째 주 월요일; 4Q 마감 3/31(일) → 4/1
+        self.assertEqual(season_window('2023.4Q', set()), (date(2024, 1, 8), date(2024, 4, 1)))
+        # 마감 5/15(토) → 5/17(월)이 공휴일이면 5/18
+        self.assertEqual(season_window('2027.1Q', {date(2027, 5, 17)})[1], date(2027, 5, 18))
+
+    def test_season_period(self):
+        self.assertEqual(season_period(date(2026, 11, 16), set()), '2026.3Q')
+        self.assertIsNone(season_period(date(2026, 11, 26), set()))
+        self.assertIsNone(season_period(date(2026, 10, 8), set()))  # 둘째 주 월요일 전
+        self.assertEqual(season_period(date(2027, 2, 10), set()), '2026.4Q')
+        self.assertEqual(season_period(date(2024, 4, 1), set()), '2023.4Q')  # 3/31 일요일 → 4/1까지
+
+    def test_derive_q4_subtracts_first_three_quarters(self):
+        item = lambda basis, values: {'basis': basis, 'receipt': '20270310000001', 'values': values}
+        annual = {'A': item('연결', {'operatingProfit': (100.0, 80.0), 'revenue': (1000.0, None)}),
+                  'B': item('연결', {'operatingProfit': (50.0, 40.0)})}
+        q1 = {'A': item('연결', {'operatingProfit': (20.0, 10.0), 'revenue': (200.0, 150.0)}), 'B': item('별도', {'operatingProfit': (1.0, 1.0)})}
+        q2 = {'A': item('연결', {'operatingProfit': (30.0, 20.0), 'revenue': (300.0, 150.0)}), 'B': item('연결', {'operatingProfit': (1.0, 1.0)})}
+        q3 = {'A': item('연결', {'operatingProfit': (25.0, 30.0), 'revenue': (250.0, 150.0)}), 'B': item('연결', {'operatingProfit': (1.0, 1.0)})}
+        q4 = derive_q4(annual, [q1, q2, q3])
+        self.assertEqual(q4['A']['values']['operatingProfit'], (25.0, 20.0))
+        self.assertEqual(q4['A']['values']['revenue'], (250.0, None))
+        self.assertEqual(q4['B']['values'], {})  # 1Q가 별도 기준이라 차감 불가
 
 
 if __name__ == '__main__':

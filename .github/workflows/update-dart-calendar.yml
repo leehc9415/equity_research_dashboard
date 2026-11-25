@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       period:
-        description: '분기보고서 실적 수집 분기 (예: 2026.3Q, 비우면 최근 분기)'
+        description: '분기보고서 실적 수집 분기 (예: 2026.3Q). 비우면 실적 시즌일 때만 해당 분기 수집'
         required: false
 
 permissions:
@@ -36,12 +36,14 @@ jobs:
         run: python scripts/update_dart_calendar.py
       - name: Validate calendar
         run: python scripts/validate_calendar_data.py
-      - name: Collect quarterly report results (분기보고서)
-        # Separate from the calendar so a failure here never blocks calendar updates.
+      - name: Collect quarterly report results (분기보고서, 실적 시즌에만)
+        # 시즌(분기 종료 다음 달 둘째 주 월요일 ~ 정기보고서 마감 영업일) 밖이면 스크립트가 바로 종료.
+        # 캘린더와 분리: 여기서 실패해도 캘린더 갱신은 진행.
         continue-on-error: true
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: |
+          pip install -q holidays
           python -m unittest tests/test_quarterly_results.py
           python scripts/update_quarterly_results.py ${{ inputs.period && format('--period {0}', inputs.period) || '' }}
       - name: Commit verified calendar change only
