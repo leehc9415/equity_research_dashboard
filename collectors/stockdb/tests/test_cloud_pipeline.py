@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from cloud_state import pack, restore, TABLES, V1_TABLES
+from cloud_state import pack, restore, load_kiwoom, TABLES, V1_TABLES, KIWOOM_TABLES
 from src.prices.kiwoom_kr import DDL as KIWOOM_DDL
 from cloud_update import apply_global, inventory, validate_source, delayed_fred_release
 from src.prices.db import connect, upsert_prices
@@ -132,3 +132,35 @@ def test_only_recent_treasury_fred_release_lag_can_retain_newer_history():
     assert not delayed_fred_release('UST2Y', frame, baseline, date(2026, 11, 10))
     frame['source'] = 'yf'
     assert not delayed_fred_release('UST2Y', frame, baseline, date(2026, 11, 2))
+
+
+def test_pc_kiwoom_upload_replaces_only_kiwoom_tables(tmp_path):
+    pc = tmp_path / 'pc.duckdb'
+    with connect(pc) as c:
+        c.execute(KIWOOM_DDL)
+        c.execute("INSERT INTO prices_kiwoom (symbol_id, venue, date, close) VALUES ('005930', 'REG', '2026-11-17', 190300), ('005930', 'KRX', '2026-11-17', 189800)")
+    archive = tmp_path / 'kiwoom-state.zip'
+    pack(pc, archive, KIWOOM_TABLES)
+    with zipfile.ZipFile(archive) as z:
+        assert set(z.namelist()) == {'manifest.json', 'prices_kiwoom.parquet', 'kiwoom_listing.parquet'}
+    cloud = duckdb.connect()
+    cloud.execute(KIWOOM_DDL)
+    cloud.execute("INSERT INTO prices_kiwoom (symbol_id, venue, date, close) VALUES ('000660', 'KRX', '2026-11-16', 1)")
+    cloud.execute("CREATE TABLE keep AS SELECT 1 AS x")
+    load_kiwoom(archive, cloud)
+    assert cloud.execute("SELECT venue, close FROM prices_kiwoom ORDER BY venue").fetchall() == [('KRX', 189800), ('REG', 190300)]
+    assert cloud.execute("SELECT x FROM keep").fetchone() == (1,)
+    with pytest.raises(ValueError, match='schema'):
+        load_kiwoom(_full_state(tmp_path), cloud)   # a full state is not a Kiwoom upload
+
+
+def _full_state(tmp_path):
+    db = tmp_path / 'full.duckdb'
+    with connect(db) as c:
+        prices(c)
+        for table in V1_TABLES[1:]:
+            c.execute(f'CREATE TABLE {table} AS SELECT 7 AS marker')
+        c.execute(KIWOOM_DDL)
+    archive = tmp_path / 'full.zip'
+    pack(db, archive)
+    return archive

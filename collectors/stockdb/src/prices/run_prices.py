@@ -25,8 +25,8 @@ GLOBAL_LOOKBACK_DAYS = 10   # 증분 시 최근 N일을 다시 받아 덮어씀 
 KIWOOM_LOOKBACK_DAYS = 7    # 키움 증분: 최근 N일(달력)을 다시 받아 덮어씀 → 며칠 빠져도 메워짐
 
 
-def run_kr(con, backfill_years: int | None):
-    """한국 종목.
+def run_kr(con, backfill_years: int | None, collect: bool = True):
+    """한국 종목. collect=False: 키움 수집 없이(클라우드 — PC 가 올린 키움 테이블을 이미 넣은 상태) 동기화·지수만.
     키움(2019~, 현재 상장) → prices_kiwoom → prices_daily(source='kiwoom')
     marcap 연도 파일(~2026-09-11): 키움에 없는 상장폐지 종목의 과거 시세 (--backfill 때만)
     """
@@ -41,7 +41,8 @@ def run_kr(con, backfill_years: int | None):
 
     start = str((pd.Timestamp.today() - pd.Timedelta(days=KIWOOM_LOOKBACK_DAYS)).date())
     try:
-        kiwoom_kr.run(con, None, ["KRX", "AL"], start, skip_done=False, job="kiwoom_daily")
+        if collect:
+            kiwoom_kr.run(con, None, ["KRX", "AL", "REG"], start, skip_done=False, job="kiwoom_daily")
     except Exception as e:  # noqa: BLE001 - 키·네트워크 문제여도 해외·지표 갱신은 계속
         print(f"  [경고] 키움 수집 실패 → 기존 키움 데이터로 진행: {e}")
         log_run(con, "kiwoom_daily", "fail", None, note=str(e)[:500])

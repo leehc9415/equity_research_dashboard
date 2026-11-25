@@ -7,6 +7,7 @@ config/universe/ 아래 3개 파일을 읽어 한 번에 검증한다.
 """
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -15,7 +16,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG_DIR = ROOT / "config" / "universe"
-DATA_DIR = ROOT / "data"
+DATA_DIR = Path(os.environ.get("STOCKDB_DATA") or ROOT / "data")   # PC: 레포 밖 데이터 폴더 (run_daily.bat)
 
 _NORM_RE = re.compile(r"[\s,·ㆍ/()]")
 

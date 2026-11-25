@@ -87,3 +87,87 @@ def test_adj_ignores_ref_noise():
     f = dict(con.execute("SELECT strftime(date, '%Y%m%d'), adj_factor FROM v_prices_kiwoom_adj").fetchall())
     assert f["20260821"] == 1
     assert f["20260820"] == pytest.approx(1 - 0.5993)
+
+
+# 1분봉: 정규장 09:00~15:19, 15:20~15:29 체결 없음, 15:30 종가 단일가, 15:35 시간외 종가, 18:00 이후 체결
+def _bar(day, hm, o, h, l, c, v):
+    return {"cntr_tm": f"{day}{hm}00", "open_pric": str(o), "high_pric": f"+{h}", "low_pric": f"-{l}",
+            "cur_prc": f"-{c}", "trde_qty": str(v)}
+
+
+MIN = [_bar("20261117", "0900", 191400, 191800, 191000, 191500, 500),
+       _bar("20261117", "1100", 191500, 195900, 191500, 195000, 300),
+       _bar("20261117", "1519", 190800, 190900, 190100, 190800, 200),
+       _bar("20261117", "1530", 190300, 190300, 190300, 190300, 1000),
+       _bar("20261117", "1535", 190300, 190300, 190300, 190300, 50),
+       _bar("20261117", "1930", 189900, 190100, 189600, 189800, 70),
+       # 수능일: 10:00 개장, 16:30 마감. 15:30 무렵에도 계속 체결
+       _bar("20261119", "1000", 196000, 196300, 195000, 195500, 400),
+       _bar("20261119", "1530", 194500, 194600, 194400, 194500, 100),
+       _bar("20261119", "1531", 194500, 194800, 194500, 194700, 100),
+       _bar("20261119", "1619", 195800, 195900, 195700, 195800, 100),
+       _bar("20261119", "1630", 196900, 196900, 196900, 196900, 900),
+       _bar("20261119", "1700", 196800, 196800, 196700, 196700, 30)]
+
+
+def test_session_close_and_regular_bars():
+    from src.prices.kiwoom_kr import parse_minutes, regular_bars, session_close
+    m = parse_minutes(MIN)
+    closes = session_close(m)
+    assert closes == {"20261117": "1530", "20261119": "1630"}
+    r = regular_bars(m, "005930", closes).set_index("date")
+    a, b = r.iloc[0], r.iloc[1]
+    assert (a.open, a.high, a.low, a.close, a.volume) == (191400, 195900, 190100, 190300, 2000)   # 15:35 이후 제외
+    assert (b.open, b.high, b.low, b.close, b.volume) == (196000, 196900, 194400, 196900, 1600)
+    assert a.venue == "REG" and a.value == 191500 * 500 + 195000 * 300 + 190800 * 200 + 190300 * 1000
+
+
+def test_extended_closing_auction():
+    """종가 단일가가 15:32 에 체결된 종목(008930 2026-11-12 실제 값): 그 봉까지 정규장, 15:35 시간외 종가는 제외."""
+    from src.prices.kiwoom_kr import parse_minutes, regular_bars, session_close
+    rows = [_bar("20261112", "1519", 53400, 53500, 53300, 53500, 515),
+            _bar("20261112", "1532", 54800, 54800, 54800, 54800, 91740),
+            _bar("20261112", "1535", 54800, 54800, 54800, 54800, 9789),
+            _bar("20261112", "1800", 54900, 55000, 54900, 55000, 10)]
+    ref = parse_minutes([_bar("20261112", "1519", 1, 1, 1, 1, 1), _bar("20261112", "1531", 1, 1, 1, 1, 1)])
+    closes = session_close(ref)
+    assert closes == {"20261112": "1530"}                         # 기준 종목이 15:31 에 체결돼도 마감은 15:30
+    r = regular_bars(parse_minutes(rows), "008930", closes).iloc[0]
+    assert (r.close, r.high, r.volume) == (54800, 54800, 515 + 91740)
+
+
+def test_minutes_for_pages_by_day():
+    """가장 늦은 날부터 base_dt 로 한 페이지씩: 한 페이지에 통째로 들어온 날은 다시 부르지 않는다."""
+    from src.prices.kiwoom_kr import minutes_for
+
+    class Api:
+        calls = []
+
+        def minute_page(self, code, base_dt):
+            self.calls.append(base_dt)
+            rows = [r for r in MIN if r["cntr_tm"][:8] <= base_dt]
+            return sorted(rows, key=lambda r: r["cntr_tm"], reverse=True)   # 900개 미만 = 마지막 페이지
+
+    api = Api()
+    m = minutes_for(api, "005930", ["20261117", "20261119"])
+    assert api.calls == ["20261119"] and sorted(m["date"].unique()) == ["20261117", "20261119"]
+
+
+def test_sync_prefers_regular_session_bars():
+    """REG 가 있는 날은 정규장 값, 수정계수는 KRX 일봉 기준, 없는 날은 KRX 일봉."""
+    from src.prices.db import DDL as DB_DDL
+    from src.prices.kiwoom_kr import sync_prices_daily
+    con = duckdb.connect()
+    con.execute(DB_DDL)
+    con.execute(DDL)
+    krx = [{"cur_prc": "189800", "trde_qty": "16773338", "trde_prica": "3219293", "dt": "20261117",
+            "open_pric": "191400", "high_pric": "195900", "low_pric": "189200", "pred_pre": "-7000"},
+           {"cur_prc": "196800", "trde_qty": "15548428", "trde_prica": "3225951", "dt": "20261116",
+            "open_pric": "206500", "high_pric": "208000", "low_pric": "194900", "pred_pre": "-11000"}]
+    upsert(con, parse_rows(krx, "005930", "KRX", "2026-11-01"))
+    con.execute("""INSERT INTO prices_kiwoom (symbol_id, venue, date, open, high, low, close, volume, value)
+                   VALUES ('005930', 'REG', '2026-11-17', 191400, 195900, 190100, 190300, 15771821, 3e12)""")
+    assert sync_prices_daily(con) == 2
+    p = con.execute("SELECT strftime(date, '%m%d'), low, close, volume, value_is_est FROM prices_daily ORDER BY date").fetchall()
+    assert p[1] == ("1117", 190100, 190300, 15771821, True)
+    assert p[0][2] == 196800 and p[0][4] is False

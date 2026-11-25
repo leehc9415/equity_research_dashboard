@@ -15,9 +15,9 @@ import pandas as pd
 import requests
 
 from src.prices.db import connect, upsert_prices, log_run, DB_PATH
-from src.prices import global_yf, kiwoom_kr, naver_kr
+from src.prices import global_yf, naver_kr
 from src.prices.run_prices import run_kr
-from cloud_state import pack
+from cloud_state import GitHubState, KIWOOM_NAME, load_kiwoom, pack
 
 ROOT = Path(__file__).resolve().parent
 REPO_ROOT = ROOT.parents[1]
@@ -43,23 +43,25 @@ def validate_source(con, baseline):
         raise ValueError('Expected all 21 Korean sectors')
 
 
-def validate_kr_collection(con, started):
-    row = con.execute("""SELECT status, note FROM collect_log
-        WHERE job='kiwoom_daily' AND run_at>=? ORDER BY run_at DESC LIMIT 1""", [started]).fetchone()
-    if row is None or row[0] == 'fail':
-        raise ValueError(f'Kiwoom collection failed: {row[1] if row else "no log"}')
+def load_pc_kiwoom(con):
+    """PC 가 올린 최신 키움 테이블(키움 키는 등록 IP 에서만 동작)을 받아 이 DB 의 키움 테이블을 바꾼다."""
+    archive = ROOT / 'data/kiwoom-state.zip'
+    load_kiwoom(GitHubState().download_latest(archive, KIWOOM_NAME), con)
+
+
+def validate_kr_collection(con):
+    """정규장 일봉이 최근 거래일까지 다 있는지. PC 수집이 안 됐으면 실패 → 다음 예약 슬롯이 다시 확인."""
     expected = naver_kr.last_trade_date().date()
-    if kiwoom_kr.today_cutoff('KRX') < expected.strftime('%Y%m%d'):
-        # Before 18:10 KST the Kiwoom daily bar is not final; the next scheduled slot collects it.
-        print('Korean close is not confirmed yet; retained previous Korean prices.')
-        return
-    n = con.execute("SELECT count(DISTINCT symbol_id) FROM prices_daily WHERE source='kiwoom' AND date=?",
+    last = con.execute("SELECT max(date) FROM prices_daily WHERE source='kiwoom'").fetchone()[0]
+    if last is None or last < expected:
+        raise ValueError(f'PC Kiwoom upload is behind: latest {last} < {expected}. Check the PC daily run.')
+    n = con.execute("SELECT count(DISTINCT symbol_id) FROM prices_kiwoom WHERE venue='REG' AND date=?",
                     [expected]).fetchone()[0]
     baseline = con.execute("""SELECT count(DISTINCT symbol_id) FROM prices_daily
         WHERE source IN ('marcap','naver','naver_fix','kiwoom') AND date>=? - INTERVAL 30 DAY AND date<?""",
         [expected, expected]).fetchone()[0]
     if n < max(1000, int(baseline * .95)):
-        raise ValueError(f'Incomplete Korean quotes on {expected}: {n} of about {baseline}')
+        raise ValueError(f'Incomplete regular-session bars on {expected}: {n} of about {baseline}')
     for sid in ('KS11', 'KQ11'):
         last = con.execute('SELECT max(date) FROM prices_daily WHERE symbol_id=?', [sid]).fetchone()[0]
         if last is None or last < expected:
@@ -219,15 +221,15 @@ def main():
     parser.add_argument('--export-only', action='store_true', help='Rebuild a restored snapshot without network collection')
     parser.add_argument('--output', type=Path, default=WEB_DATA, help='Validated web export destination')
     args = parser.parse_args()
-    started = datetime.now()
     con = connect(DB_PATH)
     try:
         con.execute("SET threads=2; SET memory_limit='4GB'; SET TimeZone='Asia/Seoul'")
         before = inventory(con)
         if not args.export_only:
             if args.region in ('kr', 'all'):
-                run_kr(con, None)
-                validate_kr_collection(con, started)
+                load_pc_kiwoom(con)
+                run_kr(con, None, collect=False)
+                validate_kr_collection(con)
             if args.region in ('global', 'all'):
                 collect_global(con, before)
         validate_source(con, before)
