@@ -39,13 +39,13 @@ DAYS = 20          # 판정하는 최근 거래일 수 (연속 일수 계산용)
 HIST = 420         # 지표 계산에 쓰는 과거 거래일 수
 SPARK = 60
 
-# 셋업별 유동성 기준 (시총 억, 직전 20일 평균 거래대금 억). 스탁이지 교차검증에서
+# 셋업별 유동성 기준 (시총 억, 직전 20일 평균 거래대금 억, 당일 거래대금 억). 스탁이지 교차검증에서
 # '선 아래 종목을 스탁이지가 하나도 안 고른' 증거가 충분히 쌓인 셋업만 넣는다.
-LIQ = {"lead": (2000, 30), "trend": (300, 0), "htf": (1500, 0)}
+LIQ = {"lead": (2000, 30, 40), "trend": (300, 0, 0), "htf": (1500, 0, 0)}
 
 SETUPS = [
     ("gap", "거래량 동반 갭상승", "전일 고가 위로 갭을 띄우고 3% 이상 오르며 거래량이 50일 평균의 2배 이상"),
-    ("lead", "RS 선두", "추세 템플릿을 충족하며 RS·1개월 RS 모두 85 이상, 52주 고점 근처의 시장 주도주 (시총 2,000억·20일 평균 거래대금 30억 이상)"),
+    ("lead", "RS 선두", "추세 템플릿을 충족하며 RS·1개월 RS 모두 85 이상, 52주 고점 근처의 시장 주도주 (시총 2,000억·20일 평균 거래대금 30억·당일 거래대금 40억 이상)"),
     ("trend", "추세 시작", "이동평균이 정배열로 막 바뀐 상승 2단계 초입, 52주 저점 대비 아직 덜 오른 종목 (시총 300억 이상)"),
     ("vcp", "VCP", "고점 이후 조정 폭이 점점 줄며 거래량이 마르는 변동성 수축, 피봇 돌파 직전"),
     ("cup", "컵위드핸들", "U자로 왼쪽 고점을 회복한 뒤 핸들에서 낮아진 고점(포켓 피봇) 돌파를 노리는 자리"),
@@ -318,8 +318,9 @@ def build(con) -> dict:
                 res["weekv"] = (base5 > 0 and v5 >= 2 * base5 and r5 >= 0.05) and {"vx": v5 / base5, "r5": r5 * 100}
             else:
                 res["weekv"] = False
-            for k, (cap, vmin) in LIQ.items():  # 셋업 정의에 포함된 유동성 기준 (값이 없으면 통과)
-                if res[k] and ((np.isfinite(mc_t) and mc_t < cap) or (np.isfinite(v20_t) and v20_t < vmin)):
+            for k, (cap, vmin, dmin) in LIQ.items():  # 셋업 정의에 포함된 유동성 기준 (값이 없으면 통과)
+                if res[k] and ((np.isfinite(mc_t) and mc_t < cap) or (np.isfinite(v20_t) and v20_t < vmin)
+                              or (np.isfinite(val[t]) and val[t] / 1e8 < dmin)):
                     res[k] = False
             for k in flags:
                 flags[k].append(bool(res[k]))
