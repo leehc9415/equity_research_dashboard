@@ -54,20 +54,25 @@ COLUMNS = {
         "volume": "거래량(원주 기준)", "value": "거래대금(현지 통화)",
         "value_is_est": "TRUE면 종가×거래량 추정치(미국)", "mcap": "시가총액(원, 한국 종목)",
         "shares": "상장주식수(한국 종목)",
-        "source": "marcap(KRX 정규장, 연도 파일) / krx_cache(KRX 정규장, 일별 확정본) / krx_daum(KRX 정규장 당일분, 다음 날 krx_cache로 교체) / fdr(지수) / yf / sector_idx(한국 섹터 지수: close=지수, volume=구성 종목 수, mcap=구성 시총 합)",
+        "source": "kiwoom(키움 REST, 현재 상장 코스피·코스닥·ETF 2019~) / marcap(상장폐지 종목 ~2026-09-11) / naver_fix·naver(키움 이전 2026-09-14~ 수집분, 키움에 없는 종목만 남음) / fdr(지수) / yf / sector_idx(한국 섹터 지수: close=지수, volume=구성 종목 수, mcap=구성 시총 합)",
         "fetched_at": "수집 시각",
     },
     "ind_daily": {
         "ma5": "5일 이동평균(수정종가)", "ma10": "10일 이동평균", "ma20": "20일 이동평균",
         "ma50": "50일 이동평균", "ma60": "60일 이동평균", "ma120": "120일 이동평균",
+        "ma150": "150일 이동평균 (MTT용)",
         "ma200": "200일 이동평균", "vol_ma50": "수정 거래량 50일 평균",
+        "value_ma20": "거래대금 20일 평균(원, 당일 포함). 20거래일 미만이면 NULL",
+        "mtt_px": "MTT 가격 7조건 모두 충족: 종가>150·200일선, 150일선>200일선, 200일선>21거래일 전, "
+                  "50일선>150·200일선, 종가>50일선, 종가≥52주 저가×1.3, 종가≥52주 고가×0.75",
         "high_52w": "최근 365일 수정 고가 최대", "low_52w": "최근 365일 수정 저가 최소",
         "ret_1m": "1개월 수익률(달력 기준, 소수)", "ret_3m": "3개월 수익률",
         "ret_6m": "6개월 수익률", "ret_12m": "12개월 수익률",
     },
     "rs_daily": {
         "rs_score": "IBD 점수 = 2×(P0/P63) + P63/P126 + P126/P189 + P189/P252 (Pn: n거래일 전 수정종가)",
-        "rs": "종합 RS(0~99): rs_score 의 날짜별 백분위. 252거래일 이력 없으면 0",
+        "rs": "종합 RS(0~99): rs_score 의 날짜별 백분위. 252거래일 이력 없는 종목은 순위 맨 위에 두고 값은 0 (스탁이지 방식)",
+        "mtt": "미너비니 트렌드 템플릿 8조건 충족 = ind_daily.mtt_px & rs ≥ 70",
         "rs_1m": "21거래일 수익률 백분위(0~99). 상장 기간이 짧으면 상장 후 첫 종가 기준",
         "rs_3m": "63거래일 수익률 백분위", "rs_6m": "126거래일 수익률 백분위",
         "rs_12m": "252거래일 수익률 백분위",
@@ -76,11 +81,11 @@ COLUMNS = {
         "period_start": "주 시작일(월요일)", "date": "그 주 마지막 거래일", "n_days": "그 주 거래일 수",
         "volume": "수정 거래량 합", "value": "거래대금 합", "ma10": "10주 이동평균",
         "ma30": "30주 이동평균", "ma50": "50주 이동평균", "vol_ma10": "주간 거래량 10주 평균",
-        "is_complete": "FALSE = 진행 중인 이번 주",
+        "is_complete": "FALSE = DB 마지막 거래일이 속한 주 (진행 중일 수 있음)",
     },
     "bars_monthly": {
         "period_start": "월 시작일", "date": "그 달 마지막 거래일", "n_days": "그 달 거래일 수",
-        "ma10": "10개월 이동평균", "ma12": "12개월 이동평균", "is_complete": "FALSE = 진행 중인 이번 달",
+        "ma10": "10개월 이동평균", "ma12": "12개월 이동평균", "is_complete": "FALSE = DB 마지막 거래일이 속한 달 (진행 중일 수 있음)",
     },
 }
 
@@ -107,11 +112,11 @@ CREATE OR REPLACE VIEW v_daily AS
 SELECT p.symbol_id, s.name, s.market, s.asset_class, m.sector_name,
        p.date, p.open, p.high, p.low, p.close, p.close_raw, p.adj_factor,
        p.volume, p.value, p.mcap,
-       i.ma5, i.ma10, i.ma20, i.ma50, i.ma60, i.ma120, i.ma200,
-       i.vol_ma50, i.high_52w, i.low_52w,
+       i.ma5, i.ma10, i.ma20, i.ma50, i.ma60, i.ma120, i.ma150, i.ma200,
+       i.vol_ma50, i.value_ma20, i.high_52w, i.low_52w,
        p.close / i.high_52w - 1 AS dd_52w,
-       i.ret_1m, i.ret_3m, i.ret_6m, i.ret_12m,
-       r.rs, r.rs_1m, r.rs_3m, r.rs_6m, r.rs_12m
+       i.ret_1m, i.ret_3m, i.ret_6m, i.ret_12m, i.mtt_px,
+       r.rs, r.rs_1m, r.rs_3m, r.rs_6m, r.rs_12m, r.mtt
 FROM v_prices_adj p
 LEFT JOIN ind_daily i USING (symbol_id, date)
 LEFT JOIN rs_daily r USING (symbol_id, date)

@@ -1,9 +1,10 @@
 """지표 엔진: 수정주가(v_prices_adj)로 일·주·월 지표 테이블을 만든다.
 
 만드는 테이블 (매번 전체 재생성 → 권리 변동이 생겨도 항상 일관됨)
-  ind_daily     일봉 지표: 이동평균 5·10·20·50·60·120·200일, 거래량 50일 평균,
-                52주 고저, 1·3·6·12개월 수익률
-  rs_daily      한국 보통주 RS (IBD 방식 종합 RS + 1·3·6·12개월 RS), 날짜별 전 종목 백분위
+  ind_daily     일봉 지표: 이동평균 5·10·20·50·60·120·150·200일, 거래량 50일 평균,
+                거래대금 20일 평균, 52주 고저, 1·3·6·12개월 수익률, MTT 가격 7조건(mtt_px)
+  rs_daily      한국 보통주 RS (IBD 방식 종합 RS + 1·3·6·12개월 RS), 날짜별 전 종목 백분위,
+                MTT 8조건 충족(mtt = mtt_px & RS ≥ 70)
   bars_weekly   주봉 OHLCV + 10·30·50주 이동평균 + 거래량 10주 평균
   bars_monthly  월봉 OHLCV + 10·12개월 이동평균
 
@@ -23,7 +24,7 @@ import time
 
 from ..prices.db import connect
 
-DAILY_MA = [5, 10, 20, 50, 60, 120, 200]
+DAILY_MA = [5, 10, 20, 50, 60, 120, 150, 200]
 WEEKLY_MA = [10, 30, 50]
 MONTHLY_MA = [10, 12]
 
@@ -35,12 +36,14 @@ def _ma(col: str, n: int, part: str = "symbol_id", order: str = "date") -> str:
             f"THEN avg({col}) OVER ({w}) END")
 
 
-def build_daily(con, part: int | None = None, nparts: int = 1):
+def build_daily(con, part: int | None = None, nparts: int = 1,
+                src: str = "v_prices_adj", out: str = "ind_daily"):
     """윈도 함수만으로 계산 (ASOF 조인 없이). 종목·날짜 순으로 한 번 정렬해 재사용.
 
     part/nparts: 메모리·시간이 부족한 PC에서 종목을 nparts 묶음으로 나눠 계산.
       part=0..nparts-1 를 차례로 실행하면 ind_daily_new 에 쌓이고,
       마지막 묶음이 끝나면 ind_daily 로 교체된다.
+    src/out: 입력 수정주가 테이블·뷰와 결과 테이블 (키움 데이터용: build_kiwoom)
     """
     ma_cols = ",\n  ".join(f"{_ma('close', n)} AS ma{n}" for n in DAILY_MA)
 
@@ -49,36 +52,46 @@ def build_daily(con, part: int | None = None, nparts: int = 1):
                 f"UNBOUNDED PRECEDING AND INTERVAL {months} MONTH PRECEDING)")
 
     if part is None:
-        head, filt = "CREATE OR REPLACE TABLE ind_daily AS", ""
+        head, filt = f"CREATE OR REPLACE TABLE {out} AS", ""
     else:
-        head = ("CREATE OR REPLACE TABLE ind_daily_new AS" if part == 0
-                else "INSERT INTO ind_daily_new")
+        head = (f"CREATE OR REPLACE TABLE {out}_new AS" if part == 0
+                else f"INSERT INTO {out}_new")
         filt = f"WHERE hash(symbol_id) % {nparts} = {part}"
 
     con.execute(f"""
 {head}
 WITH d AS (
-  SELECT symbol_id, date, close, high, low,
+  SELECT symbol_id, date, close, high, low, value,
          CASE WHEN volume > 0 THEN volume / adj_factor END AS vol_adj
-  FROM v_prices_adj
+  FROM {src}
   {filt}
+),
+i AS (
+  SELECT symbol_id, date, close,
+    {ma_cols},
+    {_ma('vol_adj', 50)} AS vol_ma50,
+    {_ma('value', 20)} AS value_ma20,
+    max(high) OVER w52 AS high_52w,
+    min(low)  OVER w52 AS low_52w,
+    close / {ref(1)}  - 1 AS ret_1m,
+    close / {ref(3)}  - 1 AS ret_3m,
+    close / {ref(6)}  - 1 AS ret_6m,
+    close / {ref(12)} - 1 AS ret_12m
+  FROM d
+  WINDOW w52 AS (PARTITION BY symbol_id ORDER BY date
+                 RANGE BETWEEN INTERVAL 364 DAY PRECEDING AND CURRENT ROW)
 )
-SELECT symbol_id, date,
-  {ma_cols},
-  {_ma('vol_adj', 50)} AS vol_ma50,
-  max(high) OVER w52 AS high_52w,
-  min(low)  OVER w52 AS low_52w,
-  close / {ref(1)}  - 1 AS ret_1m,
-  close / {ref(3)}  - 1 AS ret_3m,
-  close / {ref(6)}  - 1 AS ret_6m,
-  close / {ref(12)} - 1 AS ret_12m
-FROM d
-WINDOW w52 AS (PARTITION BY symbol_id ORDER BY date
-               RANGE BETWEEN INTERVAL 364 DAY PRECEDING AND CURRENT ROW)
+SELECT i.* EXCLUDE (close),
+  -- MTT 가격 7조건 (RS ≥ 70 은 rs_daily.mtt 에서). 200일선 1개월 상승 = 21거래일 전보다 높음
+  coalesce(close > ma150 AND close > ma200 AND ma150 > ma200
+    AND ma200 > lag(ma200, 21) OVER (PARTITION BY symbol_id ORDER BY date)
+    AND ma50 > ma150 AND ma50 > ma200 AND close > ma50
+    AND close >= 1.3 * low_52w AND close >= 0.75 * high_52w, FALSE) AS mtt_px
+FROM i
 ORDER BY symbol_id, date;
 """)
     if part is not None and part == nparts - 1:
-        con.execute("DROP TABLE IF EXISTS ind_daily; ALTER TABLE ind_daily_new RENAME TO ind_daily;")
+        con.execute(f"DROP TABLE IF EXISTS {out}; ALTER TABLE {out}_new RENAME TO {out};")
 
 
 # --------------------------------------------------------------------------- RS
@@ -86,14 +99,15 @@ RS_PERIODS = {"rs_1m": 21, "rs_3m": 63, "rs_6m": 126, "rs_12m": 252}   # 거래�
 Q = 63                                                                  # IBD 분기
 
 
-def _pct(x: str) -> str:
-    """날짜별 전 종목 백분위 0~99 (동순위는 평균 순위). NULL 은 최하위(0)로 포함."""
-    return (f"least(99, floor(100.0 * (rank() OVER (PARTITION BY date ORDER BY {x} NULLS FIRST)"
+def _pct(x: str, nulls: str = "FIRST") -> str:
+    """날짜별 전 종목 백분위 0~99 (동순위는 평균 순위). NULL 은 nulls=FIRST 면 최하위, LAST 면 최상위로 포함."""
+    return (f"least(99, floor(100.0 * (rank() OVER (PARTITION BY date ORDER BY {x} NULLS {nulls})"
             f" + (count(*) OVER (PARTITION BY date, {x}) - 1) / 2.0)"
             f" / count(*) OVER (PARTITION BY date)))::INTEGER")
 
 
-def build_rs(con):
+def build_rs(con, src: str = "v_prices_adj", out: str = "rs_daily",
+             where: str = "p.source IN ('marcap', 'naver', 'naver_fix', 'krx_cache', 'krx_daum', 'kiwoom')", ind: str = "ind_daily"):
     """IBD 방식 상대강도(RS). 한국 코스피·코스닥 보통주(우선주·스팩·코넥스 제외) 전체 대상.
 
       rs_1m / rs_3m / rs_6m / rs_12m
@@ -101,7 +115,11 @@ def build_rs(con):
             상장 기간이 더 짧으면 상장 후 첫 종가를 기준가로 쓴다.
       rs (종합)
           = 점수 2×(P₀/P₆₃) + P₆₃/P₁₂₆ + P₁₂₆/P₁₈₉ + P₁₈₉/P₂₅₂ 의 백분위 (Pₙ = n 거래일 전 수정종가)
-            → 최근 분기 2배 가중. 252거래일 이력이 없으면 0(최하위).
+            → 최근 분기 2배 가중.
+            252거래일 이력이 없는 종목은 순위 계산 때 맨 위에 두고(다른 종목의 백분위가 그만큼 내려감)
+            값은 0으로 표시한다. 스탁이지 표본(2026-11-02): 1년 미만 16종목 모두 0 표시,
+            맨 위 배치로 바꾸니 ±1 일치 2.7% → 39%.
+      mtt = ind_daily.mtt_px(MTT 가격 7조건) & rs ≥ 70 → 미너비니 트렌드 템플릿 8조건 모두 충족.
       스탁이지(stockeasy.intellio.kr) 종합 RS 와 같은 공식 (권리 변동 없는 종목 기준 순위 상관 0.9995).
       단, 가격은 정확한 수정주가를 쓴다(스탁이지는 3개월보다 오래된 액면병합·분할을 반영하지 않음).
     """
@@ -115,13 +133,13 @@ SELECT id AS symbol_id FROM symbols
 WHERE market = 'KR' AND asset_class = 'stock' AND subclass IN ('KOSPI', 'KOSDAQ')
   AND right(id, 1) = '0' AND name NOT LIKE '%스팩%';
 
-CREATE OR REPLACE TABLE rs_daily AS
+CREATE OR REPLACE TABLE {out} AS
 WITH b AS (
   SELECT p.symbol_id, p.date, p.close,
     first_value(p.close) OVER w AS c0,
     {lag_cols}
-  FROM v_prices_adj p JOIN v_rs_universe u USING (symbol_id)
-  WHERE p.source IN ('marcap', 'krx_cache', 'krx_daum') AND p.close > 0
+  FROM {src} p JOIN v_rs_universe u USING (symbol_id)
+  WHERE {where} AND p.close > 0
   WINDOW w AS (PARTITION BY p.symbol_id ORDER BY p.date)
 ),
 r AS (
@@ -130,16 +148,20 @@ r AS (
     CASE WHEN c{4 * Q} > 0 THEN 2 * close / c{Q} + c{Q} / c{2 * Q} + c{2 * Q} / c{3 * Q} + c{3 * Q} / c{4 * Q}
     END AS rs_score
   FROM b
+),
+s AS (
+  SELECT symbol_id, date, rs_score,
+    CASE WHEN rs_score IS NULL THEN 0 ELSE {_pct('rs_score', 'LAST')} END AS rs,   -- 1년 미만: 순위는 맨 위, 표시는 0
+    {pct_cols}
+  FROM r
 )
-SELECT symbol_id, date, rs_score,
-  CASE WHEN rs_score IS NULL THEN 0 ELSE {_pct('rs_score')} END AS rs,   -- 1년 미만 = 0 (스탁이지와 동일)
-  {pct_cols}
-FROM r
+SELECT s.*, coalesce(i.mtt_px AND s.rs >= 70, FALSE) AS mtt
+FROM s LEFT JOIN {ind} i USING (symbol_id, date)
 ORDER BY symbol_id, date;
 """)
 
 
-def _bars(con, table: str, unit: str, mas: list[int], vol_ma: int | None):
+def _bars(con, table: str, unit: str, mas: list[int], vol_ma: int | None, src: str = "v_prices_adj"):
     ma_cols = ",\n  ".join(f"{_ma('close', n, order='period_start')} AS ma{n}" for n in mas)
     vol = f",\n  {_ma('volume', vol_ma, order='period_start')} AS vol_ma{vol_ma}" if vol_ma else ""
     con.execute(f"""
@@ -155,12 +177,13 @@ WITH b AS (
          arg_max(close, date)              AS close,
          sum(CASE WHEN volume > 0 THEN volume / adj_factor END) AS volume,
          sum(value)                        AS value
-  FROM v_prices_adj
+  FROM {src}
   GROUP BY 1, 2
 )
 SELECT b.*,
   {ma_cols}{vol},
-  (date_trunc('{unit}', current_date) > period_start) AS is_complete
+  -- 오늘 날짜가 아니라 DB의 마지막 거래일 기준: 수집이 멈춰도 덜 찬 봉을 완성으로 보지 않음
+  (date_trunc('{unit}', max(b.date) OVER ()) > period_start) AS is_complete
 FROM b
 ORDER BY symbol_id, period_start;
 """)

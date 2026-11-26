@@ -39,3 +39,19 @@ python cloud_update.py --region all
 ```
 
 로컬 점검은 복원한 작업 DB만 변경합니다. GitHub의 상태·웹 파일을 바꾸려면 별도로 상태 업로드와 커밋이 필요합니다. `--export-only`는 수집 없이 복원한 이력으로 동일 화면을 재생성합니다. `data/`, 임시 내보내기와 DB는 Git에서 제외합니다.
+
+## 한국 시세: 키움(PC 수집) → 클라우드
+
+키움 REST 키는 키움 포털에 등록한 IP에서만 동작해서, 한국 시세는 PC에서 받고 GitHub Actions는 그 결과로 대시보드를 만든다.
+
+| venue (`prices_kiwoom`) | 내용 | 쓰는 곳 |
+|---|---|---|
+| `REG` | 정규장 일봉: 1분봉(ka10080)을 그날 종가 단일가(보통 15:30, 연장 시 ~15:34, 수능일 16:30)까지 모은 값. KRX 공식 종가·스탁이지와 같은 기준 | `prices_daily`(source='kiwoom') → 모든 표시·지표 |
+| `KRX` | 키움 일봉. 2026-09-14부터 15:30 이후 체결(~20:00)이 섞인 마지막 체결가 | 기록만 (수정비율 `upd_rt` 은 여기서 씀) |
+| `AL` | KRX+NXT 통합(SOR) 일봉 | 기록만 |
+
+- PC: `run_daily.bat close` (예약 작업 `stockDB_close`, 평일 15:40: 정규장 일봉만)와
+  `run_daily.bat` (`stockDB_daily`, 평일 20:15: 시간외·NXT 포함 키움 일봉 확정본). 절전 중이면 깨우고, 놓치면 켜진 뒤 실행 — `setup_task.ps1` 로 등록. 데이터는 `STOCKDB_DATA`(기본 `Documents\stockDB\data`), 필요 환경변수 `KIWOOM_APPKEY`·`KIWOOM_SECRETKEY`·`GH_TOKEN`.
+  수집 후 `cloud_state.py push-kiwoom` 이 키움 테이블만 `market-data-state` 릴리스에 `kiwoom-state-*.zip` 으로 올린다.
+- 클라우드: `update-market-dashboard.yml` 한국 슬롯(16:07·16:37·17:07, 예비 21:07·22:07)이 최신 `kiwoom-state` 를 받아 동기화하고, 최근 거래일 정규장 일봉이 없으면 실패한다(PC 수집 확인).
+- 정규장 일봉 백필: `python -m src.prices.kiwoom_kr backfill --venue reg --start 2026-09-14` (이미 받은 날은 건너뜀).

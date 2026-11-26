@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import tempfile
 import zipfile
 from datetime import datetime, timezone
@@ -15,10 +16,18 @@ import duckdb
 import requests
 
 ROOT = Path(__file__).resolve().parent
-TABLES = ('prices_daily', 'symbols', 'groups', 'group_meta', 'sector_defs', 'sector_map')
+V1_TABLES = ('prices_daily', 'symbols', 'groups', 'group_meta', 'sector_defs', 'sector_map')
+# v2: Kiwoom raw bars and listing snapshots, so the cloud keeps the same Kiwoom history as the PC
+KIWOOM_TABLES = ('prices_kiwoom', 'kiwoom_listing')
+TABLES = V1_TABLES + KIWOOM_TABLES
+SCHEMA = {1: V1_TABLES, 2: TABLES}
 TAG = 'market-data-state'
 SEED = 'market-seed-v1.zip'
 STATE_NAME = re.compile(r'market-state-\d{8}T\d{6}Z-\d+-\d+\.zip')
+# Kiwoom raw tables collected on the PC (Kiwoom keys only work from registered IPs) and uploaded separately,
+# so the PC never overwrites cloud-collected history; the cloud loads them into its own state.
+KIWOOM_SCHEMA = 'kiwoom-1'
+KIWOOM_NAME = re.compile(r'kiwoom-state-\d{8}T\d{6}Z\.zip')
 
 
 def sha256(path):
@@ -29,31 +38,57 @@ def sha256(path):
     return h.hexdigest()
 
 
-def pack(db: Path, archive: Path):
-    """Read the original DB without modifying it; derived tables are rebuilt."""
+def pack(db: Path, archive: Path, tables=TABLES):
+    """Read the original DB without modifying it; derived tables are rebuilt.
+    tables=KIWOOM_TABLES packs only the PC-collected Kiwoom tables (load_kiwoom)."""
     archive.parent.mkdir(parents=True, exist_ok=True)
-    manifest = {'schemaVersion': 1, 'createdAt': datetime.now(timezone.utc).isoformat(), 'tables': {}}
+    version = 2 if tables == TABLES else KIWOOM_SCHEMA
+    manifest = {'schemaVersion': version, 'createdAt': datetime.now(timezone.utc).isoformat(), 'tables': {}}
     with tempfile.TemporaryDirectory(dir=archive.parent) as tmp:
         with duckdb.connect(str(db), read_only=True) as con:
             con.execute("SET threads=2; SET memory_limit='4GB'")
-            for table in TABLES:
+            for table in tables:
                 file = Path(tmp) / f'{table}.parquet'
                 condition = " WHERE source NOT IN ('sector_idx', 'se_sector_idx')" if table == 'prices_daily' else ''
                 # Identifiers are the fixed allowlist above; paths are parameters.
                 con.execute(f"COPY (SELECT * FROM {table}{condition}) TO ? (FORMAT PARQUET, COMPRESSION ZSTD)", [str(file)])
                 rows = con.execute(f'SELECT count(*) FROM {table}{condition}').fetchone()[0]
                 manifest['tables'][table] = {'rows': rows, 'sha256': sha256(file)}
-            manifest['prices'] = [str(x) for x in con.execute(
-                "SELECT min(date),max(date) FROM prices_daily WHERE source NOT IN ('sector_idx','se_sector_idx')").fetchone()]
+            span = ("SELECT min(date),max(date) FROM prices_daily WHERE source NOT IN ('sector_idx','se_sector_idx')"
+                    if 'prices_daily' in tables else "SELECT min(date),max(date) FROM prices_kiwoom")
+            manifest['prices'] = [str(x) for x in con.execute(span).fetchone()]
         partial = archive.with_suffix('.partial')
         with zipfile.ZipFile(partial, 'w', compression=zipfile.ZIP_STORED) as z:
-            for table in TABLES:
+            for table in tables:
                 z.write(Path(tmp) / f'{table}.parquet', f'{table}.parquet')
             z.writestr('manifest.json', json.dumps(manifest, ensure_ascii=False))
         partial.replace(archive)
     print(json.dumps({'snapshotBytes': archive.stat().st_size, 'prices': manifest['prices'],
-                      'priceRows': manifest['tables']['prices_daily']['rows']}))
+                      'rows': {t: v['rows'] for t, v in manifest['tables'].items()}}))
     return manifest
+
+
+def extract(archive: Path, tmp: str, schemas: dict):
+    """Verify the archive (schema, exact file set, sizes, checksums) and unpack its parquet files into tmp."""
+    with zipfile.ZipFile(archive) as z:
+        if 'manifest.json' not in z.namelist() or z.getinfo('manifest.json').file_size > 65536:
+            raise ValueError('Snapshot manifest missing or too large')
+        manifest = json.loads(z.read('manifest.json'))
+        tables = schemas.get(manifest.get('schemaVersion'))
+        if tables is None or set(manifest.get('tables', {})) != set(tables):
+            raise ValueError('Unsupported snapshot schema')
+        expected = {'manifest.json'} | {f'{table}.parquet' for table in tables}
+        if set(z.namelist()) != expected or len(z.namelist()) != len(expected):
+            raise ValueError('Snapshot has unexpected or duplicate files')
+        for table in tables:
+            file = Path(tmp) / f'{table}.parquet'
+            if z.getinfo(file.name).file_size > 2_000_000_000:
+                raise ValueError('Snapshot table too large')
+            with z.open(file.name) as source, file.open('wb') as dest:
+                shutil.copyfileobj(source, dest, length=1024 * 1024)
+            if sha256(file) != manifest['tables'][table]['sha256']:
+                raise ValueError(f'Snapshot checksum mismatch: {table}')
+    return manifest, tables
 
 
 def restore(archive: Path, db: Path):
@@ -61,34 +96,21 @@ def restore(archive: Path, db: Path):
         raise ValueError('Refusing to overwrite an existing market database')
     db.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=db.parent) as tmp:
-        with zipfile.ZipFile(archive) as z:
-            expected = {'manifest.json'} | {f'{table}.parquet' for table in TABLES}
-            if set(z.namelist()) != expected or len(z.namelist()) != len(expected):
-                raise ValueError('Snapshot has unexpected or duplicate files')
-            if z.getinfo('manifest.json').file_size > 65536:
-                raise ValueError('Snapshot manifest too large')
-            manifest = json.loads(z.read('manifest.json'))
-            if manifest.get('schemaVersion') != 1 or set(manifest.get('tables', {})) != set(TABLES):
-                raise ValueError('Unsupported snapshot schema')
-            for table in TABLES:
-                file = Path(tmp) / f'{table}.parquet'
-                if z.getinfo(file.name).file_size > 2_000_000_000:
-                    raise ValueError('Snapshot table too large')
-                with z.open(file.name) as source, file.open('wb') as dest:
-                    import shutil
-                    shutil.copyfileobj(source, dest, length=1024 * 1024)
-                if sha256(file) != manifest['tables'][table]['sha256']:
-                    raise ValueError(f'Snapshot checksum mismatch: {table}')
+        manifest, tables = extract(archive, tmp, SCHEMA)
         partial = db.with_suffix('.restoring.duckdb')
         if partial.exists():
             raise ValueError('An unfinished restore already exists')
         from src.prices.db import connect
+        from src.prices.kiwoom_kr import DDL as KIWOOM_DDL
         with connect(partial) as con:
             con.execute("SET threads=2; SET memory_limit='4GB'")
-            for table in TABLES:
+            con.execute(KIWOOM_DDL)   # v1 snapshots get empty Kiwoom tables with their primary keys
+            for table in tables:
                 path = str(Path(tmp) / f'{table}.parquet')
                 if table == 'prices_daily':
                     con.execute('INSERT INTO prices_daily SELECT * FROM read_parquet(?)', [path])
+                elif table in KIWOOM_TABLES:
+                    con.execute(f'INSERT INTO {table} BY NAME SELECT * FROM read_parquet(?)', [path])
                 else:
                     con.execute(f'CREATE TABLE {table} AS SELECT * FROM read_parquet(?)', [path])
                 rows = con.execute(f'SELECT count(*) FROM {table}').fetchone()[0]
@@ -100,12 +122,33 @@ def restore(archive: Path, db: Path):
     return manifest
 
 
+def load_kiwoom(archive: Path, con):
+    """Replace the Kiwoom tables of an open DB with a verified PC snapshot (all or nothing)."""
+    from src.prices.kiwoom_kr import DDL as KIWOOM_DDL
+    with tempfile.TemporaryDirectory(dir=archive.parent) as tmp:
+        manifest, tables = extract(archive, tmp, {KIWOOM_SCHEMA: KIWOOM_TABLES})
+        con.execute(KIWOOM_DDL)
+        con.execute('BEGIN')
+        try:
+            for table in tables:
+                con.execute(f'DELETE FROM {table}')
+                con.execute(f'INSERT INTO {table} BY NAME SELECT * FROM read_parquet(?)', [str(Path(tmp) / f'{table}.parquet')])
+                if con.execute(f'SELECT count(*) FROM {table}').fetchone()[0] != manifest['tables'][table]['rows']:
+                    raise ValueError(f'Kiwoom snapshot row count mismatch: {table}')
+            con.execute('COMMIT')
+        except Exception:
+            con.execute('ROLLBACK')
+            raise
+    print('Loaded PC Kiwoom tables:', manifest['prices'], manifest['createdAt'])
+    return manifest
+
+
 class GitHubState:
     def __init__(self, repo=None, token=None):
         self.repo = repo or os.environ['GITHUB_REPOSITORY']
         if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', self.repo):
             raise ValueError('Invalid repository')
-        self.token = token or os.environ['GH_TOKEN']
+        self.token = (token or os.environ['GH_TOKEN']).strip()   # 붙여 넣은 토큰의 공백·줄바꿈 (2026-11-26 업로드 실패)
 
     def api(self, method, path, body=None, missing_ok=False):
         response = requests.request(method, f'https://api.github.com/repos/{self.repo}{path}',
@@ -131,12 +174,15 @@ class GitHubState:
         return self.api('GET', f"/releases/{release['id']}/assets?per_page=100")
 
     def pull(self, archive, db):
+        restore(self.download_latest(archive, STATE_NAME, SEED), db)
+
+    def download_latest(self, archive, pattern, fallback=None):
         assets = self.assets(self.release())
-        candidates = sorted((a for a in assets if a['state'] == 'uploaded' and STATE_NAME.fullmatch(a['name'])),
+        candidates = sorted((a for a in assets if a['state'] == 'uploaded' and pattern.fullmatch(a['name'])),
                             key=lambda a: a['name'], reverse=True)
-        candidates += [a for a in assets if a['state'] == 'uploaded' and a['name'] == SEED]
+        candidates += [a for a in assets if a['state'] == 'uploaded' and a['name'] == fallback]
         if not candidates:
-            raise RuntimeError('No verified market state is available')
+            raise RuntimeError(f'No uploaded asset matches {pattern.pattern}')
         # Fail loudly on a corrupt latest state; silently falling back could lose history.
         asset = candidates[0]
         archive.parent.mkdir(parents=True, exist_ok=True)
@@ -150,14 +196,17 @@ class GitHubState:
         digest = asset.get('digest')
         if digest and digest != 'sha256:' + sha256(archive):
             raise ValueError('Release asset checksum mismatch')
-        restore(archive, db)
-        print('Source state:', asset['name'])
+        print('Source asset:', asset['name'])
+        return archive
 
-    def push(self, archive, seed=False):
+    def push(self, archive, seed=False, kiwoom=False):
         release = self.release(create=seed)
         assets = self.assets(release)
         stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-        name = SEED if seed else f"market-state-{stamp}-{os.environ.get('GITHUB_RUN_ID', '0')}-{os.environ.get('GITHUB_RUN_ATTEMPT', '1')}.zip"
+        if kiwoom:
+            name, rotate = f'kiwoom-state-{stamp}.zip', KIWOOM_NAME
+        else:
+            name, rotate = SEED if seed else f"market-state-{stamp}-{os.environ.get('GITHUB_RUN_ID', '0')}-{os.environ.get('GITHUB_RUN_ATTEMPT', '1')}.zip", STATE_NAME
         digest = 'sha256:' + sha256(archive)
         existing = next((a for a in assets if a['name'] == name), None)
         if existing:
@@ -176,7 +225,7 @@ class GitHubState:
             raise ValueError('Uploaded market state verification failed')
         # Only these pipeline-owned assets are rotated, after successful upload.
         if not seed:
-            states = sorted((a for a in self.assets(release) if STATE_NAME.fullmatch(a['name']) and a['state'] == 'uploaded'),
+            states = sorted((a for a in self.assets(release) if rotate.fullmatch(a['name']) and a['state'] == 'uploaded'),
                             key=lambda a: a['name'], reverse=True)
             for old in states[2:]:
                 self.api('DELETE', f"/releases/assets/{old['id']}")
@@ -186,7 +235,8 @@ class GitHubState:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['pack', 'restore', 'pull', 'push'])
+    parser.add_argument('action', choices=['pack', 'restore', 'pull', 'push', 'push-kiwoom'],
+                        help='push-kiwoom: pack only the Kiwoom tables of --db and upload them (PC)')
     parser.add_argument('--db', type=Path, default=ROOT / 'data/market.duckdb')
     parser.add_argument('--archive', type=Path, default=ROOT / 'data/market-state.zip')
     args = parser.parse_args()
@@ -196,6 +246,9 @@ def main():
         restore(args.archive, args.db)
     elif args.action == 'pull':
         GitHubState().pull(args.archive, args.db)
+    elif args.action == 'push-kiwoom':
+        pack(args.db, args.archive, KIWOOM_TABLES)
+        GitHubState().push(args.archive, kiwoom=True)
     else:
         GitHubState().push(args.archive)
 

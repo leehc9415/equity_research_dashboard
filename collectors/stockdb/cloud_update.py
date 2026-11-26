@@ -17,7 +17,7 @@ import requests
 from src.prices.db import connect, upsert_prices, log_run, DB_PATH
 from src.prices import global_yf, naver_kr
 from src.prices.run_prices import run_kr
-from cloud_state import pack
+from cloud_state import GitHubState, KIWOOM_NAME, load_kiwoom, pack
 
 ROOT = Path(__file__).resolve().parent
 REPO_ROOT = ROOT.parents[1]
@@ -43,21 +43,25 @@ def validate_source(con, baseline):
         raise ValueError('Expected all 21 Korean sectors')
 
 
-def validate_kr_collection(con, started):
-    """KRX 정규장 시세가 최근 거래일까지 들어왔는지 확인한다.
-    당일분은 18:05 이후 받으므로, 그 전 실행이나 수집 실패는 실패로 끝내 다음 예약 슬롯이 다시 시도하게 한다."""
+def load_pc_kiwoom(con):
+    """PC 가 올린 최신 키움 테이블(키움 키는 등록 IP 에서만 동작)을 받아 이 DB 의 키움 테이블을 바꾼다."""
+    archive = ROOT / 'data/kiwoom-state.zip'
+    load_kiwoom(GitHubState().download_latest(archive, KIWOOM_NAME), con)
+
+
+def validate_kr_collection(con):
+    """정규장 일봉이 최근 거래일까지 다 있는지. PC 수집이 안 됐으면 실패 → 다음 예약 슬롯이 다시 확인."""
     expected = naver_kr.last_trade_date().date()
-    have = con.execute("""SELECT max(date) FROM prices_daily
-        WHERE source IN ('marcap','krx_cache','krx_daum')""").fetchone()[0]
-    if have is None or have < expected:
-        raise RuntimeError(f'KRX 정규장 일봉 대기 중: 최근 거래일 {expected}, 보유 {have} — 다음 예약 실행에서 다시 수집')
-    n = con.execute("""SELECT count(DISTINCT symbol_id) FROM prices_daily
-        WHERE source IN ('marcap','krx_cache','krx_daum') AND date=?""", [have]).fetchone()[0]
+    last = con.execute("SELECT max(date) FROM prices_daily WHERE source='kiwoom'").fetchone()[0]
+    if last is None or last < expected:
+        raise ValueError(f'PC Kiwoom upload is behind: latest {last} < {expected}. Check the PC daily run.')
+    n = con.execute("SELECT count(DISTINCT symbol_id) FROM prices_kiwoom WHERE venue='REG' AND date=?",
+                    [expected]).fetchone()[0]
     baseline = con.execute("""SELECT count(DISTINCT symbol_id) FROM prices_daily
-        WHERE source IN ('marcap','krx_cache','krx_daum') AND date>=? - INTERVAL 30 DAY AND date<?""",
-        [have, have]).fetchone()[0]
+        WHERE source IN ('marcap','naver','naver_fix','kiwoom') AND date>=? - INTERVAL 30 DAY AND date<?""",
+        [expected, expected]).fetchone()[0]
     if n < max(1000, int(baseline * .95)):
-        raise ValueError(f'Incomplete Korean quotes: {n} of about {baseline}')
+        raise ValueError(f'Incomplete regular-session bars on {expected}: {n} of about {baseline}')
     for sid in ('KS11', 'KQ11'):
         last = con.execute('SELECT max(date) FROM prices_daily WHERE symbol_id=?', [sid]).fetchone()[0]
         if last is None or last < expected:
@@ -217,15 +221,15 @@ def main():
     parser.add_argument('--export-only', action='store_true', help='Rebuild a restored snapshot without network collection')
     parser.add_argument('--output', type=Path, default=WEB_DATA, help='Validated web export destination')
     args = parser.parse_args()
-    started = datetime.now()
     con = connect(DB_PATH)
     try:
         con.execute("SET threads=2; SET memory_limit='4GB'; SET TimeZone='Asia/Seoul'")
         before = inventory(con)
         if not args.export_only:
             if args.region in ('kr', 'all'):
-                run_kr(con, None)
-                validate_kr_collection(con, started)
+                load_pc_kiwoom(con)
+                run_kr(con, None, collect=False)
+                validate_kr_collection(con)
             if args.region in ('global', 'all'):
                 collect_global(con, before)
         validate_source(con, before)

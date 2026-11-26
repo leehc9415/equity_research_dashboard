@@ -9,14 +9,14 @@ on:
     - cron: '17 0 * * *'
     - cron: '7 1 * * *'
     - cron: '37 2 * * *'
-    # Korean (weekdays, ending in '1-5'): KRX regular-session daily bars. The close is final at 15:30, but
-    # KRX daily volume/value include after-hours single-price trading until 18:00, so collect from 18:17 KST.
-    # 18:17 / 19:07 / 20:37 / 22:07 KST, plus 07:37 KST the next morning as a catch-up.
-    - cron: '17 9 * * 1-5'
-    - cron: '7 10 * * 1-5'
-    - cron: '37 11 * * 1-5'
+    # Korean (weekdays, ending in '1-5'): 16:07 / 16:37 / 17:07 KST after the PC's 15:40 regular-close upload,
+    # 21:07 / 22:07 as backups after its 20:15 run (Kiwoom keys only work from registered IPs, so GitHub runners
+    # cannot collect them; see collectors/stockdb/run_daily.bat).
+    - cron: '7 7 * * 1-5'
+    - cron: '37 7 * * 1-5'
+    - cron: '7 8 * * 1-5'
+    - cron: '7 12 * * 1-5'
     - cron: '7 13 * * 1-5'
-    - cron: '37 22 * * 1-5'
   workflow_dispatch:
     inputs:
       region:
@@ -56,7 +56,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           today=$(TZ=Asia/Seoul date +%F)
-          if [ "$REGION" = kr ]; then at='16:40'; else at='08:30'; fi
+          if [ "$REGION" = kr ]; then at='15:40'; else at='08:30'; fi
           since=$(date -u -d "TZ=\"Asia/Seoul\" $today $at" +%Y-%m-%dT%H:%M:%SZ)
           count=$(gh api "repos/${{ github.repository }}/actions/workflows/update-market-dashboard.yml/runs?status=success&created=>=$since&per_page=50" \
             --jq "[.workflow_runs[] | select(.id != ${{ github.run_id }}) | .display_title | select(test(\"· ($REGION|all)$\"))] | length")
@@ -86,6 +86,8 @@ jobs:
       - name: Collect, rebuild indicators, and validate all exported cards
         if: steps.guard.outputs.skip != 'true'
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: python cloud_update.py --region "$REGION"
       - name: Publish stock chart data (release asset, not committed)
         if: steps.guard.outputs.skip != 'true' && env.REGION != 'global'
