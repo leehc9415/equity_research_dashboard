@@ -116,7 +116,7 @@ class Kiwoom:
         self._last = 0.0
 
     def call(self, api_id: str, path: str, body: dict, next_key: str | None = None):
-        """POST 한 번 → (응답 JSON, next_key 또는 None). 호출 제한이면 지수 대기 후 재시도."""
+        """POST 한 번 → (응답 JSON, next_key 또는 None). 호출 제한·연결 오류면 지수 대기 후 재시도."""
         headers = {"api-id": api_id, "authorization": f"Bearer {self.token}",
                    "Content-Type": "application/json;charset=UTF-8"}
         if next_key:
@@ -124,7 +124,14 @@ class Kiwoom:
         for attempt in range(6):
             time.sleep(max(0.0, self._last + MIN_INTERVAL - time.monotonic()))
             self._last = time.monotonic()
-            r = self.s.post(f"{BASE_URL}{path}", headers=headers, json=body, timeout=30)
+            try:
+                r = self.s.post(f"{BASE_URL}{path}", headers=headers, json=body, timeout=30)
+            except (requests.ConnectionError, requests.Timeout):
+                # 절전 해제 직후·순간 끊김 (2026-11-26 13:17 연결 실패로 백필 중단). 마지막 시도면 그대로 올린다
+                if attempt == 5:
+                    raise
+                time.sleep(2 ** attempt)
+                continue
             j = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
             if r.status_code == 429 or "초과" in str(j.get("return_msg", "")):
                 time.sleep(2 ** attempt)
