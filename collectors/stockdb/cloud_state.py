@@ -148,7 +148,7 @@ class GitHubState:
         self.repo = repo or os.environ['GITHUB_REPOSITORY']
         if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', self.repo):
             raise ValueError('Invalid repository')
-        self.token = token or os.environ['GH_TOKEN']
+        self.token = (token or os.environ['GH_TOKEN']).strip()   # 붙여 넣은 토큰의 공백·줄바꿈 (2026-11-26 업로드 실패)
 
     def api(self, method, path, body=None, missing_ok=False):
         response = requests.request(method, f'https://api.github.com/repos/{self.repo}{path}',
