@@ -9,12 +9,12 @@ on:
     - cron: '17 0 * * *'
     - cron: '7 1 * * *'
     - cron: '37 2 * * *'
-    # Korean (weekdays, ending in '1-5'): 16:37 / 17:07 / 17:37 KST after the PC's 15:40 regular-close upload,
+    # Korean (weekdays, ending in '1-5'): 16:07 / 16:37 / 17:07 KST after the PC's 15:40 regular-close upload,
     # 21:07 / 22:07 as backups after its 20:15 run (Kiwoom keys only work from registered IPs, so GitHub runners
     # cannot collect them; see collectors/stockdb/run_daily.bat).
+    - cron: '7 7 * * 1-5'
     - cron: '37 7 * * 1-5'
     - cron: '7 8 * * 1-5'
-    - cron: '37 8 * * 1-5'
     - cron: '7 12 * * 1-5'
     - cron: '7 13 * * 1-5'
   workflow_dispatch:

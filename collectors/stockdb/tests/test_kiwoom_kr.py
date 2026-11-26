@@ -168,8 +168,31 @@ def test_sync_prefers_regular_session_bars():
             "open_pric": "206500", "high_pric": "208000", "low_pric": "194900", "pred_pre": "-11000"}]
     upsert(con, parse_rows(krx, "005930", "KRX", "2026-11-01"))
     con.execute("""INSERT INTO prices_kiwoom (symbol_id, venue, date, open, high, low, close, volume, value)
-                   VALUES ('005930', 'REG', '2026-11-17', 191400, 195900, 190100, 190300, 15771821, 3e12)""")
-    assert sync_prices_daily(con) == 2
+                   VALUES ('005930', 'REG', '2026-11-17', 191400, 195900, 190100, 190300, 15771821, 3e12),
+                          ('005930', 'REG', '2026-11-18', 196900, 199950, 188800, 194700, 17103284, 3e12)""")
+    assert sync_prices_daily(con) == 3                       # 11-18: 15:40 실행처럼 KRX 일봉 없이 REG 만
+    last = con.execute("SELECT close, adj_factor, ref_price FROM prices_daily WHERE date = '2026-11-18'").fetchone()
+    assert last == (194700, 1.0, 190300)
     p = con.execute("SELECT strftime(date, '%m%d'), low, close, volume, value_is_est FROM prices_daily ORDER BY date").fetchall()
     assert p[1] == ("1117", 190100, 190300, 15771821, True)
     assert p[0][2] == 196800 and p[0][4] is False
+
+
+def test_shared_rate_limit_across_threads(monkeypatch):
+    """동시 호출이 함께 호출 시작 간격을 지킨다: 3개 스레드 × 4번 = 예약 시각 12개가 정확히 interval 간격."""
+    import threading
+    from src.prices import kiwoom_kr
+    api = object.__new__(kiwoom_kr.Kiwoom)
+    api._lock, api._next, api.interval = threading.Lock(), 0.0, 0.21
+    slots = []
+    monkeypatch.setattr(kiwoom_kr.time, "monotonic", lambda: 100.0)          # 시계를 멈추고 예약 시각만 본다
+    monkeypatch.setattr(kiwoom_kr.time, "sleep", lambda sec: slots.append(100.0 + sec))
+
+    def go():
+        for _ in range(4):
+            api._wait_slot()
+
+    ts = [threading.Thread(target=go) for _ in range(3)]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    assert sorted(slots) == pytest.approx([100.0 + 0.21 * k for k in range(12)])

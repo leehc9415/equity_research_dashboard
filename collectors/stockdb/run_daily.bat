@@ -1,7 +1,7 @@
 @echo off
 rem PC daily runs (scheduled tasks registered by setup_task.ps1):
-rem   run_daily.bat close   weekdays 15:40 (stockDB_close): regular-session bars (REG, 1-minute bars up to the
-rem                         closing auction) + interim Kiwoom daily bars -> upload -> dashboard updates ~16:37
+rem   run_daily.bat close   weekdays 15:40 (stockDB_close): regular-session bars only (REG, 1-minute bars up to
+rem                         the closing auction) -> upload -> dashboard updates ~16:07
 rem   run_daily.bat         weekdays 20:15 (stockDB_daily): final Kiwoom daily bars (KRX, AL = last trade incl.
 rem                         after-hours/NXT, record only), REG for any day the 15:40 run missed, indicators -> upload
 rem Kiwoom keys work only from IPs registered on the Kiwoom portal, so Korean prices are collected here and only

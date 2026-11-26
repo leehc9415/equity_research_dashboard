@@ -1,5 +1,5 @@
 # Registers the PC daily runs (run_daily.bat) as Windows scheduled tasks.
-#   stockDB_close  weekdays 15:40  regular-session close (REG) -> dashboard updates ~16:37
+#   stockDB_close  weekdays 15:40  regular-session close (REG) -> dashboard updates ~16:07
 #   stockDB_daily  weekdays 20:15  final Kiwoom daily bars incl. after-hours/NXT (record only)
 # Both wake the PC from sleep, and run as soon as possible after a missed start (PC off at that time).
 # Usage (PowerShell, once):  powershell -ExecutionPolicy Bypass -File setup_task.ps1

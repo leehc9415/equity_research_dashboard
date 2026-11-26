@@ -31,7 +31,9 @@ from __future__ import annotations
 
 import argparse
 import os
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -42,7 +44,8 @@ from .db import connect
 
 BASE_URL = "https://api.kiwoom.com"
 NXT_START = "2025-03-04"
-MIN_INTERVAL = 0.2    # 호출 시작 간격 하한(초당 5건). 응답이 평균 0.27초라 대개 대기 없이 바로 다음 호출
+MIN_INTERVAL = 0.21   # 호출 시작 간격 하한(초당 5건 + 여유: Windows sleep 이 몇 ms 일찍 깨는 것). 동시 호출이 함께 지킨다
+WORKERS = 3           # 동시 호출 수. 응답이 평균 0.27초라 1개면 초당 ~3.7건 → 3개면 간격 하한(초당 5건)까지
 KST = "Asia/Seoul"
 REG_START = "2026-09-14"   # 이 날부터 키움 일봉에 15:30 이후 체결이 섞임 → 정규장 일봉은 분봉으로 만든다
 REG_REF = "005930"         # 그날 종가 단일가 시각(보통 15:30, 수능일 16:30)을 정하는 기준 종목
@@ -112,8 +115,25 @@ class Kiwoom:
         if j.get("return_code") not in (None, 0) or not j.get("token"):
             raise RuntimeError(f"토큰 발급 실패: {j.get('return_msg')}")
         self.token = j["token"]
-        self.s = requests.Session()
-        self._last = 0.0
+        self._local = threading.local()            # 스레드마다 세션 하나
+        self._lock = threading.Lock()
+        self._next = 0.0                           # 다음 호출을 시작해도 되는 시각 (모든 스레드 공유)
+        self.interval = MIN_INTERVAL
+        self.throttled = 0                         # '초과' 응답 수 → 실행 끝에 출력
+
+    def _wait_slot(self):
+        """모든 스레드를 합쳐 호출 시작 간격이 self.interval 이상이 되게 자기 차례까지 기다린다."""
+        with self._lock:
+            now = time.monotonic()
+            at = max(now, self._next)
+            self._next = at + self.interval
+        time.sleep(at - now)
+
+    @property
+    def s(self) -> requests.Session:
+        if not hasattr(self._local, "s"):
+            self._local.s = requests.Session()
+        return self._local.s
 
     def call(self, api_id: str, path: str, body: dict, next_key: str | None = None):
         """POST 한 번 → (응답 JSON, next_key 또는 None). 호출 제한·연결 오류면 지수 대기 후 재시도."""
@@ -122,8 +142,7 @@ class Kiwoom:
         if next_key:
             headers.update({"cont-yn": "Y", "next-key": next_key})
         for attempt in range(6):
-            time.sleep(max(0.0, self._last + MIN_INTERVAL - time.monotonic()))
-            self._last = time.monotonic()
+            self._wait_slot()
             try:
                 r = self.s.post(f"{BASE_URL}{path}", headers=headers, json=body, timeout=30)
             except (requests.ConnectionError, requests.Timeout):
@@ -134,6 +153,9 @@ class Kiwoom:
                 continue
             j = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
             if r.status_code == 429 or "초과" in str(j.get("return_msg", "")):
+                with self._lock:   # 한도를 넘었다 → 이번 실행은 간격을 넓힌다(최대 초당 2건)
+                    self.throttled += 1
+                    self.interval = min(0.5, self.interval * 1.25)
                 time.sleep(2 ** attempt)
                 continue
             r.raise_for_status()
@@ -299,8 +321,8 @@ def upsert(con, df: pd.DataFrame) -> int:
 
 def today_cutoff(venue: str) -> str:
     """오늘 봉 확정 시각(KST) 이후면 오늘, 아니면 어제를 base_dt 로.
-    KRX·REG 15:35: 정규장 종가 확정(종가 단일가 연장 ~15:34) 뒤. 이때 받은 KRX 일봉은 임시값이고
-    20:15 실행이 다시 받아 덮어쓴다(최근 7일 덮어쓰기). AL 20:10: NXT 애프터마켓 종료."""
+    REG 15:35: 정규장 종가 확정(종가 단일가 연장 ~15:34) 뒤. KRX 는 20:15 실행이 받는 값이 확정본이고
+    그 전에 받으면 임시값(최근 7일 덮어쓰기로 바뀜). AL 20:10: NXT 애프터마켓 종료."""
     now = datetime.now(ZoneInfo(KST))
     hm = (20, 10) if venue == "AL" else (15, 35)
     d = now if (now.hour, now.minute) >= hm else now - timedelta(days=1)
@@ -334,8 +356,9 @@ def run(con, codes: list[str] | None, venues: list[str], start: str, skip_done: 
     if skip_done:   # 이어받기: 그 venue 의 시작일 근처(10일 이내)부터 이미 있는 종목은 건너뜀
         first = {(r[0], r[1]): r[2] for r in con.execute(
             "SELECT symbol_id, venue, min(date) FROM prices_kiwoom GROUP BY 1, 2").fetchall()}
-    t, n_rows, failed, buf = time.time(), 0, [], []
-    for i, code in enumerate(codes, 1):
+    def one(code):
+        """종목 하나의 모든 venue → (프레임들, 실패들). 네트워크만, DB 는 건드리지 않는다(스레드에서 실행)."""
+        frames, fails = [], []
         for v in venues:
             if v == "AL" and code not in nxt:
                 continue
@@ -343,9 +366,9 @@ def run(con, codes: list[str] | None, venues: list[str], start: str, skip_done: 
                 want = [d for d in reg_days if (code, d) not in reg_have]
                 try:
                     if want:
-                        buf.append(regular_bars(minutes_for(api, code, want), code, closes))
+                        frames.append(regular_bars(minutes_for(api, code, want), code, closes))
                 except Exception as e:  # noqa: BLE001 - 기록만, 동기화가 그날을 키움 일봉으로 대신 채우고 경고
-                    failed.append(f"{code}_REG: {e}"[:120])
+                    fails.append(f"{code}_REG: {e}"[:120])
                 continue
             s = max(start, NXT_START) if v == "AL" else start
             have = first.get((code, v))
@@ -355,23 +378,31 @@ def run(con, codes: list[str] | None, venues: list[str], start: str, skip_done: 
                     continue
                 bd = (have - timedelta(days=1)).strftime("%Y%m%d")   # 이미 받은 구간 앞쪽만 (원주가라 기준일 무관)
             try:
-                buf.append(fetch(api, code, v, s, bd))
+                frames.append(fetch(api, code, v, s, bd))
             except Exception as e:  # noqa: BLE001 - 상장폐지·NXT 미거래 등은 기록만
-                failed.append(f"{code}_{v}: {e}"[:120])
-        if i % 50 == 0 or i == len(codes):
-            buf = [b for b in buf if not b.empty]
-            n_rows += upsert(con, pd.concat(buf, ignore_index=True)) if buf else 0
-            buf = []
-            print(f"  {i}/{len(codes)} 종목, {n_rows:,}행, 실패 {len(failed)}, {time.time() - t:.0f}초", flush=True)
+                fails.append(f"{code}_{v}: {e}"[:120])
+        return frames, fails
+
+    t, n_rows, failed, buf = time.time(), 0, [], []
+    with ThreadPoolExecutor(WORKERS) as ex:
+        for i, (frames, fails) in enumerate(ex.map(one, codes), 1):   # 순서대로 받아 이 스레드에서만 DB 에 쓴다
+            buf += [f for f in frames if not f.empty]
+            failed += fails
+            if i % 50 == 0 or i == len(codes):
+                n_rows += upsert(con, pd.concat(buf, ignore_index=True)) if buf else 0
+                buf = []
+                print(f"  {i}/{len(codes)} 종목, {n_rows:,}행, 실패 {len(failed)}, {time.time() - t:.0f}초", flush=True)
+    if api.throttled:
+        print(f"  [경고] 키움 호출 한도 초과 응답 {api.throttled}회 → 간격 {api.interval:.2f}초로 넓힘")
     for f in failed[:20]:
         print("  실패", f)
     con.execute("INSERT INTO collect_log VALUES (?, ?, ?, ?, ?, NULL, NULL, ?)",
                 [datetime.now(), job, "ok" if not failed else "partial", len(codes), n_rows,
                  ";".join(failed)[:500]])
-    # 종목목록 스냅샷 = 지금 받은 KRX 최근 거래일의 상장주식수
+    # 종목목록 스냅샷 = 지금 받은 최근 거래일(15:40 실행은 REG 만 받으므로 REG 포함)의 상장주식수
     con.register("_l", lst)
     con.execute("""INSERT OR REPLACE INTO kiwoom_listing
-        SELECT (SELECT max(date) FROM prices_kiwoom WHERE venue = 'KRX'), code, name, market, shares, nxt FROM _l""")
+        SELECT (SELECT max(date) FROM prices_kiwoom WHERE venue IN ('KRX', 'REG')), code, name, market, shares, nxt FROM _l""")
     con.unregister("_l")
 
 
@@ -381,15 +412,18 @@ def run(con, codes: list[str] | None, venues: list[str], start: str, skip_done: 
 # 거래대금: marcap 정확값이 있으면 유지, REG 는 추정치. 상장주식수: 기존 행 → 종목목록 스냅샷 → 직전 값
 SYNC_SQL = """
 CREATE OR REPLACE TEMP TABLE _sync AS
-WITH s AS (
-  SELECT k.symbol_id, k.date, a.adj_factor, r.symbol_id IS NOT NULL AS is_reg,
+WITH b AS (   -- KRX 일봉이 있는 날 + 정규장 일봉만 있는 날(15:40 실행은 그날 KRX 일봉을 받지 않음)
+  SELECT symbol_id, date FROM prices_kiwoom WHERE venue IN ('KRX', 'REG') GROUP BY 1, 2
+), s AS (
+  -- shortcut: KRX 일봉이 없는 날은 수정계수 1 (권리 변동일이면 15:40~20:15 사이만 틀리고 20:15 실행이 바로잡음)
+  SELECT b.symbol_id, b.date, coalesce(a.adj_factor, 1.0) AS adj_factor, r.symbol_id IS NOT NULL AS is_reg,
          coalesce(r.open, k.open) AS open, coalesce(r.high, k.high) AS high, coalesce(r.low, k.low) AS low,
          coalesce(r.close, k.close) AS close, coalesce(r.volume, k.volume) AS volume,
          coalesce(r.value, k.value) AS kw_value
-  FROM prices_kiwoom k
-  JOIN v_prices_kiwoom_adj a USING (symbol_id, venue, date)
-  LEFT JOIN prices_kiwoom r ON r.symbol_id = k.symbol_id AND r.date = k.date AND r.venue = 'REG'
-  WHERE k.venue = 'KRX'
+  FROM b
+  LEFT JOIN prices_kiwoom k ON k.symbol_id = b.symbol_id AND k.date = b.date AND k.venue = 'KRX'
+  LEFT JOIN v_prices_kiwoom_adj a ON a.symbol_id = b.symbol_id AND a.date = b.date AND a.venue = 'KRX'
+  LEFT JOIN prices_kiwoom r ON r.symbol_id = b.symbol_id AND r.date = b.date AND r.venue = 'REG'
 ), k AS (
   SELECT *, lag(close) OVER w * lag(adj_factor) OVER w / adj_factor AS ref_price
   FROM s WINDOW w AS (PARTITION BY symbol_id ORDER BY date)
@@ -438,7 +472,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("mode", choices=["backfill", "daily"])
     ap.add_argument("--venue", choices=["krx", "al", "reg", "close", "both"], default="both",
-                    help="both = KRX·AL·REG, close = KRX·REG (15:40 실행: 정규장 종가)")
+                    help="both = KRX·AL·REG, close = REG (15:40 실행: 정규장 종가만)")
     ap.add_argument("--start", default="2019-01-01", help="backfill 시작일")
     ap.add_argument("--days", type=int, default=7, help="daily: 최근 N일(달력) 덮어쓰기")
     ap.add_argument("--part", default="1/1", help="i/n 으로 나눠 실행")
@@ -451,7 +485,7 @@ def main():
     # zfill: PowerShell 이 005930,000660 을 숫자 배열로 넘겨 앞자리 0이 사라지는 경우 복원
     codes = [c.strip().zfill(6) for c in a.codes.split(",")] if a.codes else None
     part = tuple(map(int, a.part.split("/")))
-    venues = {"krx": ["KRX"], "al": ["AL"], "reg": ["REG"], "close": ["KRX", "REG"], "both": ["KRX", "AL", "REG"]}[a.venue]
+    venues = {"krx": ["KRX"], "al": ["AL"], "reg": ["REG"], "close": ["REG"], "both": ["KRX", "AL", "REG"]}[a.venue]
     if a.mode == "backfill":
         run(con, codes, venues, a.start, skip_done=not a.force, job="kiwoom_backfill", part=part)
     else:
