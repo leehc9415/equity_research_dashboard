@@ -336,7 +336,11 @@ def run(con, codes: list[str] | None, venues: list[str], start: str, skip_done: 
     # shortcut: 현재 상장·현재 NXT 종목 기준 → 상장폐지 종목, 과거에만 NXT 에서 거래된 종목은 빠짐. 필요하면 --codes 로
     lst = api.listing()
     nxt = set(lst.loc[lst["nxt"], "code"])
-    codes = codes or sorted(lst["code"])
+    # 대시보드 섹터 종목은 목록에 없어도 받는다: 094800 은 키움이 뮤추얼펀드(시장코드 4)로 분류해 목록에서 빠짐
+    members = {r[0] for r in con.execute(
+        "SELECT code FROM sector_map WHERE included").fetchall()} if con.execute(
+        "SELECT 1 FROM duckdb_tables() WHERE table_name = 'sector_map'").fetchone() else set()
+    codes = codes or sorted(set(lst["code"]) | members)
     i, n = part
     codes = codes[(i - 1) * len(codes) // n: i * len(codes) // n]
     print(f"  대상 {len(codes)}종목 (현재 상장 {len(lst)}, NXT 가능 {len(nxt)} → AL 은 이 종목만)")
