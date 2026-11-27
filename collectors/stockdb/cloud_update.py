@@ -184,7 +184,26 @@ def rebuild(con):
     print('Indicator rebuild complete', flush=True)
 
 
-def publish_export(con, destination=WEB_DATA, kr=True):
+KR_GROUPS = ('KR_SECTOR',)
+GLOBAL_GROUPS = ('US_SECTOR_ETF', 'MACRO')
+
+
+def keep_published_groups(staging: Path, destination: Path, keep):
+    """새 overview.js 에서 keep 그룹을 직전 게시본 것으로 되돌린다. 한국(PC)·해외(클라우드) 갱신이
+    서로 다른 DB 로 overview.js 를 만들므로, 각자 자기 그룹만 바꾸고 상대 그룹은 게시본을 유지한다."""
+    from validate_market_data import read_assignment
+    if not keep or not (destination / 'overview.js').exists():
+        return
+    prefix = 'window.DASH_OVERVIEW='
+    old = {g['id']: g for g in read_assignment(destination / 'overview.js', prefix)['groups']}
+    new = read_assignment(staging / 'overview.js', prefix)
+    new['groups'] = [old.get(g['id'], g) if g['id'] in keep else g for g in new['groups']]
+    (staging / 'overview.js').write_text(prefix + json.dumps(new, ensure_ascii=False, separators=(',', ':')) + ';\n',
+                                         encoding='utf-8')
+
+
+def publish_export(con, destination=WEB_DATA, kr=True, local=False):
+    """kr=False(클라우드 해외 갱신): 한국 그룹은 게시본 유지. local=True(PC 한국 갱신): 해외 그룹은 게시본 유지."""
     from src.dashboard import export as exporter
     import sys
     sys.path.insert(0, str(REPO_ROOT / 'scripts'))
@@ -202,6 +221,7 @@ def publish_export(con, destination=WEB_DATA, kr=True):
         finally:
             exporter.SITE = previous_site
         staging = Path(temp) / 'data'
+        keep_published_groups(staging, Path(destination), GLOBAL_GROUPS if local else () if kr else KR_GROUPS)
         validate_directory(staging, baseline=destination)
         new = read_assignment(staging / 'overview.js', 'window.DASH_OVERVIEW=')
         # Do not create a deployment solely because the generation time changed.
@@ -220,24 +240,32 @@ def main():
     parser.add_argument('--region', choices=['kr', 'global', 'all'], default='all')
     parser.add_argument('--export-only', action='store_true', help='Rebuild a restored snapshot without network collection')
     parser.add_argument('--output', type=Path, default=WEB_DATA, help='Validated web export destination')
+    parser.add_argument('--local', action='store_true',
+                        help='PC: Korean region from the local DB (Kiwoom already collected), keep published global groups, no state pack')
     args = parser.parse_args()
+    if args.local and args.region != 'kr':
+        parser.error('--local only supports --region kr')
     con = connect(DB_PATH)
     try:
-        con.execute("SET threads=2; SET memory_limit='4GB'; SET TimeZone='Asia/Seoul'")
+        con.execute("SET TimeZone='Asia/Seoul'" if args.local else "SET threads=2; SET memory_limit='4GB'; SET TimeZone='Asia/Seoul'")
         before = inventory(con)
         if not args.export_only:
             if args.region in ('kr', 'all'):
-                load_pc_kiwoom(con)
+                if not args.local:
+                    load_pc_kiwoom(con)
                 run_kr(con, None, collect=False)
                 validate_kr_collection(con)
             if args.region in ('global', 'all'):
                 collect_global(con, before)
         validate_source(con, before)
         rebuild(con)
-        publish_export(con, args.output, kr=args.region != 'global')
+        publish_export(con, args.output, kr=args.region != 'global', local=args.local)
         con.execute('CHECKPOINT')
     finally:
         con.close()
+    if args.local:
+        print('Verified Korean export is ready.')
+        return
     pack(DB_PATH, ROOT / 'data/market-state-next.zip')
     print('Verified export and next source state are ready.')
 

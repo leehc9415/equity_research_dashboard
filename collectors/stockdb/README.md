@@ -53,5 +53,7 @@ python cloud_update.py --region all
 - PC: `run_daily.bat close` (예약 작업 `stockDB_close`, 평일 15:40: 정규장 일봉만)와
   `run_daily.bat` (`stockDB_daily`, 평일 20:15: 시간외·NXT 포함 키움 일봉 확정본). 절전 중이면 깨우고, 놓치면 켜진 뒤 실행 — `setup_task.ps1` 로 등록. 데이터는 `STOCKDB_DATA`(기본 `Documents\stockDB\data`), 필요 환경변수 `KIWOOM_APPKEY`·`KIWOOM_SECRETKEY`·`GH_TOKEN`.
   수집 후 `cloud_state.py push-kiwoom` 이 키움 테이블만 `market-data-state` 릴리스에 `kiwoom-state-*.zip` 으로 올린다.
-- 클라우드: `update-market-dashboard.yml` 한국 슬롯(16:07·16:37·17:07, 예비 21:07·22:07)이 최신 `kiwoom-state` 를 받아 동기화하고, 최근 거래일 정규장 일봉이 없으면 실패한다(PC 수집 확인).
+- PC 게시: 두 실행 모두 수집 뒤 `local_publish.py` 가 한국 지수·지표·대시보드 파일(해외 그룹은 게시본 유지)과 종목차트 zip 을 만들어
+  main 에 push → 사이트가 push 로 바로 배포(15:40 실행이면 ~16:00). 이 레포 폴더는 예약 작업 전용(추적 파일 변경이 있으면 게시 안 함).
+- 클라우드(예비): `update-market-dashboard.yml` 한국 슬롯(16:07·16:37·17:07·21:07·22:07)이 최신 `kiwoom-state` 를 받아 동기화하고, 최근 거래일 정규장 일봉이 없으면 실패한다(PC 수집 확인).
 - 정규장 일봉 백필: `python -m src.prices.kiwoom_kr backfill --venue reg --start 2026-09-14` (이미 받은 날은 건너뜀).
