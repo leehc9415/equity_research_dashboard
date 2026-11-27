@@ -57,9 +57,10 @@ def validate_kr_collection(con):
         raise ValueError(f'PC Kiwoom upload is behind: latest {last} < {expected}. Check the PC daily run.')
     n = con.execute("SELECT count(DISTINCT symbol_id) FROM prices_kiwoom WHERE venue='REG' AND date=?",
                     [expected]).fetchone()[0]
-    baseline = con.execute("""SELECT count(DISTINCT symbol_id) FROM prices_daily
-        WHERE source IN ('marcap','naver','naver_fix','kiwoom') AND date>=? - INTERVAL 30 DAY AND date<?""",
-        [expected, expected]).fetchone()[0]
+    # 기준 = 직전 거래일의 정규장 일봉 종목 수 (prices_daily 30일 종목 수는 상장폐지·코넥스 등 키움 대상 밖이 섞여
+    # 늘 3,771/4,077 처럼 95% 아래 → 2026-11-27 게시 실패)
+    baseline = con.execute("""SELECT count(DISTINCT symbol_id) FROM prices_kiwoom WHERE venue='REG'
+        AND date=(SELECT max(date) FROM prices_kiwoom WHERE venue='REG' AND date<?)""", [expected]).fetchone()[0]
     if n < max(1000, int(baseline * .95)):
         raise ValueError(f'Incomplete regular-session bars on {expected}: {n} of about {baseline}')
     for sid in ('KS11', 'KQ11'):
