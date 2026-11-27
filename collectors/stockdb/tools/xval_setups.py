@@ -30,44 +30,9 @@ ROOT = Path(".")
 XV = ROOT / "data" / "xval"
 
 
-def cup_diag(hi, lo, c, t, pocket=1.03):
-    """setup_export._cup 과 같은 순서로 따라가며 처음 걸린 조건을 돌려준다 (통과면 None)."""
-    w0 = max(0, t - 380)
-    sw = [(k, i + w0, p) for k, i, p in S._swings(hi[w0:t + 1], lo[w0:t + 1])]
-    highs = [x for x in sw if x[0] == "H" and t - 40 <= x[1] <= t - 3]
-    if not highs:
-        return "피봇 후보(3~40일 전 확정 고점) 없음"
-    _, ip, pivot = highs[-1]
-    gap = c[t] / pivot - 1
-    if not (-0.03 <= gap <= 0.05):
-        return f"피봇 {pivot:,.0f} 대비 {gap * 100:+.1f}% (허용 −3~+5%)"
-    if hi[ip + 1:t + 1].max() > pivot * 1.05:
-        return f"피봇 {pivot:,.0f} 이후 고가가 +5% 초과 (이미 이탈)"
-    hl = lo[ip + 1:t + 1].min()
-    hd = 1 - hl / pivot
-    if hd > 0.10:
-        return f"핸들 깊이 {hd * 100:.1f}% (>10%)"
-    reasons = []
-    for _, il, lip in reversed([x for x in sw if x[0] == "H" and x[1] < ip]):
-        if ip - il < 35:
-            continue
-        if ip - il > 325:
-            break
-        if lip < hi[max(0, il - 20):il].max(initial=0):
-            reasons.append("왼쪽 고점이 20일 고점 아님"); continue
-        ib = il + int(np.argmin(lo[il:ip + 1]))
-        bottom = lo[ib]
-        depth = 1 - bottom / lip
-        if not (0.12 <= depth <= 0.35 and ib - il >= 10 and ip - ib >= 10):
-            reasons.append(f"컵 조정폭 {depth * 100:.0f}%·기간 조건"); continue
-        rec = c[t] / lip
-        if not (0.95 <= rec <= 1.15) or pivot < lip * 0.95 or hl < bottom + 0.5 * (lip - bottom):
-            reasons.append(f"회복률 {rec * 100:.0f}%/핸들 위치"); continue
-        right = hi[ib:ip + 1].max()
-        if right < pivot * pocket:
-            return f"오른쪽 고점이 피봇+{(right / pivot - 1) * 100:.1f}% (포켓 피봇 조건 +3% 미달)"
-        return None
-    return "왼쪽 고점 후보 탈락: " + (" / ".join(dict.fromkeys(reasons)) if reasons else "7~65주 전 스윙 고점 없음")
+def cup_diag(hi, lo, c, t):
+    """setup_export._cup_eval(컵 v2)의 탈락 이유 (통과면 None)."""
+    return S._cup_eval(hi, lo, c, t)[1]
 
 
 def cup_candidates(hi, lo, c, t):
@@ -106,7 +71,7 @@ def evaluate(con, day: str) -> dict:
         SELECT p.symbol_id code, p.date, p.open, p.high, p.low, p.close,
                CASE WHEN p.volume > 0 THEN p.volume / p.adj_factor ELSE 0 END vol, p.value, p.mcap
         FROM v_prices_adj p JOIN v_rs_universe u USING (symbol_id)
-        WHERE p.date <= ? AND p.close > 0 AND p.source IN ('marcap', 'naver', 'naver_fix', 'krx_cache', 'krx_daum', 'kiwoom')
+        WHERE p.date <= ? AND p.close > 0 AND p.source = 'kiwoom'
         ORDER BY 1, 2""", [d]).df()
     px["date"] = pd.to_datetime(px["date"]).dt.date
     first = px.groupby("code")["date"].min()
@@ -147,18 +112,12 @@ def evaluate(con, day: str) -> dict:
             + ([] if c[t] <= 2 * l52 else [f"52주 저점 대비 +{info['upl']:.0f}% (>+100%)"]) + ([] if R1 >= 50 else [f"RS1M {R1:.0f}<50"])
         # vcp
         vf = failed_px + ([] if R >= 70 else [f"RS {R:.0f}<70"])
-        if not vf:
-            if not (v[max(0, t - 9):t + 1].mean() < 0.8 * v50):
-                vf.append("거래량 마름 아님 (10일 평균 ≥ 50일×0.8)")
-            elif not S._vcp(h, l, c, t):
-                vf.append("수축 패턴 불충족")
+        if not vf and not S._vcp(h, l, c, v, t):
+            vf.append("수축 패턴·거래량 수축 불충족")
         why["vcp"] = vf
         # cup
         cf = []
-        if t < 200: cf.append("상장 200일 미만")
-        if not R >= 70: cf.append(f"RS {R:.0f}<70")
-        if not c[t] > ma50: cf.append("종가<50일선")
-        if not c[t] > ma200: cf.append("종가<200일선")
+        if not R >= 65: cf.append(f"RS {R:.0f}<65")
         if not cf:
             r = cup_diag(h, l, c, t)
             if r: cf.append(r)
@@ -184,15 +143,18 @@ def evaluate(con, day: str) -> dict:
             why["ipo"] = [] if S._ipo(o[0], c, l, t) else ["첫날 시가 아래에서 처음 도달 조건 불충족"]
         info["why"] = why
         pre = {s_: int(not why[s_]) for s_ in MAP.values()}  # 유동성 기준 적용 전 통과 여부
-        for s_, (cap, vmin) in S.LIQ.items():  # 셋업 정의의 유동성 기준
+        for s_, (cap, vmin, *rest) in S.LIQ.items():  # 셋업 정의의 유동성 기준 (시총, 20일 대금, 당일 대금)
+            dmin = rest[0] if rest else 0
             if info["mcap"] is not None and info["mcap"] < cap:
                 why[s_] = why[s_] + [f"시총 {info['mcap']:.0f}억<{cap}"]
             if info["v20"] is not None and info["v20"] < vmin:
                 why[s_] = why[s_] + [f"거래대금 {info['v20']:.1f}억<{vmin}"]
+            if dmin and val[t] / 1e8 < dmin:
+                why[s_] = why[s_] + [f"당일 거래대금 {val[t] / 1e8:.1f}억<{dmin}"]
         g3 = lambda k: float(rs.at[code, k]) if code in rs.index and pd.notna(rs.at[code, k]) else np.nan
         v10 = v[max(0, t - 9):t + 1].mean()
         rng = (h - l) / c
-        vc = S._vcp(h, l, c, t) if t >= 60 else None
+        vc = S._vcp(h, l, c, v, t) if t >= 60 else None
         feat = {"code": code, "name": info["name"], "mcap": info["mcap"], "v20": info["v20"], "val0": val[t] / 1e8, "chg": c[t] / c[t - 1] - 1,
                 "rs": R, "rs1m": R1, "rs3m": g3("rs_3m"), "rs6m": g3("rs_6m"), "rs12m": g3("rs_12m"),
                 "g52": c[t] / h52, "upl": c[t] / l52, "bars": t + 1, "mtt_px": int(mtt_px),
@@ -223,8 +185,7 @@ def main():
     con = duckdb.connect(a.db, read_only=True)
     ev = evaluate(con, day)
     if not ev:
-        raise SystemExit(f"DB에 {day} 한국 시세(prices_daily)가 없습니다. "
-                         "9/14 이후 날짜라면 KRX 교정 DB(_deploy\\krx_fix_1114)로 바꿔야 합니다 — 네이버(NXT 포함) 값은 쓰지 않습니다.")
+        raise SystemExit(f"DB에 {day} 키움 정규장 종가(source=kiwoom)가 없습니다. 클라우드 DB(cloud_state.py pull)를 다시 받으세요 — 다른 소스(KRX·네이버)는 쓰지 않습니다.")
     (XV / "ours").mkdir(parents=True, exist_ok=True)
     (XV / "report").mkdir(parents=True, exist_ok=True)
     ours = {s: sorted(c for c, i in ev.items() if not i["why"][s]) for s in MAP.values()}

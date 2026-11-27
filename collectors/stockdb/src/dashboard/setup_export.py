@@ -14,12 +14,11 @@
                               & 첫 수축이 가장 깊고 10~40% & 마지막 2~4회 수축이 점점 얕아짐 & 마지막 수축 ≤ max(10%, ATR%×3)
                               & 10일 평균 거래량 < 50일 평균 × 0.8
                               & 종가가 피봇(마지막 수축의 고점) −6% ~ 0% (돌파 직전)
-  cup    컵위드핸들           RS ≥ 70 & 종가 > 50·200일선 (추세 필터)
-                              피봇 = 4% 지그재그로 확정된 마지막 스윙 고점(3~40일 전) — 오른쪽 고점보다 3% 이상 낮은
-                                     핸들 안의 낮아진 고점(포켓 피봇, 52주 최고가보다 낮은 지점)
-                              핸들 = 피봇 이후, 깊이 ≤ 10%, 이후 고가 ≤ 피봇×1.05
-                              컵 = 피봇 이전 스윙 고점(7~65주 전, 직전 20일 최고)을 왼쪽 고점으로, 바닥 조정 12~35%
-                              회복률(현재가/왼쪽 고점) 95~115% · 핸들 저점이 컵 위쪽 절반 · 현재가가 피봇 −3% ~ +5%
+  cup    컵위드핸들 v2        (스탁이지 '컵위드핸들' 64건 역산, 자세한 정의는 _cup_eval)
+                              추세: 200일선 상승 · 50>150>200일선 · 종가 > 150·200일선 · 종가 ≥ 50일선×0.97 · 52주 고가×0.8
+                              피봇 = 5~25일 전 고점(이후 +8%까지 돌파 허용), 핸들 깊이 ≤ 20%, 종가가 피봇 −10% ~ +5%
+                              컵 조정폭 10~25%, 회복률(종가/왼쪽 고점) 85~110%, 핸들 저점이 컵 위쪽 절반
+                              RS ≥ 65 · 시총 ≥ 200억
   htf    HTF 급등 깃발        최근 42거래일 고점이 그 전 저점 대비 +50% 이상 · 고점 이후 하락 ≤25% · 고점 0~19일 전 · 종가>50일선
                               · 최근 10일 평균 거래량 / 그 전 50일 평균 ≤1.10 · 최근 10일 평균 고저폭(고가−저가)/종가 / 그 전 60일 평균 ≤1.26
                               · RS ≥ 85 · 시총 ≥ 1,500억 (스탁이지 화면 지표와 같은 정의, 누적 31건 전부 일치)
@@ -41,14 +40,14 @@ SPARK = 60
 
 # 셋업별 유동성 기준 (시총 억, 직전 20일 평균 거래대금 억, 당일 거래대금 억). 스탁이지 교차검증에서
 # '선 아래 종목을 스탁이지가 하나도 안 고른' 증거가 충분히 쌓인 셋업만 넣는다.
-LIQ = {"lead": (2000, 30, 40), "trend": (300, 0, 0), "htf": (1500, 0, 0)}
+LIQ = {"lead": (2000, 30, 40), "trend": (300, 0, 0), "htf": (1500, 0, 0), "cup": (200, 0, 0)}
 
 SETUPS = [
     ("gap", "거래량 동반 갭상승", "전일 고가 위로 갭을 띄우고 3% 이상 오르며 거래량이 50일 평균의 2배 이상"),
     ("lead", "RS 선두", "추세 템플릿을 충족하며 RS·1개월 RS 모두 85 이상, 52주 고점 근처의 시장 주도주 (시총 2,000억·20일 평균 거래대금 30억·당일 거래대금 40억 이상)"),
     ("trend", "추세 시작", "이동평균이 정배열로 막 바뀐 상승 2단계 초입, 52주 저점 대비 아직 덜 오른 종목 (시총 300억 이상)"),
     ("vcp", "VCP", "최근 40거래일 동안 2번 이상 수축(최대 20% 이상)하고 마지막 수축 10% 이하, 거래량이 직전 50일의 0.9배 이하로 마른 채 피봇 −6~+3% 자리"),
-    ("cup", "컵위드핸들", "U자로 왼쪽 고점을 회복한 뒤 핸들에서 낮아진 고점(포켓 피봇) 돌파를 노리는 자리"),
+    ("cup", "컵위드핸들", "상승 추세(이평 정배열·200일선 상승) 속 10~25% 조정 컵을 85~110% 회복한 뒤 5~25일 핸들(깊이 20% 이내)에서 피봇 −10~+5% 자리 (RS 65·시총 200억 이상)"),
     ("htf", "HTF 급등 깃발", "8주 안에 50% 넘게 급등한 뒤 고점 대비 25% 이내에서 거래량·변동폭이 줄며 숨 고르는 종목 (RS 85·시총 1,500억 이상)"),
     ("ipo", "IPO 셋업", "상장 1년 이내, 첫날 시가 아래에서 바닥을 다진 뒤 처음으로 시가까지 올라온 종목"),
     ("weekv", "주봉 거래량 급증 상승", "최근 1주(5거래일) 거래량이 평소 2배 이상 터지며 5% 이상 상승"),
@@ -176,52 +175,73 @@ def _swings(hi, lo, th=0.04):
     return piv
 
 
-def _cup(hi, lo, c, t, pocket=1.03):
-    """컵위드핸들 — 피봇을 52주 최고가가 아닌 '핸들 안의 낮아진 고점'(포켓 피봇)으로 잡는다.
+def _cup_eval(hi, lo, c, t):
+    """컵위드핸들 v2 (스탁이지 '컵위드핸들' 누적 17일 64건 역산, 재현율 64/64) → (결과 dict | None, 탈락 이유 | None).
 
-    1) 피봇: 4% 지그재그로 확정된 마지막 스윙 고점(3~40거래일 전).
-       이후 고가가 피봇의 105%를 넘으면 이미 이탈로 보고 제외.
-       핸들 깊이 = 1 − (피봇 이후 최저가 / 피봇) ≤ 10%.
-    2) 컵: 피봇 이전의 스윙 고점을 최근 것부터 거슬러 가며 '왼쪽 고점' 후보로 본다(직전 20일 중 최고가여야 함).
-       바닥 = 왼쪽 고점 ~ 피봇 사이 최저가. 조정폭 12~35%, 왼쪽 고점 → 피봇 7~65주,
-       왼쪽 고점→바닥, 바닥→피봇 각 10거래일 이상.
-    3) 오른쪽 고점(바닥 이후 최고가)이 피봇보다 3% 이상 높아야 함 → 피봇은 핸들 안에서 낮아진 고점.
-    4) 회복률 = 현재가 / 왼쪽 고점, 95~115%. 핸들 저점이 컵 위쪽 절반. 현재가가 피봇 −3% ~ +5%.
+    정의(스탁이지 화면 값 59/59건 일치):
+      피봇 = 5거래일 이상 지난 고점의 고가. 이후 고가가 피봇을 최대 +8%까지 넘어도 피봇 유지.
+      컵 조정폭 = 1 − (왼쪽 고점~피봇 사이 최저 저가 / 왼쪽 고점 고가), 회복률 = 종가 / 왼쪽 고점 고가,
+      핸들 깊이 = 1 − (피봇 이후 최저 저가 / 피봇 고가).
+    1) 추세: 200일선 ≥ 21일 전 200일선, 50일선 > 150·200일선, 종가 > 150일선, 150일선 > 200일선,
+       종가 ≥ 200일선, 종가 ≥ 50일선×0.97, 종가 ≥ 52주 고가×0.8   (스탁이지 64건 전부 충족)
+    2) 피봇 후보: 3% 지그재그 스윙 고점, 그다음 앞뒤 5일 최고 고가(5~25거래일 전) 순서로 보고, 통과한 후보 중 마지막 것
+       (스탁이지 피봇과 62/62건 일치).
+    3) 핸들: 깊이 ≤ 20%, 피봇 이후 고가 ≤ 피봇×1.08, 종가가 피봇 −10% ~ +5%.
+    4) 컵: 피봇보다 8~260거래일 앞선 스윙 고점(직전 20일 최고)을 가까운 것부터 왼쪽 고점으로 시험.
+       조정폭 10~25%, 왼쪽 고점→바닥·바닥→피봇 각 3거래일 이상, 회복률 85~110%, 피봇 ≥ 왼쪽 고점×0.9,
+       핸들 저점이 컵 위쪽 절반, 왼쪽 고점 ≥ 52주 고가×0.75.
+    RS ≥ 65 · 시총 ≥ 200억은 build() 에서 건다.
     """
+    if t < 230:
+        return None, "상장 230일 미만"
+    ma = lambda n, k=t: c[k - n + 1:k + 1].mean()
+    m50, m150, m200, m200b = ma(50), ma(150), ma(200), ma(200, t - 21)
+    h52 = hi[max(0, t - 249):t + 1].max()
+    for msg, ok in (("200일선 하락", m200 >= m200b), ("50일선<150·200일선", m50 > m150 and m50 > m200),
+                    ("종가<150일선", c[t] > m150), ("150일선<200일선", m150 > m200), ("종가<200일선", c[t] >= m200),
+                    ("종가<50일선×0.97", c[t] >= 0.97 * m50), ("종가<52주 고가×0.8", c[t] >= 0.8 * h52)):
+        if not ok:
+            return None, msg
     w0 = max(0, t - 380)
-    sw = [(k, i + w0, p) for k, i, p in _swings(hi[w0:t + 1], lo[w0:t + 1])]
-    highs = [x for x in sw if x[0] == "H" and t - 40 <= x[1] <= t - 3]
-    if not highs:
-        return None
-    _, ip, pivot = highs[-1]
-    gap = c[t] / pivot - 1
-    if not (-0.03 <= gap <= 0.05) or hi[ip + 1:t + 1].max() > pivot * 1.05:
-        return None
-    hl = lo[ip + 1:t + 1].min()
-    hdepth = 1 - hl / pivot
-    if hdepth > 0.10:
-        return None
-    for _, il, lip in reversed([x for x in sw if x[0] == "H" and x[1] < ip]):
-        if ip - il < 35:
-            continue
-        if ip - il > 325:
+    H = [(i + w0, p) for k, i, p in _swings(hi[w0:t + 1], lo[w0:t + 1], 0.03) if k == "H"]
+    cands = [(i, p) for i, p in H if 5 <= t - i <= 25]
+    cands += [(i, hi[i]) for i in range(max(5, t - 25), t - 4) if hi[i] >= hi[i - 5:i + 6].max()]
+    if not cands:
+        return None, "피봇 후보(5~25일 전 고점) 없음"
+    best, why = None, None
+    for ip, pv in cands:
+        hl = lo[ip + 1:t + 1].min()
+        hd = 1 - hl / pv
+        gap = c[t] / pv - 1
+        if hd > 0.20:
+            why = why or f"핸들 깊이 {hd * 100:.1f}% (>20%)"; continue
+        if hi[ip + 1:t + 1].max() > pv * 1.08:
+            why = why or f"피봇 {pv:,.0f} 이후 +8% 넘게 돌파"; continue
+        if not (-0.10 <= gap <= 0.05):
+            why = why or f"피봇 {pv:,.0f} 대비 {gap * 100:+.1f}% (허용 −10~+5%)"; continue
+        for il, lp in reversed([x for x in H if x[0] < ip - 8]):
+            if ip - il > 260:
+                break
+            if lp < hi[max(0, il - 20):il].max(initial=0):
+                continue
+            ib = il + int(np.argmin(lo[il:ip + 1]))
+            b = lo[ib]
+            dep, rec = 1 - b / lp, c[t] / lp
+            if not (0.10 <= dep <= 0.25) or ib - il < 3 or ip - ib < 3:
+                why = why or f"컵 조정폭 {dep * 100:.0f}% (10~25%)·기간"; continue
+            if not (0.85 <= rec <= 1.10) or pv < lp * 0.9 or hl < b + 0.5 * (lp - b) or lp < 0.75 * h52:
+                why = why or f"회복률 {rec * 100:.0f}% (85~110%)·핸들 위치·왼쪽 고점 높이"; continue
+            if True:  # 통과한 후보 중 목록의 마지막(앞뒤 5일 최고 고가 후보 우선, 그중 가장 최근)
+                best = {"depth": dep * 100, "rec": rec * 100, "pivot": pv, "pgap": gap * 100, "hdepth": hd * 100,
+                        "rpk": (hi[ib:ip + 1].max() / pv - 1) * 100, "weeks": (ip - il) / 5, "hdays": t - ip}
             break
-        if lip < hi[max(0, il - 20):il].max(initial=0):
-            continue
-        ib = il + int(np.argmin(lo[il:ip + 1]))
-        bottom = lo[ib]
-        depth = 1 - bottom / lip
-        if not (0.12 <= depth <= 0.35 and ib - il >= 10 and ip - ib >= 10):
-            continue
-        rec = c[t] / lip
-        if not (0.95 <= rec <= 1.15) or pivot < lip * 0.95 or hl < bottom + 0.5 * (lip - bottom):
-            continue
-        right = hi[ib:ip + 1].max()
-        if right < pivot * pocket:
-            return None
-        return {"depth": depth * 100, "rec": rec * 100, "pivot": pivot, "pgap": gap * 100,
-                "hdepth": hdepth * 100, "rpk": (right / pivot - 1) * 100, "weeks": (ip - il) / 5, "hdays": t - ip}
-    return None
+    if best is None:
+        return None, why or "왼쪽 고점(8~260일 전 스윙 고점) 없음"
+    return best, None
+
+
+def _cup(hi, lo, c, t):
+    return _cup_eval(hi, lo, c, t)[0]
 
 
 def _ipo(o0, c, lo, t):
@@ -335,7 +355,7 @@ def build(con) -> dict:
                 {"gap52": (c[t] / h52[t] - 1) * 100, "upl": (c[t] / l52[t] - 1) * 100}
             vcp = _vcp(h, l, c, v, t) if mtt and t >= 60 else None
             res["vcp"] = vcp or False
-            cup = _cup(h, l, c, t) if t >= 200 and r_rs >= 70 and c[t] > ma50[t] and c[t] > ma200[t] else None
+            cup = _cup(h, l, c, t) if r_rs >= 65 else None
             res["cup"] = cup or False
             res["htf"] = (_htf(h, l, c, v, t, ma50[t]) if r_rs >= 85 else None) or False
             res["ipo"] = (_ipo(o[0], c, l, t) if listed_new and t <= 250 else None) or False
