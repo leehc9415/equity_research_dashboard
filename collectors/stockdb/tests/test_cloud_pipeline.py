@@ -164,3 +164,25 @@ def _full_state(tmp_path):
     archive = tmp_path / 'full.zip'
     pack(db, archive)
     return archive
+
+
+def test_each_side_keeps_the_other_sides_published_groups(tmp_path):
+    """PC(한국)·클라우드(해외) 갱신은 overview.js 에서 자기 그룹만 바꾸고 상대 그룹은 게시본을 유지한다."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'scripts'))
+    from cloud_update import keep_published_groups, GLOBAL_GROUPS, KR_GROUPS
+    from validate_market_data import read_assignment
+    prefix = 'window.DASH_OVERVIEW='
+    def write(d, kr, us):
+        d.mkdir()
+        body = {'generated': 'x', 'groups': [{'id': 'KR_SECTOR', 'asof': kr}, {'id': 'US_SECTOR_ETF', 'asof': us},
+                                             {'id': 'MACRO', 'asof': us}]}
+        (d / 'overview.js').write_text(prefix + json.dumps(body) + ';\n', encoding='utf-8')
+    write(tmp_path / 'published', '2026-11-26', '2026-11-26')
+    write(tmp_path / 'pc', '2026-11-27', '2026-11-18')          # PC DB 의 해외 시세는 오래됨
+    keep_published_groups(tmp_path / 'pc', tmp_path / 'published', GLOBAL_GROUPS)
+    g = {x['id']: x['asof'] for x in read_assignment(tmp_path / 'pc' / 'overview.js', prefix)['groups']}
+    assert g == {'KR_SECTOR': '2026-11-27', 'US_SECTOR_ETF': '2026-11-26', 'MACRO': '2026-11-26'}
+    write(tmp_path / 'cloud', '2026-11-25', '2026-11-27')       # 클라우드 DB 의 한국 시세가 하루 늦음
+    keep_published_groups(tmp_path / 'cloud', tmp_path / 'published', KR_GROUPS)
+    g = {x['id']: x['asof'] for x in read_assignment(tmp_path / 'cloud' / 'overview.js', prefix)['groups']}
+    assert g == {'KR_SECTOR': '2026-11-26', 'US_SECTOR_ETF': '2026-11-27', 'MACRO': '2026-11-27'}

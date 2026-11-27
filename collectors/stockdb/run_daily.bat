@@ -1,12 +1,14 @@
 @echo off
 rem PC daily runs (scheduled tasks registered by setup_task.ps1):
 rem   run_daily.bat close   weekdays 15:40 (stockDB_close): regular-session bars only (REG, 1-minute bars up to
-rem                         the closing auction) -> upload -> dashboard updates ~16:07
+rem                         the closing auction)
 rem   run_daily.bat         weekdays 20:15 (stockDB_daily): final Kiwoom daily bars (KRX, AL = last trade incl.
-rem                         after-hours/NXT, record only), REG for any day the 15:40 run missed, indicators -> upload
-rem Kiwoom keys work only from IPs registered on the Kiwoom portal, so Korean prices are collected here and only
-rem the Kiwoom tables are uploaded; GitHub Actions loads them and rebuilds the dashboard.
+rem                         after-hours/NXT, record only) and REG for any day the 15:40 run missed
+rem Both then run local_publish.py (Korean indicators + dashboard files + chart zip -> commit/push to main -> the
+rem site deploys on push; ~16:00 for the 15:40 run) and upload the Kiwoom tables (cloud backup slots use them).
+rem Kiwoom keys work only from IPs registered on the Kiwoom portal, so Korean prices are collected here.
 rem Needs user environment variables: KIWOOM_APPKEY, KIWOOM_SECRETKEY, GH_TOKEN (this repository, Contents read/write)
+rem This repository folder is for the scheduled tasks: local_publish.py stops if tracked files are modified.
 chcp 65001 >nul
 set PYTHONIOENCODING=utf-8
 cd /d "%~dp0"
@@ -24,12 +26,16 @@ if not exist "%STOCKDB_PY%" (
 if /i "%1"=="close" (
   "%STOCKDB_PY%" -m src.prices.kiwoom_kr daily --venue close >> "%LOG%" 2>&1
 ) else (
-  "%STOCKDB_PY%" -m src.prices.run_prices --only kr >> "%LOG%" 2>&1
+  "%STOCKDB_PY%" -m src.prices.kiwoom_kr daily --venue both >> "%LOG%" 2>&1
 )
 if errorlevel 1 (
   echo [!] collection failed >> "%LOG%"
   exit /b 1
 )
+"%STOCKDB_PY%" local_publish.py >> "%LOG%" 2>&1
+set "PUBLISH=%errorlevel%"
+echo publish exit %PUBLISH% >> "%LOG%"
 "%STOCKDB_PY%" cloud_state.py push-kiwoom --db "%STOCKDB_DATA%\market.duckdb" --archive "%STOCKDB_DATA%\kiwoom-state.zip" >> "%LOG%" 2>&1
 echo upload exit %errorlevel% >> "%LOG%"
+if not "%PUBLISH%"=="0" exit /b %PUBLISH%
 exit /b %errorlevel%

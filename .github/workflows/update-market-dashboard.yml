@@ -9,9 +9,9 @@ on:
     - cron: '17 0 * * *'
     - cron: '7 1 * * *'
     - cron: '37 2 * * *'
-    # Korean (weekdays, ending in '1-5'): 16:07 / 16:37 / 17:07 KST after the PC's 15:40 regular-close upload,
-    # 21:07 / 22:07 as backups after its 20:15 run (Kiwoom keys only work from registered IPs, so GitHub runners
-    # cannot collect them; see collectors/stockdb/run_daily.bat).
+    # Korean (weekdays, ending in '1-5'): BACKUP only. The PC builds and pushes the Korean dashboard itself right
+    # after its 15:40 / 20:15 Kiwoom runs (collectors/stockdb/local_publish.py; Kiwoom keys only work from
+    # registered IPs). These slots rebuild from the PC's Kiwoom upload if the PC could not publish.
     - cron: '7 7 * * 1-5'
     - cron: '37 7 * * 1-5'
     - cron: '7 8 * * 1-5'
