@@ -104,8 +104,8 @@ def evaluate(con, day: str) -> dict:
                 "gap52": (c[t] / h52 - 1) * 100, "upl": (c[t] / l52 - 1) * 100}
         why = {}
         # lead
-        f = failed_px + ([] if R >= 70 else [f"RS {R:.0f}<70"]) + ([] if R >= 80 else [f"RS {R:.0f}<80"]) \
-            + ([] if R1 >= 80 else [f"RS1M {R1:.0f}<80"]) + ([] if c[t] >= 0.80 * h52 else [f"52주 고점 대비 {info['gap52']:.1f}% (<−20%)"])
+        f = failed_px + ([] if R >= 70 else [f"RS {R:.0f}<70"]) + ([] if R >= 75 else [f"RS {R:.0f}<75"]) \
+            + ([] if R1 >= 75 else [f"RS1M {R1:.0f}<75"]) + ([] if c[t] >= 0.80 * h52 else [f"52주 고점 대비 {info['gap52']:.1f}% (<−20%)"])
         why["lead"] = f
         # trend
         why["trend"] = failed_px + ([] if c[t] >= 0.8 * h52 else [f"52주 고점 대비 {info['gap52']:.1f}% (<−20%)"]) \
