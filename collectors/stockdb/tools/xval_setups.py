@@ -104,12 +104,12 @@ def evaluate(con, day: str) -> dict:
                 "gap52": (c[t] / h52 - 1) * 100, "upl": (c[t] / l52 - 1) * 100}
         why = {}
         # lead
-        f = failed_px + ([] if R >= 70 else [f"RS {R:.0f}<70"]) + ([] if R >= 85 else [f"RS {R:.0f}<85"]) \
-            + ([] if R1 >= 85 else [f"RS1M {R1:.0f}<85"]) + ([] if c[t] >= 0.80 * h52 else [f"52주 고점 대비 {info['gap52']:.1f}% (<−20%)"])
+        f = failed_px + ([] if R >= 70 else [f"RS {R:.0f}<70"]) + ([] if R >= 80 else [f"RS {R:.0f}<80"]) \
+            + ([] if R1 >= 80 else [f"RS1M {R1:.0f}<80"]) + ([] if c[t] >= 0.80 * h52 else [f"52주 고점 대비 {info['gap52']:.1f}% (<−20%)"])
         why["lead"] = f
         # trend
         why["trend"] = failed_px + ([] if c[t] >= 0.8 * h52 else [f"52주 고점 대비 {info['gap52']:.1f}% (<−20%)"]) \
-            + ([] if c[t] <= 2 * l52 else [f"52주 저점 대비 +{info['upl']:.0f}% (>+100%)"]) + ([] if R1 >= 50 else [f"RS1M {R1:.0f}<50"])
+            + ([] if c[t] <= 2 * l52 else [f"52주 저점 대비 +{info['upl']:.0f}% (>+100%)"])
         # vcp
         vf = failed_px + ([] if R >= 70 else [f"RS {R:.0f}<70"])
         if not vf and not S._vcp(h, l, c, v, t):
@@ -132,7 +132,7 @@ def evaluate(con, day: str) -> dict:
             why["htf"] = [x for x, ok in [(f"8주 상승률 {hf['up'] * 100:.0f}% (<50%)", hf["up"] >= 0.50), (f"고점 대비 {hf['pull'] * 100:.1f}% (>25%)", hf["pull"] <= 0.25),
                                          ("종가<50일선", c[t] > ma50),
                                          (f"거래량 수축 {hf['volc']:.2f} (>1.10)", hf["volc"] <= 1.10), (f"고저폭 수축 {hf['rngc']:.2f} (>1.26)", hf["rngc"] <= 1.26),
-                                         (f"RS {R:.0f}<85", R >= 85)] if not ok]
+                                         (f"RS {R:.0f}<80", R >= 80)] if not ok]
         else:
             why["htf"] = ["상장 70일 미만"]
         # ipo
