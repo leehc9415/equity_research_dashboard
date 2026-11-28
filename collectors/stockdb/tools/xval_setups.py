@@ -130,7 +130,7 @@ def evaluate(con, day: str) -> dict:
             hf = {"up": pk / l[t - W + 1:ip + 1].min() - 1, "pull": 1 - l[ip:t + 1].min() / pk, "age": t - ip,
                   "volc": v[t - 9:t + 1].mean() / vb if vb > 0 else np.nan, "rngc": rr[t - 9:t + 1].mean() / rb if rb > 0 else np.nan}
             why["htf"] = [x for x, ok in [(f"8주 상승률 {hf['up'] * 100:.0f}% (<50%)", hf["up"] >= 0.50), (f"고점 대비 {hf['pull'] * 100:.1f}% (>25%)", hf["pull"] <= 0.25),
-                                         (f"고점 {hf['age']}일 전 (0~19일)", 0 <= hf["age"] <= 19), ("종가<50일선", c[t] > ma50),
+                                         ("종가<50일선", c[t] > ma50),
                                          (f"거래량 수축 {hf['volc']:.2f} (>1.10)", hf["volc"] <= 1.10), (f"고저폭 수축 {hf['rngc']:.2f} (>1.26)", hf["rngc"] <= 1.26),
                                          (f"RS {R:.0f}<85", R >= 85)] if not ok]
         else:
